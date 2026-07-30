@@ -1,0 +1,11 @@
+allowBuilds:
+  cpu-features: true
+  electron: true
+  electron-winstaller: false
+  esbuild: true
+  ssh2: true
+onlyBuiltDependencies:
+  - cpu-features
+  - electron
+  - esbuild
+  - ssh2
