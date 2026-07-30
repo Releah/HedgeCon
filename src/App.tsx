@@ -1,6 +1,6 @@
 import { FormEvent, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { AppData, AuthMethod, CredentialSet, CredentialSetInput, Folder, RepositoryInput, RepositoryMeta, Session, SshKeyInfo, UpdateSettings, UpdateStatus } from './types';
+import type { AppData, AuthMethod, CredentialSet, CredentialSetInput, Folder, RepositoryInput, RepositoryMeta, SecureStorageStatus, Session, SshKeyInfo, UpdateSettings, UpdateStatus } from './types';
 import TerminalView from './TerminalView';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -76,9 +76,11 @@ function GitRepositorySettings({ notify }: { notify: (message: string) => void }
 
 function SettingsDialog({ credentials, onSaveCredential, onDeleteCredential, onClose, notify }: { credentials: CredentialSet[]; onSaveCredential: (input: CredentialSetInput) => Promise<void>; onDeleteCredential: (id: string) => Promise<void>; onClose: () => void; notify: (message: string) => void }) {
   const [editingCredential, setEditingCredential] = useState<CredentialSet | null | undefined>();
+  const [secureStorage, setSecureStorage] = useState<SecureStorageStatus | null>(null);
   const [confirmReset, setConfirmReset] = useState(false); const [resetting, setResetting] = useState(false);
   const [section, setSection] = useState<'general' | 'credentials' | 'keys' | 'git' | 'updates' | 'privacy'>('general');
   const clearKeys = async () => { const count = await window.hedge.clearAllKnownHosts(); notify(count ? `Cleared ${count} stored host key${count === 1 ? '' : 's'}.` : 'There are no stored host keys to clear.'); };
+  useEffect(() => { void window.hedge.getSecureStorageStatus().then(setSecureStorage).catch(error => notify(error instanceof Error ? error.message : String(error))); }, []);
   return <div className="overlay"><section className="dialog settings-dialog">
     <div className="settings-main"><div className="dialog-title"><div><small>HEDGECON</small><h2>Settings</h2></div><button type="button" className="icon-button" onClick={onClose}>×</button></div><div className="settings-content">
       {section === 'general' && <><div className="settings-page-heading"><small>APPLICATION</small><h3>General</h3><p>Local application behaviour and trusted SSH hosts.</p></div><div className="settings-section"><div><h3>SSH host verification</h3><p>Trusted fingerprints are stored locally and checked whenever HedgeCon connects.</p></div><button className="secondary" onClick={() => void clearKeys()}>Clear all host keys</button></div></>}
@@ -86,7 +88,7 @@ function SettingsDialog({ credentials, onSaveCredential, onDeleteCredential, onC
       {section === 'keys' && <SshKeyManager notify={notify} />}
       {section === 'git' && <GitRepositorySettings notify={notify} />}
       {section === 'updates' && <UpdateManager notify={notify} />}
-      {section === 'privacy' && <><div className="settings-page-heading"><small>LOCAL DATA</small><h3>Privacy and reset</h3><p>Control data stored by HedgeCon on this computer.</p></div><div className="settings-section reset-section"><div><h3>Reset local HedgeCon data</h3><p>Remove sessions, folders, credential secrets, trusted hosts, Git settings, and HedgeCon-managed SSH keys from this computer.</p></div><button className="danger-button" onClick={() => setConfirmReset(true)}>Reset all local data</button></div></>}
+      {section === 'privacy' && <><div className="settings-page-heading"><small>LOCAL DATA</small><h3>Privacy and reset</h3><p>Control data stored by HedgeCon on this computer.</p></div>{secureStorage && <div className={`settings-section ${secureStorage.secure ? '' : 'reset-section'}`}><div><h3>Secret storage: {secureStorage.secure ? 'protected' : 'unavailable'}</h3><p>{secureStorage.message} Backend: <code>{secureStorage.backend}</code>.</p></div></div>}<div className="settings-section reset-section"><div><h3>Reset local HedgeCon data</h3><p>Remove sessions, folders, credential secrets, trusted hosts, Git settings, and HedgeCon-managed SSH keys from this computer.</p></div><button className="danger-button" onClick={() => setConfirmReset(true)}>Reset all local data</button></div></>}
     </div><div className="actions"><button className="primary" onClick={onClose}>Done</button></div></div>
     <nav className="settings-tabs" aria-label="Settings sections"><button className={section === 'general' ? 'active' : ''} onClick={() => setSection('general')}><span>⌘</span>General</button><button className={section === 'credentials' ? 'active' : ''} onClick={() => setSection('credentials')}><span>◉</span>Credentials</button><button className={section === 'keys' ? 'active' : ''} onClick={() => setSection('keys')}><span>⌁</span>SSH keys</button><button className={section === 'git' ? 'active' : ''} onClick={() => setSection('git')}><span>⑂</span>Git</button><button className={section === 'updates' ? 'active' : ''} onClick={() => setSection('updates')}><span>↓</span>Updates</button><button className={section === 'privacy' ? 'active' : ''} onClick={() => setSection('privacy')}><span>◇</span>Privacy</button></nav>
     {editingCredential !== undefined && <CredentialSetEditor credential={editingCredential ?? undefined} onCancel={() => setEditingCredential(undefined)} onSave={input => void onSaveCredential(input).then(() => setEditingCredential(undefined))} />}

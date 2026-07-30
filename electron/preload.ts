@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('hedge', {
   trustHost: (id: string, accept: boolean) => ipcRenderer.send('ssh:trust', id, accept),
   clearKnownHost: (host: string, port: number) => ipcRenderer.invoke('host-key:clear', host, port),
   clearAllKnownHosts: () => ipcRenderer.invoke('host-key:clear-all'),
+  getSecureStorageStatus: () => ipcRenderer.invoke('security:storage-status'),
   listCredentialSets: () => ipcRenderer.invoke('credentials:list'),
   saveCredentialSet: (input: unknown) => ipcRenderer.invoke('credentials:save', input),
   deleteCredentialSet: (id: string) => ipcRenderer.invoke('credentials:delete', id),

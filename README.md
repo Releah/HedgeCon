@@ -87,7 +87,7 @@ The portable edition reports new releases but cannot replace its own executable.
 
 ### Linux
 
-Linux is a supported design target and an AppImage build is configured, but the v0.1 release is currently focused on Windows. Linux packages should be built on a Linux workstation or CI runner rather than cross-built from Windows.
+Linux x64 is distributed as an AppImage and is built alongside the Windows packages for tagged releases. Kali Linux is supported as a Debian-family test target; release testing is still welcome across different desktop environments and keyring configurations.
 
 ## First run
 
@@ -175,7 +175,7 @@ Inventory is deliberately not a secret store. Plaintext fields such as `ansible_
 
 Select **Wiki** in the sidebar to work with general operational notes, session-specific pages and searchable vendor cheat sheets.
 
-The Wiki can use a normal local Git repository or clone an HTTPS remote. For a private GitHub or Gitea repository, enter your Git username and a personal access token. The token is encrypted by the operating system and is never stored in the repository.
+The Wiki can use a normal local Git repository or clone an HTTPS remote. For a private GitHub or Gitea repository, enter your Git username and a personal access token. The token is encrypted by the operating system and is never stored in the repository. On Linux, HedgeCon refuses to save or decrypt secrets if Electron falls back to the insecure `basic_text` backend; start a supported system keyring such as GNOME Keyring/libsecret or leave the token blank and authenticate another way.
 
 Saving a page writes it locally; it does not publish silently. Review the changed-file count, enter a commit message, select **Commit**, then **Push**. Pulls are fast-forward-only and are blocked while local changes are uncommitted.
 
@@ -251,7 +251,7 @@ pnpm package:linux
 
 Generated applications are written to `release/`. That directory is intentionally excluded from Git; publish binaries as GitHub Release assets instead of committing them to the source repository.
 
-Tagged releases are built by `.github/workflows/release.yml`. The Git tag must match the version in `package.json`—for example, package version `0.1.4` uses tag `v0.1.4`. The workflow publishes the installer, portable executable, blockmap and updater metadata to GitHub Releases. No GitHub token is stored in the application.
+Tagged releases are built by `.github/workflows/release.yml`. The Git tag must match the version in `package.json`—for example, package version `0.1.5` uses tag `v0.1.5`. The workflow publishes the Windows installer and portable executable, Linux x64 AppImage, blockmaps and updater metadata to GitHub Releases. No GitHub token is stored in the application.
 
 ## Repository hygiene
 

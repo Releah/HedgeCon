@@ -15,6 +15,7 @@ type InventorySettings = { configured: boolean; mode: 'local' | 'git'; repositor
 type UpdateSettings = { automaticChecks: boolean };
 type StoredData = { folders: unknown[]; sessions: unknown[]; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings };
 type UpdateStatus = { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number };
+type SecureStorageStatus = { available: boolean; secure: boolean; backend: string; message: string };
 type SshKeyInfo = { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' };
 const defaults: StoredData = { folders: [], sessions: [], knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true } };
 let stored: StoredData = defaults;
@@ -35,7 +36,15 @@ const starterWiki: Record<string, string> = {
 };
 function repositoryMeta() { const repository = stored.repository; return repository ? { localPath: repository.localPath, remoteUrl: repository.remoteUrl, branch: repository.branch, authorName: repository.authorName, authorEmail: repository.authorEmail, username: repository.username, hasToken: Boolean(repository.encryptedToken) } : null; }
 function getRepository() { const repository = stored.repository; if (!repository) throw new Error('No Git repository is configured.'); if (!fs.existsSync(path.join(repository.localPath, '.git'))) throw new Error('The configured Git repository is no longer available.'); return repository; }
-function gitAuth(repository: GitRepository) { if (!repository.encryptedToken) return undefined; if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure token storage is unavailable.'); const token = safeStorage.decryptString(Buffer.from(repository.encryptedToken, 'base64')); return () => ({ username: repository.username || token, password: token }); }
+function secureStorageStatus(): SecureStorageStatus {
+  const available = safeStorage.isEncryptionAvailable();
+  const backend = process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : process.platform === 'win32' ? 'dpapi' : process.platform === 'darwin' ? 'keychain' : 'unknown';
+  const secure = available && backend !== 'basic_text' && backend !== 'unknown';
+  const message = secure ? `Secrets are protected by ${backend}.` : backend === 'basic_text' ? 'Linux has no usable system keyring. HedgeCon will not save or decrypt passwords, passphrases, or access tokens while Electron is using its insecure basic_text fallback.' : 'Secure operating-system credential storage is unavailable. HedgeCon will not save or decrypt secrets.';
+  return { available, secure, backend, message };
+}
+function requireSecureStorage(kind: string) { const status = secureStorageStatus(); if (!status.secure) throw new Error(`${kind} cannot be stored or used securely. ${status.message}`); }
+function gitAuth(repository: GitRepository) { if (!repository.encryptedToken) return undefined; requireSecureStorage('The saved Git token'); const token = safeStorage.decryptString(Buffer.from(repository.encryptedToken, 'base64')); return () => ({ username: repository.username || token, password: token }); }
 function safeRepoPath(relativePath: string) { const repository = getRepository(); if (typeof relativePath !== 'string' || !relativePath || relativePath.length > 4096 || path.isAbsolute(relativePath) || relativePath.includes('\0')) throw new Error('Invalid repository path.'); const root = path.resolve(repository.localPath); const target = path.resolve(root, relativePath); const compare = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value; if (!compare(target).startsWith(`${compare(root)}${path.sep}`)) throw new Error('Repository path escapes the workspace.'); let cursor = root; for (const segment of path.relative(root, target).split(path.sep)) { cursor = path.join(cursor, segment); if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink()) throw new Error('Symbolic links are not allowed in managed Wiki paths.'); } return target; }
 function seedRepository(directory: string) { for (const [relativePath, contents] of Object.entries(starterWiki)) { const target = path.join(directory, ...relativePath.split('/')); if (fs.existsSync(target)) continue; fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, contents, 'utf8'); } }
 async function stageAll(repository: GitRepository) { const matrix = await git.statusMatrix({ fs, dir: repository.localPath }); for (const [filepath, , workdirStatus] of matrix) { if (workdirStatus === 0) await git.remove({ fs, dir: repository.localPath, filepath }); else await git.add({ fs, dir: repository.localPath, filepath }); } }
@@ -50,7 +59,7 @@ function storeRepository(input: any, localPath: string, branch: string) {
   const previous = stored.repository;
   let encryptedToken = previous?.localPath === localPath ? previous.encryptedToken : undefined;
   if (input.clearToken) encryptedToken = undefined;
-  if (input.token) { if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure token storage is unavailable on this system.'); encryptedToken = safeStorage.encryptString(input.token).toString('base64'); }
+  if (input.token) { requireSecureStorage('The Git token'); encryptedToken = safeStorage.encryptString(input.token).toString('base64'); }
   stored.repository = { localPath, remoteUrl: input.remoteUrl?.trim() || undefined, branch, authorName: input.authorName.trim(), authorEmail: input.authorEmail.trim(), username: input.username?.trim() || undefined, encryptedToken };
   writeStore();
   return stored.repository;
@@ -199,7 +208,7 @@ ipcMain.handle('repo:clone', async (_event, input: any) => {
   if (chosen.canceled) return null;
   const directory = path.resolve(chosen.filePaths[0]); if (fs.readdirSync(directory).length) throw new Error('Choose an empty folder for the clone.');
   const temporary: GitRepository = { localPath: directory, remoteUrl: input.remoteUrl.trim(), branch: input.branch?.trim() || 'main', authorName: input.authorName.trim(), authorEmail: input.authorEmail.trim(), username: input.username?.trim() || undefined };
-  if (input.token) { if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure token storage is unavailable on this system.'); temporary.encryptedToken = safeStorage.encryptString(input.token).toString('base64'); }
+  if (input.token) { requireSecureStorage('The Git token'); temporary.encryptedToken = safeStorage.encryptString(input.token).toString('base64'); }
   await git.clone({ fs, http: gitHttp, dir: directory, url: temporary.remoteUrl!, ref: temporary.branch, singleBranch: true, onAuth: gitAuth(temporary) });
   temporary.branch = await git.currentBranch({ fs, dir: directory, fullname: false }) || temporary.branch; stored.repository = temporary; writeStore(); seedRepository(directory); return repositoryMeta();
 });
@@ -276,13 +285,14 @@ ipcMain.handle('host-key:clear', (_event, host: string, port: number) => {
 ipcMain.handle('host-key:clear-all', () => { const count = Object.keys(stored.knownHosts).length; stored.knownHosts = {}; writeStore(); return count; });
 const credentialMeta = (credential: StoredCredential) => ({ id: credential.id, name: credential.name, username: credential.username, authMethod: credential.authMethod, privateKeyPath: credential.privateKeyPath, hasSecret: Boolean(credential.encryptedSecret) });
 ipcMain.handle('credentials:list', () => stored.credentialSets.map(credentialMeta));
+ipcMain.handle('security:storage-status', () => secureStorageStatus());
 ipcMain.handle('credentials:save', (_event, input: Omit<StoredCredential, 'encryptedSecret'> & { secret?: string; clearSecret?: boolean }) => {
   if (!input || typeof input.name !== 'string' || !input.name.trim() || input.name.length > 120 || typeof input.username !== 'string' || input.username.length > 255 || !['password', 'privateKey'].includes(input.authMethod) || (input.privateKeyPath !== undefined && (typeof input.privateKeyPath !== 'string' || input.privateKeyPath.length > 4096)) || (input.secret !== undefined && (typeof input.secret !== 'string' || input.secret.length > 16_384))) throw new Error('Invalid credential set.');
   const existing = stored.credentialSets.find(item => item.id === input.id);
   let encryptedSecret = existing?.encryptedSecret;
   if (input.clearSecret) encryptedSecret = undefined;
   if (input.secret) {
-    if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure credential storage is not available on this system.');
+    requireSecureStorage('The credential secret');
     encryptedSecret = safeStorage.encryptString(input.secret).toString('base64');
   }
   const credential: StoredCredential = { id: input.id || crypto.randomUUID(), name: input.name.trim(), username: input.username.trim(), authMethod: input.authMethod, privateKeyPath: input.privateKeyPath, encryptedSecret };
@@ -296,6 +306,7 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
   if (request.credentialSetId && !linkedCredential) throw new Error('Credential set not found.');
   const authMethod = linkedCredential?.authMethod ?? request.authMethod;
   const privateKeyPath = linkedCredential?.privateKeyPath ?? request.privateKeyPath;
+  if (linkedCredential?.encryptedSecret) requireSecureStorage('The saved credential secret');
   const secret = request.credentialOverride !== undefined ? request.credentialOverride : linkedCredential?.encryptedSecret ? safeStorage.decryptString(Buffer.from(linkedCredential.encryptedSecret, 'base64')) : authMethod === 'password' ? request.password ?? '' : request.passphrase ?? '';
   if (!['password', 'privateKey'].includes(authMethod) || typeof secret !== 'string' || secret.length > 16_384) throw new Error('Invalid SSH authentication data.');
   const hostKey = `${request.host}:${request.port}`;

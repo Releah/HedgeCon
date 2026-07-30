@@ -1,4 +1,4 @@
-name: Build Windows release
+name: Build desktop release
 
 on:
   push:
@@ -9,7 +9,33 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify release version
+        shell: bash
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+          if [ "v${package_version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${package_version}." >&2
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md
+          else
+            gh release create "${GITHUB_REF_NAME}" --verify-tag --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   windows:
+    needs: prepare
     runs-on: windows-latest
     steps:
       - name: Check out source
@@ -26,29 +52,36 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Verify release version
-        shell: pwsh
-        run: |
-          $packageVersion = (Get-Content package.json | ConvertFrom-Json).version
-          if ("v$packageVersion" -ne "${{ github.ref_name }}") {
-            throw "Tag ${{ github.ref_name }} does not match package version $packageVersion."
-          }
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and publish Windows release
+        run: pnpm release:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Create GitHub Release
-        shell: pwsh
-        run: |
-          if (gh release view $env:GITHUB_REF_NAME 2>$null) {
-            gh release edit $env:GITHUB_REF_NAME --title "HedgeCon $env:GITHUB_REF_NAME" --notes-file build/release-notes.md
-          } else {
-            gh release create $env:GITHUB_REF_NAME --verify-tag --title "HedgeCon $env:GITHUB_REF_NAME" --notes-file build/release-notes.md
-          }
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and publish release
-        run: pnpm release:win
+      - name: Build and publish Linux AppImage
+        run: pnpm release:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

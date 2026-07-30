@@ -24,3 +24,4 @@ export interface RepositoryFreshness { state: 'local' | 'uninitialized' | 'curre
 export interface WikiPage { path: string; title: string; section: 'general' | 'sessions' | 'vendors' }
 export interface UpdateSettings { automaticChecks: boolean }
 export interface UpdateStatus { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number }
+export interface SecureStorageStatus { available: boolean; secure: boolean; backend: string; message: string }

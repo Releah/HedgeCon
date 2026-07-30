@@ -1,4 +1,4 @@
-import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiPage } from './types';
+import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -48,6 +48,7 @@ declare global {
     trustHost(connectionId: string, accept: boolean): void;
     clearKnownHost(host: string, port: number): Promise<boolean>;
     clearAllKnownHosts(): Promise<number>;
+    getSecureStorageStatus(): Promise<SecureStorageStatus>;
     listCredentialSets(): Promise<CredentialSet[]>;
     saveCredentialSet(input: CredentialSetInput): Promise<CredentialSet>;
     deleteCredentialSet(id: string): Promise<boolean>;
