@@ -1,0 +1,54 @@
+name: Build Windows release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $packageVersion = (Get-Content package.json | ConvertFrom-Json).version
+          if ("v$packageVersion" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match package version $packageVersion."
+          }
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create GitHub Release
+        shell: pwsh
+        run: |
+          if (gh release view $env:GITHUB_REF_NAME 2>$null) {
+            gh release edit $env:GITHUB_REF_NAME --title "HedgeCon $env:GITHUB_REF_NAME" --notes-file build/release-notes.md
+          } else {
+            gh release create $env:GITHUB_REF_NAME --verify-tag --title "HedgeCon $env:GITHUB_REF_NAME" --notes-file build/release-notes.md
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish release
+        run: pnpm release:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

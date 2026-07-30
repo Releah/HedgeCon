@@ -1,4 +1,4 @@
-import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, SftpEntry, SshEvent, SshKeyInfo, WikiPage } from './types';
+import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -8,6 +8,14 @@ declare global {
     readGitInventory(): Promise<string | null>;
     writeGitInventory(source: string): Promise<boolean>;
     resetLocalData(): Promise<boolean>;
+    getUpdateStatus(): Promise<UpdateStatus>;
+    getUpdateSettings(): Promise<UpdateSettings>;
+    setUpdateSettings(input: UpdateSettings): Promise<UpdateSettings>;
+    checkForUpdates(): Promise<UpdateStatus>;
+    downloadUpdate(): Promise<UpdateStatus>;
+    installUpdate(): Promise<boolean>;
+    openLatestRelease(): Promise<void>;
+    onUpdateStatus(callback: (status: UpdateStatus) => void): () => void;
     readClipboardText(): Promise<string>;
     writeClipboardText(value: string): Promise<boolean>;
     getRepository(): Promise<RepositoryMeta | null>;

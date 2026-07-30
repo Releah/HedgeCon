@@ -1,7 +1,7 @@
 {
   "name": "hedgecon",
   "productName": "HedgeCon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A self-contained connectivity console for network operations",
   "author": "HedgeCon contributors",
@@ -12,7 +12,8 @@
     "typecheck": "tsc -b --pretty false && tsc -p electron/tsconfig.json --pretty false",
     "start": "electron .",
     "package:win": "pnpm build && electron-builder --win portable --x64 --publish never",
-    "package:win:installer": "pnpm build && electron-builder --win nsis --x64 --publish never --config.win.artifactName=HedgeCon-Setup.${ext}",
+    "package:win:installer": "pnpm build && electron-builder --win nsis --x64 --publish never",
+    "release:win": "pnpm build && electron-builder --win nsis portable --x64 --publish always",
     "package:linux": "pnpm build && electron-builder --linux AppImage --x64 --publish never"
   },
   "build": {
@@ -34,6 +35,7 @@
       "artifactName": "HedgeCon.${ext}"
     },
     "nsis": {
+      "artifactName": "HedgeCon-Setup.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowElevation": true,
@@ -45,11 +47,20 @@
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true
     },
+    "portable": {
+      "artifactName": "HedgeCon.${ext}"
+    },
     "linux": {
       "target": "AppImage",
       "icon": "public/hedgecon-logo.png",
       "category": "Network",
       "artifactName": "HedgeCon-${arch}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Releah",
+      "repo": "HedgeCon",
+      "releaseType": "release"
     }
   },
   "dependencies": {
@@ -62,6 +73,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "codemirror": "^6.0.2",
+    "electron-updater": "^6.8.9",
     "isomorphic-git": "^1.40.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

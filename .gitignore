@@ -1,0 +1,31 @@
+node_modules/
+.pnpm-store/
+dist/
+dist-electron/
+release/
+wiki/
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db
+
+# Local application data and exported inventories
+sessions.json
+known_hosts
+*.inventory.yml
+*.inventory.yaml
+
+# Secrets and private key material
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+**/id_rsa*
+**/id_ed25519*
+**/id_ecdsa*
+**/id_dsa*
+release/win-unpacked/
+release/builder-*.yml

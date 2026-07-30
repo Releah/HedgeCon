@@ -75,6 +75,12 @@ Node.js, pnpm and Electron do not need to be installed.
 
 Windows may warn when opening the current build because it is not yet code-signed. Confirm that the installer came from this repository before running it.
 
+### Updates
+
+Installed builds check the public `Releah/HedgeCon` GitHub Releases feed after startup. Open **Settings → Application updates** to check manually, disable automatic checks, download an available release or restart to install one. HedgeCon never silently closes active SSH sessions: installing an update requires confirmation and warns when connections are open.
+
+The portable edition reports new releases but cannot replace its own executable. Use its **Open GitHub Release** button to download the new portable build manually.
+
 ### Portable Windows build
 
 `HedgeCon.exe` is the portable edition. Download it from the GitHub Release and run it directly without an installation wizard.
@@ -245,6 +251,8 @@ pnpm package:linux
 
 Generated applications are written to `release/`. That directory is intentionally excluded from Git; publish binaries as GitHub Release assets instead of committing them to the source repository.
 
+Tagged releases are built by `.github/workflows/release.yml`. The Git tag must match the version in `package.json`—for example, package version `0.1.1` uses tag `v0.1.1`. The workflow publishes the installer, portable executable, blockmap and updater metadata to GitHub Releases. No GitHub token is stored in the application.
+
 ## Repository hygiene
 
 The repository excludes dependency folders, compiled output, local Wiki repositories, application data, exported inventories, environment files, private keys and release binaries.
@@ -266,4 +274,3 @@ Please use GitHub Issues for bugs and feature requests.
 ## Release notes
 
 See [HedgeCon v0.1 release notes](RELEASE_NOTES_v0.1.md).
-

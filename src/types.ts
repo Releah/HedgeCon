@@ -22,3 +22,5 @@ export interface RepositoryInput { authorName: string; authorEmail: string; remo
 export interface RepositoryStatus { repository: RepositoryMeta; changedFiles: Array<{ filepath: string; head: number; workdir: number; stage: number }>; lastCommit: { oid: string; message: string; author: string; timestamp: number } | null }
 export interface RepositoryFreshness { state: 'local' | 'uninitialized' | 'current' | 'behind' | 'ahead' | 'diverged'; local?: string; remote?: string }
 export interface WikiPage { path: string; title: string; section: 'general' | 'sessions' | 'vendors' }
+export interface UpdateSettings { automaticChecks: boolean }
+export interface UpdateStatus { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number }

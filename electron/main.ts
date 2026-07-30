@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, session as electronSession } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, session as electronSession, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
@@ -7,19 +7,22 @@ import { isIP } from 'node:net';
 import { Client, ClientChannel, SFTPWrapper } from 'ssh2';
 import git from 'isomorphic-git';
 import gitHttp from 'isomorphic-git/http/node';
+import electronUpdater, { type ProgressInfo, type UpdateInfo } from 'electron-updater';
 
 type StoredCredential = { id: string; name: string; username: string; authMethod: 'password' | 'privateKey'; privateKeyPath?: string; encryptedSecret?: string };
 type GitRepository = { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; encryptedToken?: string };
 type InventorySettings = { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string };
-type StoredData = { folders: unknown[]; sessions: unknown[]; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings };
+type UpdateSettings = { automaticChecks: boolean };
+type StoredData = { folders: unknown[]; sessions: unknown[]; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings };
+type UpdateStatus = { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number };
 type SshKeyInfo = { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' };
-const defaults: StoredData = { folders: [], sessions: [], knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' } };
+const defaults: StoredData = { folders: [], sessions: [], knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true } };
 let stored: StoredData = defaults;
 function dataPath() { return path.join(app.getPath('userData'), 'sessions.json'); }
 function readStore() {
   try {
     const parsed = JSON.parse(fs.readFileSync(dataPath(), 'utf8')) as Partial<StoredData>;
-    stored = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' } };
+    stored = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false } };
   } catch { stored = { ...defaults }; }
 }
 function writeStore() { fs.mkdirSync(path.dirname(dataPath()), { recursive: true }); fs.writeFileSync(dataPath(), JSON.stringify(stored, null, 2), { mode: 0o600 }); }
@@ -76,6 +79,24 @@ const connections = new Map<string, { client: Client; stream?: ClientChannel; sf
 const pendingTrust = new Map<string, (accepted: boolean) => void>();
 const pingMonitors = new Map<string, { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess }>();
 let mainWindow: BrowserWindow | null = null;
+const releaseUrl = 'https://github.com/Releah/HedgeCon/releases/latest';
+const portableBuild = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
+let updateStatus: UpdateStatus = { status: 'idle', currentVersion: app.getVersion(), portable: portableBuild, activeConnections: 0 };
+
+function releaseNotesText(info: UpdateInfo) { if (typeof info.releaseNotes === 'string') return info.releaseNotes.slice(0, 20_000); if (Array.isArray(info.releaseNotes)) return info.releaseNotes.map(note => `${note.version}: ${note.note ?? ''}`).join('\n\n').slice(0, 20_000); return undefined; }
+function publishUpdateStatus(patch: Partial<UpdateStatus>) { updateStatus = { ...updateStatus, ...patch, currentVersion: app.getVersion(), portable: portableBuild, activeConnections: connections.size }; mainWindow?.webContents.send('update:status', updateStatus); return updateStatus; }
+const { autoUpdater } = electronUpdater;
+function configureUpdates() {
+  if (!app.isPackaged || portableBuild) { publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Portable builds notify you about releases but must be updated manually.' : 'Automatic updates are available in packaged builds.' }); return; }
+  autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.allowDowngrade = false; autoUpdater.allowPrerelease = false;
+  autoUpdater.on('checking-for-update', () => publishUpdateStatus({ status: 'checking', message: undefined }));
+  autoUpdater.on('update-available', info => publishUpdateStatus({ status: 'available', availableVersion: info.version, releaseNotes: releaseNotesText(info), progress: undefined, message: undefined }));
+  autoUpdater.on('update-not-available', info => publishUpdateStatus({ status: 'current', availableVersion: info.version, progress: undefined, message: 'HedgeCon is up to date.' }));
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => publishUpdateStatus({ status: 'downloading', progress: Math.max(0, Math.min(100, progress.percent)) }));
+  autoUpdater.on('update-downloaded', info => publishUpdateStatus({ status: 'downloaded', availableVersion: info.version, releaseNotes: releaseNotesText(info), progress: 100, message: 'The update is ready to install.' }));
+  autoUpdater.on('error', error => publishUpdateStatus({ status: 'error', message: error.message || 'The update check failed.' }));
+  if (stored.updateSettings.automaticChecks) setTimeout(() => void autoUpdater.checkForUpdates().catch(error => publishUpdateStatus({ status: 'error', message: error instanceof Error ? error.message : String(error) })), 12_000);
+}
 
 app.setName('HedgeCon');
 app.setPath('userData', path.join(app.getPath('appData'), 'HedgeCon'));
@@ -104,12 +125,19 @@ app.whenReady().then(() => {
   electronSession.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   electronSession.defaultSession.setPermissionCheckHandler(() => false);
   createWindow();
+  configureUpdates();
 });
 app.on('before-quit', cleanupRuntime);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 ipcMain.handle('data:load', () => ({ folders: stored.folders, sessions: stored.sessions, inventorySettings: stored.inventorySettings }));
+ipcMain.handle('update:status', () => publishUpdateStatus({}));
+ipcMain.handle('update:settings', (_event, input?: { automaticChecks?: boolean }) => { if (input) { if (typeof input.automaticChecks !== 'boolean') throw new Error('Invalid update preference.'); stored.updateSettings = { automaticChecks: input.automaticChecks }; writeStore(); } return stored.updateSettings; });
+ipcMain.handle('update:check', async () => { if (!app.isPackaged || portableBuild) return publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Download the latest portable build from GitHub Releases.' : 'Update checks are only available in packaged builds.' }); await autoUpdater.checkForUpdates(); return updateStatus; });
+ipcMain.handle('update:download', async () => { if (updateStatus.status !== 'available') throw new Error('No update is ready to download.'); await autoUpdater.downloadUpdate(); return updateStatus; });
+ipcMain.handle('update:install', () => { if (updateStatus.status !== 'downloaded') throw new Error('Download the update before installing it.'); setImmediate(() => autoUpdater.quitAndInstall(false, true)); return true; });
+ipcMain.handle('update:open-release', () => shell.openExternal(releaseUrl));
 ipcMain.handle('inventory:configure', (_event, input: InventorySettings) => { if (!input || typeof input.configured !== 'boolean' || !['local', 'git'].includes(input.mode) || (input.mode === 'git' && (!input.repositoryPath || !/^[a-z0-9._/-]+\.ya?ml$/i.test(input.repositoryPath)))) throw new Error('Invalid inventory configuration.'); if (input.mode === 'git') safeRepoPath(input.repositoryPath!); stored.inventorySettings = input; writeStore(); return input; });
 ipcMain.handle('inventory:git-read', () => { if (stored.inventorySettings.mode !== 'git' || !stored.inventorySettings.repositoryPath) throw new Error('Git inventory is not configured.'); const target = safeRepoPath(stored.inventorySettings.repositoryPath); return fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : null; });
 ipcMain.handle('inventory:git-write', (_event, source: string) => { if (stored.inventorySettings.mode !== 'git' || !stored.inventorySettings.repositoryPath || typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > 5_000_000 || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(source)) throw new Error('Invalid Git inventory.'); const target = safeRepoPath(stored.inventorySettings.repositoryPath); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, source, 'utf8'); return true; });
