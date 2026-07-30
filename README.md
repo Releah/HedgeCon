@@ -1,156 +1,156 @@
-# HedgeCon
+<div align="center">
+  <img src="public/hedgecon-logo.png" alt="HedgeCon logo" width="96">
 
-HedgeCon is a modern, self-contained connectivity console for network engineers and systems administrators. It currently focuses on SSH access and inventory management while providing the foundations for configuration backup, version control, and guided network automation.
+  # HedgeCon
 
-The application is designed for Windows and Linux. Packaged builds contain the runtime and application dependencies; users do not need Node.js, pnpm, or Electron installed.
+  **Your network sessions, tools and notes in one workspace.**
 
-## Repository hygiene
+  A modern, self-contained SSH workspace built for network engineers and systems administrators.
+</div>
 
-The source repository intentionally excludes dependencies, compiled output, portable builds, local Wiki repositories, inventories, environment files, and SSH private keys. Runtime sessions, credentials, host fingerprints, and repository tokens are stored under the operating system's HedgeCon application-data directory rather than in this source tree.
+---
 
-After cloning, restore development dependencies with `pnpm install`. Generate distributable applications with the build commands below; publish the resulting executables as GitHub release assets rather than committing them to the repository.
+HedgeCon started with a simple frustration: connecting to equipment is only one part of the job. The terminal, inventory, file transfers, reachability checks, credentials and notes all tend to live in different places.
 
-## Current status
+The long-term goal is a single practical workspace for operating network infrastructure. Version 0.1 establishes that foundation with a capable SSH client, structured inventory, Git-backed documentation and the everyday tools needed alongside a terminal.
 
-HedgeCon currently provides:
+> **Project status:** HedgeCon is in early development. The current build is ready for testing and feedback, but it should not yet replace established production tooling. Keep independent backups of important data and device configurations.
+
+## What is included today
+
+### SSH workspace
 
 - Saved SSH sessions organised into folders with unrestricted nested subfolders.
-- Drag-and-drop session organisation and session search.
-- Password, private-key, and reusable credential-set authentication.
-- Operating-system-encrypted storage for optional saved passwords and key passphrases.
-- SSH host-key verification, changed-key warnings, and controls for clearing trusted fingerprints.
-- A responsive xterm terminal with bounded scrollback and automatic reconnection.
-- Multiple simultaneous sessions using tabs.
-- Horizontal and vertical multi-pane layouts, drag-to-snap, arbitrary pane counts, and draggable dividers.
-- Ping monitoring with latency history, outage duration, and bounded in-memory samples.
-- SFTP and SCP upload/download with a remote filesystem browser.
-- SSH key generation, import, discovery, fingerprint display, copying, local deletion, and remote `authorized_keys` management.
-- An optional CodeMirror-based YAML inventory editor.
-- Ansible-compatible YAML inventory import using `all`, `children`, `hosts`, and `vars`.
-- Preview and validation before YAML changes replace the GUI inventory.
-- Explicit rejection of plaintext password fields in imported YAML.
-- An optional Git-backed Markdown wiki for shared notes, per-session notes, and searchable vendor cheat sheets.
-- Local repository creation plus HTTPS clone, commit, fast-forward pull, and push for GitHub, Gitea, and compatible Git servers.
-- Operating-system-encrypted storage for optional Git access tokens.
+- Search across session names, hosts and usernames.
+- Drag-and-drop session organisation.
+- Password, private-key and reusable credential-set authentication.
+- Optional operating-system-encrypted storage for passwords and key passphrases.
+- SSH host-key verification, changed-key warnings and trusted-key removal.
+- Automatic reconnection when a live session drops.
+- A responsive xterm terminal with bounded scrollback.
+- Select-to-copy and right-click paste.
 
-## Original scope and remaining roadmap
+### Tabs and split terminals
 
-The original goal is a one-stop networking workspace rather than only an SSH client. The SSH and inventory foundation is now functional. The principal remaining work is:
+- Run several SSH sessions at the same time using tabs.
+- Split the workspace horizontally or vertically.
+- Drag a tab to an edge to snap it into a pane.
+- Add more than two sessions to a split layout.
+- Resize panes by dragging their dividers.
+- Close an individual pane and let the remaining sessions reclaim the space.
 
-1. **Configuration collection and history** — download switch, router, firewall, Linux, and Windows configurations; normalise them; show revisions and diffs; and retain Git-style history. The repository and `configs/` foundation now exists, but device-specific collection is not implemented yet.
-2. **Advanced Git workflows** — the Wiki can now use local or shared HTTPS repositories; conflict resolution, branches/review workflows, SSH Git remotes, and inventory/config synchronisation remain future work.
-3. **Guided network changes** — vendor-aware forms such as “Add VLAN” that render, preview, validate, and apply CLI configuration safely.
-4. **Device drivers** — structured support for Juniper, Cisco, Arista, and other network operating systems, including paging control, configuration mode, commit/rollback, and backup commands.
-5. **Windows-specific SSH management** — native Windows `authorized_keys` installation and OpenSSH agent/Pageant integration.
-6. **Inventory synchronisation** — optional file watching, Git-backed YAML sources, `group_vars`/`host_vars`, and controlled merge behaviour rather than replacement only.
-7. **Operational hardening** — automated tests, signed Windows/Linux releases, an update mechanism, crash recovery, audit logging, and accessibility review.
+### Tools alongside the terminal
 
-## Running HedgeCon
+- Live ping graph with response-time history and outage duration.
+- SFTP remote file browser with uploads and downloads.
+- SCP uploads and downloads for hosts where SFTP is unavailable or unsuitable.
+- SSH key generation, import, discovery and fingerprint display.
+- Install and remove public keys in a remote `authorized_keys` file.
+- Open session notes beside the terminal and resize the notes panel while you work.
 
-### Packaged Windows build
+### Inventory and Git-backed knowledge
 
-Run [HedgeCon.cmd](./HedgeCon.cmd) from the project’s top-level folder. It launches:
+- Optional CodeMirror-based YAML inventory editor.
+- Import Ansible-style `all`, `children`, `hosts` and `vars` structures.
+- Preview and validate YAML before it replaces the graphical inventory.
+- Store inventory locally or in a Git-backed workspace.
+- Markdown Wiki for general notes, per-session notes and vendor cheat sheets.
+- Local Git repositories and HTTPS remotes including GitHub, Gitea and compatible servers.
+- Commit, fast-forward pull and push from inside HedgeCon.
+- At-a-glance repository state: current, ahead, behind, diverged, local-only or awaiting its first commit.
 
-```text
-release\HedgeCon.exe
-```
-
-`HedgeCon.exe` is a portable application and does not require a separate installation. If it has not been built yet, the launcher explains which build command to run.
+## Installing HedgeCon
 
 ### Windows installer
 
-For a normal installed application, download and run `HedgeCon-Setup.exe`. The setup wizard installs HedgeCon for the current Windows user, allows the destination folder to be changed, creates Start Menu and desktop shortcuts, and registers HedgeCon in Windows Installed Apps for clean upgrades or removal. Administrative rights are not normally required.
+Download `HedgeCon-Setup.exe` from the latest GitHub Release and run it. The installer:
 
-Uninstalling does not delete sessions, credentials, SSH keys, trusted host fingerprints, or Wiki repository settings. These remain in the user's HedgeCon application-data directory unless removed manually.
+- Installs HedgeCon for the current user.
+- Offers a choice of installation directory.
+- Creates Start Menu and desktop shortcuts.
+- Adds HedgeCon to Windows Installed Apps for upgrades and removal.
+- Includes the application runtime and dependencies.
 
-To return HedgeCon to a completely blank state before uninstalling, publishing screenshots, or testing a fresh installation, open **Settings → Reset all local data**. After an explicit confirmation, HedgeCon removes its saved workspace, encrypted secrets, known-host fingerprints, repository settings, and managed SSH keys, then restarts. External Wiki repositories and keys in the user's normal `.ssh` directory are not removed.
+Node.js, pnpm and Electron do not need to be installed.
 
-### Development mode
+Windows may warn when opening the current build because it is not yet code-signed. Confirm that the installer came from this repository before running it.
 
-Development requires Node.js and pnpm:
+### Portable Windows build
 
-```powershell
-pnpm install
-pnpm dev
-```
+`HedgeCon.exe` is the portable edition. Download it from the GitHub Release and run it directly without an installation wizard.
 
-The renderer, Electron main process, and TypeScript compiler run in watch mode.
+### Linux
 
-## Basic usage
+Linux is a supported design target and an AppImage build is configured, but the v0.1 release is currently focused on Windows. Linux packages should be built on a Linux workstation or CI runner rather than cross-built from Windows.
 
-### First-run workspace setup
+## First run
 
-On a new profile, HedgeCon asks how inventory should be managed:
+A fresh installation contains no sessions, credentials, SSH keys, host fingerprints or repository settings. HedgeCon asks how you want to manage inventory:
 
-- **Local workspace** stores folders and sessions on that computer.
-- **Local Git repository** creates or opens a repository containing `inventory.yml` plus the Wiki structure.
-- **Shared Git server** clones an HTTPS GitHub, Gitea, or compatible repository and uses its `inventory.yml`.
+- **Local workspace** keeps folders and sessions on that computer.
+- **Local Git repository** creates or opens a repository containing the inventory and Wiki structure.
+- **Shared Git server** clones an HTTPS GitHub, Gitea or compatible repository and reads its inventory file.
 
-Git inventory contains folders, sessions, hostnames, ports, usernames, and credential-set references only. Passwords, passphrases, private keys, access tokens, and trusted host fingerprints remain in the operating system's local application-data directory.
+Git-managed inventory contains connection metadata such as folders, hosts, ports, usernames and credential-set references. Passwords, passphrases, private keys, access tokens and trusted host fingerprints remain local to the computer.
 
-For Git-managed workspaces, **Inventory YAML** provides **Load from Git** and **Commit & push** controls. Pulled YAML must pass validation and preview before it replaces the current GUI inventory.
+## Everyday use
 
-### Create and connect to a session
+### Create an SSH session
 
 1. Select **New session**.
-2. Enter a display name, hostname or IP address, SSH port, and folder.
+2. Enter a name, hostname or IP address, port and folder.
 3. Choose session-specific credentials or a reusable credential set.
 4. Select password or private-key authentication.
 5. Save the session and select **Connect**.
-6. Verify the server fingerprint before trusting a host for the first time.
+6. Check the server fingerprint before trusting a new host.
 
-If a reusable password credential has no saved password, HedgeCon prompts before attempting the connection. It never intentionally attempts authentication with an empty password.
+If a password credential does not have a saved password, HedgeCon prompts for one before attempting authentication. A blank saved password is not sent automatically.
 
 ### Organise sessions
 
-- Select **New folder** to create a top-level folder or a folder inside the currently selected folder.
+- Select **New folder** to create a top-level folder or a child of the selected folder.
+- Click a parent folder to collapse or expand its contents.
 - Drag a session card onto a folder to move it.
-- Use **All sessions** and the search field to search by name, host, or username.
-- Double-click a saved session to connect quickly.
+- Open **All sessions** to search the complete inventory.
+- Double-click a session card to connect quickly.
 
-### Credentials
+### Reusable credentials
 
-Open **Settings → Credential sets** to create credentials shared by several sessions. Updating the set updates every linked session. Passwords and private-key passphrases are optional; when saved, they are encrypted using Electron's operating-system-backed secure storage.
+Open **Settings → Credential sets** to create authentication details shared by several sessions. Updating a credential set updates every linked session.
+
+Passwords and private-key passphrases are optional. When saved, they are encrypted using Electron's operating-system-backed secure storage rather than being written into the inventory.
 
 ### SSH keys
 
-Open **Settings → SSH keys** to:
+Open **Settings → SSH keys** to generate an RSA-3072 key pair, import an existing key, discover keys in the user's `.ssh` folder, copy a public key or delete a HedgeCon-managed key.
 
-- Generate a compatible RSA-3072 key pair.
-- Import an existing private key.
-- Discover keys in the user's `.ssh` directory.
-- Copy a public key or delete a HedgeCon-managed local key.
+When assigning a key to a session, choose the **private key**—the file without the `.pub` suffix.
 
-The private key is the file without the `.pub` suffix. Select it through the private-key selector when configuring a session or credential set.
+While connected using an existing authentication method, select **Keys** beneath the terminal. HedgeCon compares local public keys with the remote `~/.ssh/authorized_keys` file, then offers the keys available to install or remove. Remote key management currently targets POSIX-style shells and network devices.
 
-While connected using an existing authentication method, select **Keys** beneath the terminal. HedgeCon reads the remote `~/.ssh/authorized_keys` file and separates local keys into **Installed on this host** and **Available to install**. Installation and removal currently target POSIX-style Linux, Unix, and network-device shells.
+### Split sessions
 
-### Tabs and split panes
+Open several sessions to create tabs. Use the split controls to arrange them horizontally or vertically, or drag a tab toward an edge of the terminal area to snap it into a new pane. Drag the divider to change how much room each pane receives.
 
-- Open several sessions to create tabs.
-- Use the split controls to arrange sessions horizontally or vertically.
-- Drag a session tab toward an edge of the terminal area to snap it into another pane.
-- Drag the divider between panes to resize them.
-- Close a pane using its corner button; the remaining panes reclaim the space.
+### Monitor reachability
 
-### Ping monitoring
+Select **Ping monitor** beneath a connected terminal. HedgeCon graphs recent response times, marks outages and reports how long the target remained unavailable. Samples and terminal scrollback are bounded so leaving the application running does not cause unlimited memory growth.
 
-Select **Ping monitor** beneath a connected terminal. The graph records recent response time, highlights outages, and reports how long the target was unavailable. Samples and terminal scrollback are bounded so leaving the application open does not cause unlimited memory growth.
+### Transfer files
 
-### File transfer
+Select **Files** beneath a terminal to open the remote filesystem browser. Choose SFTP or SCP, navigate the remote host, then upload or download a file. Availability depends on the SSH server and the connected account's permissions.
 
-Select **Files** beneath a terminal to open the remote filesystem browser. Choose SFTP or SCP, navigate directories, upload a local file, or download a remote file. Availability depends on the remote SSH server and account permissions.
+## YAML inventory
 
-### YAML inventory editor
+Select **Inventory YAML** in the sidebar to open the optional editor.
 
-Select **Inventory YAML** in the sidebar. The editor is optional and loaded only when opened.
-
-- **Reset from GUI** generates an Ansible-compatible representation of the current folders and sessions.
+- **Reset from GUI** generates YAML from the current folders and sessions.
 - **Open YAML** loads an existing `.yml` or `.yaml` inventory.
-- **Validate & preview** parses the document and reports the resulting folder/session counts and warnings.
-- **Apply inventory** replaces the GUI inventory only after confirmation.
+- **Validate & preview** reports the folders, sessions and warnings that would result.
+- **Apply inventory** replaces the graphical inventory after confirmation.
+- Git-managed workspaces can load the inventory from Git or commit and push an update.
 
-Ansible groups become nested folders. Common fields include:
+Ansible groups become HedgeCon folders. A small example:
 
 ```yaml
 all:
@@ -163,28 +163,63 @@ all:
           ansible_user: netadmin
 ```
 
-HedgeCon never treats inventory YAML as a secret store. Fields such as `ansible_password`, `ansible_ssh_pass`, and passphrase values are rejected. Link a host to an existing credential set with `hedgecon_credential_set` instead.
+Inventory is deliberately not a secret store. Plaintext fields such as `ansible_password`, `ansible_ssh_pass` and passphrases are rejected. Use `hedgecon_credential_set` to link a host to a locally stored credential set.
 
-### Git-backed Wiki and notes
+## Wiki and session notes
 
-Select **Wiki & notes** in the sidebar. The first launch offers two choices:
+Select **Wiki** in the sidebar to work with general operational notes, session-specific pages and searchable vendor cheat sheets.
 
-- **Create / open local** chooses a folder and creates a normal Git repository if needed. A starter general Wiki and Juniper, Cisco, and Linux cheat sheets are added to a new repository.
-- **Clone remote** clones an existing HTTPS repository into an empty folder. GitHub, Gitea, and compatible smart-HTTP Git servers are supported.
+The Wiki can use a normal local Git repository or clone an HTTPS remote. For a private GitHub or Gitea repository, enter your Git username and a personal access token. The token is encrypted by the operating system and is never stored in the repository.
 
-Enter a Git author name and email. For a private remote, provide its username and personal access token; the token is encrypted with the operating system and is never saved in the repository.
+Saving a page writes it locally; it does not publish silently. Review the changed-file count, enter a commit message, select **Commit**, then **Push**. Pulls are fast-forward-only and are blocked while local changes are uncommitted.
 
-The Wiki contains three areas: general operational notes, one stable Markdown page per saved SSH session, and searchable vendor cheat sheets.
+Select **Notes** beneath a live terminal to open that session's page alongside the CLI. The SSH connection and active monitors continue running while notes are edited.
 
-The status dot in the Wiki header checks the configured remote branch. It shows whether the local Wiki is current, behind, ahead, diverged, or local-only. When the remote is ahead, **Quick update** performs the same guarded fast-forward pull without leaving the current page.
+## Data and security
 
-While an SSH session is open, select **Notes** beside Ping monitor, Files, and Keys to open that session's page directly. The Wiki overlays the workspace, so the SSH session and active monitoring remain running while notes are edited.
+- Electron context isolation and renderer sandboxing are enabled.
+- Unexpected navigation, popup windows and renderer permission requests are denied.
+- SSH host fingerprints are checked against locally trusted values.
+- Saved secrets use operating-system-backed encryption.
+- Private keys and secrets are excluded from inventory YAML and the source repository.
+- Input, terminal scrollback, file sizes and monitoring history are bounded.
+- Git pulls are fast-forward-only to avoid automatic conflict resolution or silent overwrites.
+- Packaged binaries are currently unsigned development builds.
 
-Select **Save page** to write locally. Saving does not silently publish anything: review the changed-file count, enter a message, select **Commit**, then **Push**. **Pull** is deliberately fast-forward-only and refuses to run while local files are uncommitted, avoiding automatic conflict resolution or accidental overwrites.
+Application data is stored in the operating system's HedgeCon application-data directory, not inside the source or installation folder. Uninstalling does not automatically delete sessions, credentials, managed keys or repository settings.
 
-## Building standalone applications
+To return HedgeCon to a blank state, open **Settings → Reset all local data**. This removes the HedgeCon workspace, encrypted secrets, known-host fingerprints, managed SSH keys and repository settings, then restarts the application. External Wiki repositories and keys in the user's normal `.ssh` directory are not deleted.
 
-Build and type-check the application assets:
+## Roadmap
+
+The next stages move HedgeCon beyond terminal management and toward the wider network-operations goal:
+
+- Collect device configurations and maintain versioned history and diffs.
+- Push configuration history to a shared Git server.
+- Add vendor-aware drivers for Cisco, Juniper, Arista and other platforms.
+- Build guided changes such as **Add VLAN**, with preview and validation before commands are applied.
+- Add device-specific paging, configuration-mode, commit and rollback handling.
+- Improve Git conflict handling, review workflows and inventory synchronisation.
+- Add native Windows OpenSSH key management and agent integration.
+- Introduce automated tests, signed packages, crash recovery and application updates.
+
+## Development
+
+HedgeCon uses Electron, React, TypeScript, xterm.js, ssh2, CodeMirror and isomorphic-git.
+
+Requirements:
+
+- Node.js
+- pnpm
+
+Install dependencies and start development mode:
+
+```powershell
+pnpm install
+pnpm dev
+```
+
+Type-check and build the application:
 
 ```powershell
 pnpm build
@@ -196,43 +231,39 @@ Create the portable Windows executable:
 pnpm package:win
 ```
 
-Output:
-
-```text
-release\HedgeCon.exe
-```
-
-Create the Windows setup wizard:
+Create the Windows installer:
 
 ```powershell
 pnpm package:win:installer
 ```
 
-Output:
-
-```text
-release\HedgeCon-Setup.exe
-```
-
-Create a Linux AppImage from a Linux build environment:
+Create a Linux AppImage from Linux:
 
 ```bash
 pnpm package:linux
 ```
 
-Output:
+Generated applications are written to `release/`. That directory is intentionally excluded from Git; publish binaries as GitHub Release assets instead of committing them to the source repository.
 
-```text
-release/HedgeCon-x64.AppImage
+## Repository hygiene
+
+The repository excludes dependency folders, compiled output, local Wiki repositories, application data, exported inventories, environment files, private keys and release binaries.
+
+Before publishing a change, check what Git will include:
+
+```powershell
+git status
 ```
 
-Cross-building Linux packages from Windows is not the supported release path; use a Linux workstation or CI runner.
+Never add passwords, access tokens, private keys or real production inventories to a commit.
 
-## Security notes
+## Contributing
 
-- Renderer sandboxing and context isolation are enabled.
-- Unexpected navigation, popup windows, and renderer permission requests are denied.
-- SSH host fingerprints are checked against locally trusted values.
-- Saved secrets are encrypted by the operating system and are not included in inventory YAML.
-- Private-key, remote-path, terminal-input, and inventory sizes are bounded and validated.
-- Generated packages are currently unsigned development builds. Operating systems may warn before running them until a code-signing process is added.
+HedgeCon is at the point where real-world testing is especially valuable. Bug reports, device-specific edge cases and focused pull requests are welcome. When reporting an SSH or Git problem, remove hostnames, usernames, addresses, tokens and key material from logs and screenshots first.
+
+Please use GitHub Issues for bugs and feature requests.
+
+## Release notes
+
+See [HedgeCon v0.1 release notes](RELEASE_NOTES_v0.1.md).
+
