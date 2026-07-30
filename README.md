@@ -251,7 +251,7 @@ pnpm package:linux
 
 Generated applications are written to `release/`. That directory is intentionally excluded from Git; publish binaries as GitHub Release assets instead of committing them to the source repository.
 
-Tagged releases are built by `.github/workflows/release.yml`. The Git tag must match the version in `package.json`—for example, package version `0.1.1` uses tag `v0.1.1`. The workflow publishes the installer, portable executable, blockmap and updater metadata to GitHub Releases. No GitHub token is stored in the application.
+Tagged releases are built by `.github/workflows/release.yml`. The Git tag must match the version in `package.json`—for example, package version `0.1.2` uses tag `v0.1.2`. The workflow publishes the installer, portable executable, blockmap and updater metadata to GitHub Releases. No GitHub token is stored in the application.
 
 ## Repository hygiene
 

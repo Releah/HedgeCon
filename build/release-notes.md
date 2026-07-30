@@ -1,6 +1,11 @@
-# HedgeCon v0.1.1
+# HedgeCon v0.1.2
 
-This release adds built-in application updates for installed Windows builds.
+This hotfix repairs a startup failure in v0.1.1 and includes the new built-in application update system.
+
+## Hotfix
+
+- Fixed a packaged-runtime import error that prevented HedgeCon v0.1.1 from opening.
+- The updater now uses the CommonJS-compatible named export provided by `electron-updater`.
 
 ## What's new
 
@@ -16,7 +21,6 @@ This release adds built-in application updates for installed Windows builds.
 
 ## Upgrade note
 
-Existing v0.1 users must install v0.1.1 manually because their current build does not contain the updater. Once v0.1.1 is installed, later releases can be downloaded and installed from inside HedgeCon.
+Do not use v0.1.1; it cannot launch. Existing v0.1 and v0.1.1 users must install v0.1.2 manually because those builds cannot complete an in-app update. Once v0.1.2 is installed, later releases can be downloaded and installed from inside HedgeCon.
 
 Windows packages are not yet code-signed, so Windows may display a security warning. Confirm that downloads came from the official `Releah/HedgeCon` repository before running them.
-

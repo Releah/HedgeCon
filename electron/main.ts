@@ -7,7 +7,7 @@ import { isIP } from 'node:net';
 import { Client, ClientChannel, SFTPWrapper } from 'ssh2';
 import git from 'isomorphic-git';
 import gitHttp from 'isomorphic-git/http/node';
-import electronUpdater, { type ProgressInfo, type UpdateInfo } from 'electron-updater';
+import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 
 type StoredCredential = { id: string; name: string; username: string; authMethod: 'password' | 'privateKey'; privateKeyPath?: string; encryptedSecret?: string };
 type GitRepository = { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; encryptedToken?: string };
@@ -85,7 +85,6 @@ let updateStatus: UpdateStatus = { status: 'idle', currentVersion: app.getVersio
 
 function releaseNotesText(info: UpdateInfo) { if (typeof info.releaseNotes === 'string') return info.releaseNotes.slice(0, 20_000); if (Array.isArray(info.releaseNotes)) return info.releaseNotes.map(note => `${note.version}: ${note.note ?? ''}`).join('\n\n').slice(0, 20_000); return undefined; }
 function publishUpdateStatus(patch: Partial<UpdateStatus>) { updateStatus = { ...updateStatus, ...patch, currentVersion: app.getVersion(), portable: portableBuild, activeConnections: connections.size }; mainWindow?.webContents.send('update:status', updateStatus); return updateStatus; }
-const { autoUpdater } = electronUpdater;
 function configureUpdates() {
   if (!app.isPackaged || portableBuild) { publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Portable builds notify you about releases but must be updated manually.' : 'Automatic updates are available in packaged builds.' }); return; }
   autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.allowDowngrade = false; autoUpdater.allowPrerelease = false;
