@@ -117,9 +117,14 @@ function createWindow() {
 function send(id: string, type: string, data: string) { mainWindow?.webContents.send('ssh:event', { connectionId: id, type, data }); }
 
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); pingMonitors.delete(monitorId); }
-function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); connection.client.end(); } connections.clear(); pendingTrust.clear(); }
+function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
+
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+app.on('second-instance', () => { if (!mainWindow) return; if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); });
 
 app.whenReady().then(() => {
+  if (!primaryInstance) return;
   readStore();
   electronSession.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   electronSession.defaultSession.setPermissionCheckHandler(() => false);
@@ -127,6 +132,7 @@ app.whenReady().then(() => {
   configureUpdates();
 });
 app.on('before-quit', cleanupRuntime);
+app.on('will-quit', cleanupRuntime);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
@@ -135,7 +141,7 @@ ipcMain.handle('update:status', () => publishUpdateStatus({}));
 ipcMain.handle('update:settings', (_event, input?: { automaticChecks?: boolean }) => { if (input) { if (typeof input.automaticChecks !== 'boolean') throw new Error('Invalid update preference.'); stored.updateSettings = { automaticChecks: input.automaticChecks }; writeStore(); } return stored.updateSettings; });
 ipcMain.handle('update:check', async () => { if (!app.isPackaged || portableBuild) return publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Download the latest portable build from GitHub Releases.' : 'Update checks are only available in packaged builds.' }); await autoUpdater.checkForUpdates(); return updateStatus; });
 ipcMain.handle('update:download', async () => { if (updateStatus.status !== 'available') throw new Error('No update is ready to download.'); await autoUpdater.downloadUpdate(); return updateStatus; });
-ipcMain.handle('update:install', () => { if (updateStatus.status !== 'downloaded') throw new Error('Download the update before installing it.'); setImmediate(() => autoUpdater.quitAndInstall(false, true)); return true; });
+ipcMain.handle('update:install', () => { if (updateStatus.status !== 'downloaded') throw new Error('Download the update before installing it.'); cleanupRuntime(); for (const window of BrowserWindow.getAllWindows()) window.removeAllListeners('close'); setTimeout(() => autoUpdater.quitAndInstall(true, true), 150); return true; });
 ipcMain.handle('update:open-release', () => shell.openExternal(releaseUrl));
 ipcMain.handle('inventory:configure', (_event, input: InventorySettings) => { if (!input || typeof input.configured !== 'boolean' || !['local', 'git'].includes(input.mode) || (input.mode === 'git' && (!input.repositoryPath || !/^[a-z0-9._/-]+\.ya?ml$/i.test(input.repositoryPath)))) throw new Error('Invalid inventory configuration.'); if (input.mode === 'git') safeRepoPath(input.repositoryPath!); stored.inventorySettings = input; writeStore(); return input; });
 ipcMain.handle('inventory:git-read', () => { if (stored.inventorySettings.mode !== 'git' || !stored.inventorySettings.repositoryPath) throw new Error('Git inventory is not configured.'); const target = safeRepoPath(stored.inventorySettings.repositoryPath); return fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : null; });

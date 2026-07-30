@@ -1,11 +1,15 @@
-# HedgeCon v0.1.2
+# HedgeCon v0.1.3
 
-This hotfix repairs a startup failure in v0.1.1 and includes the new built-in application update system.
+This release improves application shutdown and reorganises Settings into focused sections.
 
-## Hotfix
+## What's new
 
-- Fixed a packaged-runtime import error that prevented HedgeCon v0.1.1 from opening.
-- The updater now uses the CommonJS-compatible named export provided by `electron-updater`.
+- Added a right-side Settings tab rail for General, Credentials, SSH keys, Git, Updates and Privacy.
+- Added editable Git repository settings for the remote URL, commit identity, username and encrypted access token.
+- Added clear feedback when no Wiki/Git repository has been configured yet.
+- Added single-instance protection so opening HedgeCon again focuses the existing window instead of creating another process group.
+- SSH streams, client sockets and ping subprocesses are now force-closed during normal exit and update installation.
+- Update installation now performs runtime cleanup before starting the silent installer.
 
 ## What's new
 
@@ -21,6 +25,6 @@ This hotfix repairs a startup failure in v0.1.1 and includes the new built-in ap
 
 ## Upgrade note
 
-Do not use v0.1.1; it cannot launch. Existing v0.1 and v0.1.1 users must install v0.1.2 manually because those builds cannot complete an in-app update. Once v0.1.2 is installed, later releases can be downloaded and installed from inside HedgeCon.
+Users on v0.1.2 can install this release through **Settings → Updates**. Users on v0.1 or the broken v0.1.1 release must install v0.1.3 manually.
 
 Windows packages are not yet code-signed, so Windows may display a security warning. Confirm that downloads came from the official `Releah/HedgeCon` repository before running them.
