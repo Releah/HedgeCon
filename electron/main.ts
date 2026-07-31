@@ -12,18 +12,18 @@ import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-update
 type StoredCredential = { id: string; name: string; username: string; authMethod: 'password' | 'privateKey'; privateKeyPath?: string; encryptedSecret?: string };
 type GitRepository = { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; encryptedToken?: string };
 type InventorySettings = { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string };
-type UpdateSettings = { automaticChecks: boolean };
+type UpdateSettings = { automaticChecks: boolean; branch: 'main' | 'experimental' };
 type StoredData = { folders: unknown[]; sessions: unknown[]; uiSettings?: unknown; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings };
 type UpdateStatus = { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number };
 type SecureStorageStatus = { available: boolean; secure: boolean; backend: string; message: string };
 type SshKeyInfo = { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' };
-const defaults: StoredData = { folders: [], sessions: [], knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true } };
+const defaults: StoredData = { folders: [], sessions: [], knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true, branch: 'main' } };
 let stored: StoredData = defaults;
 function dataPath() { return path.join(app.getPath('userData'), 'sessions.json'); }
 function backupDataPath() { return `${dataPath()}.bak`; }
 function parseStore(source: string) {
   const parsed = JSON.parse(source) as Partial<StoredData>;
-  const next: StoredData = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false } };
+  const next: StoredData = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false, branch: parsed.updateSettings?.branch === 'experimental' ? 'experimental' : 'main' } };
   next.uiSettings = parsed.uiSettings; return next;
 }
 function readStore() {
@@ -108,7 +108,7 @@ function releaseNotesText(info: UpdateInfo) { if (typeof info.releaseNotes === '
 function publishUpdateStatus(patch: Partial<UpdateStatus>) { updateStatus = { ...updateStatus, ...patch, currentVersion: app.getVersion(), portable: portableBuild, activeConnections: connections.size }; mainWindow?.webContents.send('update:status', updateStatus); return updateStatus; }
 function configureUpdates() {
   if (!app.isPackaged || portableBuild) { publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Portable builds notify you about releases but must be updated manually.' : 'Automatic updates are available in packaged builds.' }); return; }
-  autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.allowDowngrade = false; autoUpdater.allowPrerelease = false;
+  autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.allowDowngrade = false; autoUpdater.allowPrerelease = stored.updateSettings.branch === 'experimental';
   autoUpdater.on('checking-for-update', () => publishUpdateStatus({ status: 'checking', message: undefined }));
   autoUpdater.on('update-available', info => publishUpdateStatus({ status: 'available', availableVersion: info.version, releaseNotes: releaseNotesText(info), progress: undefined, message: undefined }));
   autoUpdater.on('update-not-available', info => publishUpdateStatus({ status: 'current', availableVersion: info.version, progress: undefined, message: 'HedgeCon is up to date.' }));
@@ -159,7 +159,7 @@ app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creat
 
 ipcMain.handle('data:load', () => ({ folders: stored.folders, sessions: stored.sessions, inventorySettings: stored.inventorySettings, uiSettings: stored.uiSettings }));
 ipcMain.handle('update:status', () => publishUpdateStatus({}));
-ipcMain.handle('update:settings', (_event, input?: { automaticChecks?: boolean }) => { if (input) { if (typeof input.automaticChecks !== 'boolean') throw new Error('Invalid update preference.'); stored.updateSettings = { automaticChecks: input.automaticChecks }; writeStore(); } return stored.updateSettings; });
+ipcMain.handle('update:settings', (_event, input?: UpdateSettings) => { if (input) { if (typeof input.automaticChecks !== 'boolean' || !['main', 'experimental'].includes(input.branch)) throw new Error('Invalid update preference.'); stored.updateSettings = { automaticChecks: input.automaticChecks, branch: input.branch }; autoUpdater.allowPrerelease = input.branch === 'experimental'; writeStore(); } return stored.updateSettings; });
 ipcMain.handle('update:check', async () => { if (!app.isPackaged || portableBuild) return publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Download the latest portable build from GitHub Releases.' : 'Update checks are only available in packaged builds.' }); await autoUpdater.checkForUpdates(); return updateStatus; });
 ipcMain.handle('update:download', async () => { if (updateStatus.status !== 'available') throw new Error('No update is ready to download.'); await autoUpdater.downloadUpdate(); return updateStatus; });
 ipcMain.handle('update:install', () => { if (updateStatus.status !== 'downloaded') throw new Error('Download the update before installing it.'); cleanupRuntime(); for (const window of BrowserWindow.getAllWindows()) window.removeAllListeners('close'); setTimeout(() => autoUpdater.quitAndInstall(true, true), 150); return true; });
