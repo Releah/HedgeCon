@@ -4,7 +4,7 @@ export interface Folder { id: string; name: string; parentId?: string | null; cr
 export interface Session {
   id: string; name: string; host: string; port: number; username: string;
   folderId: string | null; authMethod: AuthMethod; privateKeyPath?: string;
-  credentialSetId?: string | null;
+  credentialSetId?: string | null; credentialProfile?: string;
   createdAt: string; updatedAt: string;
 }
 export interface CredentialSet { id: string; name: string; username: string; authMethod: AuthMethod; privateKeyPath?: string; hasSecret: boolean }
@@ -12,7 +12,7 @@ export interface CredentialSetInput { id?: string; name: string; username: strin
 export interface InventorySettings { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string }
 export interface ColourMeaning { id: string; word: string; colour: string }
 export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[] }
-export interface AppData { folders: Folder[]; sessions: Session[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings }
+export interface AppData { folders: Folder[]; sessions: Session[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
 export interface ConnectRequest extends Session { connectionId: string; password?: string; passphrase?: string; credentialOverride?: string }
 export interface HostKeyPrompt { connectionId: string; host: string; fingerprint: string; changed: boolean }
 export interface SshEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'auth-error' | 'closed'; data: string }
@@ -23,6 +23,8 @@ export interface RepositoryMeta { localPath: string; remoteUrl?: string; branch:
 export interface RepositoryInput { authorName: string; authorEmail: string; remoteUrl?: string; branch?: string; username?: string; token?: string; clearToken?: boolean }
 export interface RepositoryStatus { repository: RepositoryMeta; changedFiles: Array<{ filepath: string; head: number; workdir: number; stage: number }>; lastCommit: { oid: string; message: string; author: string; timestamp: number } | null }
 export interface RepositoryFreshness { state: 'local' | 'uninitialized' | 'current' | 'behind' | 'ahead' | 'diverged'; local?: string; remote?: string }
+export interface GitConflict { path: string; base: string; ours: string; theirs: string; merged: string }
+export type RepositoryPushResult = { outcome: 'pushed'; status: RepositoryStatus; sync: 'none' | 'fast-forward' | 'merged' } | { outcome: 'conflicts'; localOid: string; remoteOid: string; conflicts: GitConflict[] };
 export interface WikiPage { path: string; title: string; section: 'general' | 'sessions' | 'vendors' }
 export interface WikiFolder { path: string; name: string; section: 'general' | 'vendors' }
 export interface UpdateSettings { automaticChecks: boolean; branch: 'main' | 'experimental' }

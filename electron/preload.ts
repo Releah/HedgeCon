@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('hedge', {
   commitRepository: (message: string) => ipcRenderer.invoke('repo:commit', message),
   pullRepository: () => ipcRenderer.invoke('repo:pull'),
   pushRepository: () => ipcRenderer.invoke('repo:push'),
+  resolveRepositoryConflicts: (input: unknown) => ipcRenderer.invoke('repo:resolve-conflicts', input),
   listWikiPages: () => ipcRenderer.invoke('wiki:list'),
   listWikiFolders: () => ipcRenderer.invoke('wiki:list-folders'),
   readWikiPage: (path: string) => ipcRenderer.invoke('wiki:read', path),

@@ -1,4 +1,4 @@
-import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
+import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -27,7 +27,8 @@ declare global {
     testRepositoryConnection(): Promise<{ remoteUrl: string; branch: string; branchFound: boolean }>;
     commitRepository(message: string): Promise<{ oid: string | null; status: RepositoryStatus }>;
     pullRepository(): Promise<RepositoryStatus>;
-    pushRepository(): Promise<RepositoryStatus>;
+    pushRepository(): Promise<RepositoryPushResult>;
+    resolveRepositoryConflicts(input: { localOid: string; remoteOid: string; resolutions: Array<Pick<GitConflict, 'path'> & { contents: string }> }): Promise<RepositoryPushResult>;
     listWikiPages(): Promise<WikiPage[]>;
     listWikiFolders(): Promise<WikiFolder[]>;
     readWikiPage(path: string): Promise<string>;
