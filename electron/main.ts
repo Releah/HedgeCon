@@ -20,14 +20,17 @@ type SshKeyInfo = { name: string; privateKeyPath: string; publicKey?: string; fi
 const defaults: StoredData = { folders: [], sessions: [], knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true } };
 let stored: StoredData = defaults;
 function dataPath() { return path.join(app.getPath('userData'), 'sessions.json'); }
-function readStore() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(dataPath(), 'utf8')) as Partial<StoredData>;
-    stored = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false } };
-    stored.uiSettings = parsed.uiSettings;
-  } catch { stored = { ...defaults }; }
+function backupDataPath() { return `${dataPath()}.bak`; }
+function parseStore(source: string) {
+  const parsed = JSON.parse(source) as Partial<StoredData>;
+  const next: StoredData = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false } };
+  next.uiSettings = parsed.uiSettings; return next;
 }
-function writeStore() { fs.mkdirSync(path.dirname(dataPath()), { recursive: true }); fs.writeFileSync(dataPath(), JSON.stringify(stored, null, 2), { mode: 0o600 }); }
+function readStore() {
+  try { stored = parseStore(fs.readFileSync(dataPath(), 'utf8')); }
+  catch { try { stored = parseStore(fs.readFileSync(backupDataPath(), 'utf8')); writeStore(); } catch { stored = { ...defaults }; } }
+}
+function writeStore() { const target = dataPath(); const temporary = `${target}.tmp`; fs.mkdirSync(path.dirname(target), { recursive: true }); if (fs.existsSync(target)) fs.copyFileSync(target, backupDataPath()); fs.writeFileSync(temporary, JSON.stringify(stored, null, 2), { mode: 0o600 }); try { fs.renameSync(temporary, target); } catch { fs.rmSync(target, { force: true }); fs.renameSync(temporary, target); } }
 const starterWiki: Record<string, string> = {
   'wiki/general/index.md': '# HedgeCon Wiki\n\nUse this area for shared operational notes, standards, links, and procedures.\n',
   'vendors/juniper/common-commands.md': '# Juniper Junos — Common Commands\n\n## System\n\n```text\nshow version\nshow system uptime\nshow chassis hardware\n```\n\n## Interfaces\n\n```text\nshow interfaces terse\nshow interfaces extensive <interface>\n```\n\n## Configuration\n\n```text\nshow configuration | display set\nshow | compare\ncommit check\n```\n',

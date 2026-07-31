@@ -17,7 +17,7 @@ export default function WikiWorkspace({ sessions, initialSessionId, onClose }: P
   const [freshness, setFreshness] = useState<RepositoryFreshness | null>(null); const [checkingFreshness, setCheckingFreshness] = useState(false);
   const [status, setStatus] = useState<RepositoryStatus | null>(null); const [pages, setPages] = useState<WikiPage[]>([]);
   const [selected, setSelected] = useState<WikiPage | null>(null); const [source, setSource] = useState(''); const [savedSource, setSavedSource] = useState('');
-  const [query, setQuery] = useState(''); const [preview, setPreview] = useState(false); const [busy, setBusy] = useState(''); const [message, setMessage] = useState('');
+  const [query, setQuery] = useState(''); const [preview, setPreview] = useState(true); const [busy, setBusy] = useState(''); const [message, setMessage] = useState('');
   const [commitMessage, setCommitMessage] = useState('Update HedgeCon notes'); const [newPage, setNewPage] = useState(''); const [newSection, setNewSection] = useState<'general' | 'vendors'>('general');
   const [setup, setSetup] = useState<RepositoryInput>({ authorName: '', authorEmail: '', remoteUrl: '', branch: 'main', username: '', token: '' });
   const mount = useRef<HTMLDivElement>(null); const editor = useRef<EditorView | null>(null); const sourceRef = useRef(source); sourceRef.current = source;

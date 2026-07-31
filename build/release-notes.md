@@ -1,18 +1,24 @@
-# HedgeCon v0.2.1
+# HedgeCon v0.2.2
 
-This refinement release makes the v0.2 workspace controls visible and easier to operate.
+This release polishes terminal colour selection, update visibility, and the Wiki workflow while hardening settings persistence across updates.
 
 ## Terminal colours
 
-- Click the terminal colour control to toggle between the default background and the first configured meaning.
-- Hover over the control to open a labelled palette and select any configured colour directly.
+- Close the terminal colour palette immediately after selecting a colour.
+- Keep click-to-toggle behaviour between the default background and first configured meaning.
 
-## Visible session controls
+## Update status
 
-- Clone sessions directly from each session card into a prepopulated new-session dialog.
-- Delete folders using the visible control on each folder row. Sessions remain safe and move to the parent folder.
+- Show a green tick in the sidebar when HedgeCon is current.
+- Expand the green status to **Up to date** on hover.
+- Continue showing the blue download arrow and **Update** label when a newer release is available.
 
-## Terminal workspace
+## Wiki
 
-- Resize the remote file browser using its visible draggable divider.
-- Keep the jump-to-latest arrow raised inside the terminal canvas instead of against the bottom edge.
+- Open Wiki pages in rendered preview mode by default.
+- Use the explicit **Edit** action to enter the Markdown editor.
+
+## Persistence
+
+- Write workspace configuration atomically and keep a recovery backup.
+- Recover saved repository details—including Gitea URLs—from the backup if an updater restart interrupts a settings write.
