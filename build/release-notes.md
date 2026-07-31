@@ -1,18 +1,21 @@
-# HedgeCon v0.1.5
+# HedgeCon v0.2.0
 
-This release adds the first published Linux x64 package and hardens secret storage on Linux desktops without a usable system keyring.
+This feature release makes active terminal work easier to identify and gives the workspace more flexibility.
 
-## Linux and Kali
+## Terminal workflow
 
-- Added a Linux x64 AppImage to tagged GitHub releases.
-- Added Linux updater metadata alongside the Windows release files.
-- Kali Linux and other Debian-family x64 desktops can run the AppImage without installing Node.js or project dependencies.
+- Map operational meanings such as **Critical change** or **Do not change** to terminal background colours.
+- Cycle a live terminal through configured safety colours using its unobtrusive colour control.
+- Resize the remote file explorer alongside the terminal.
+- Use the transparent jump-to-latest control without obscuring terminal output.
 
-## Security
+## Workspace organisation
 
-- HedgeCon now checks Electron's selected Linux storage backend as well as `isEncryptionAvailable()`.
-- The insecure `basic_text` fallback is rejected for new passwords, private-key passphrases, and Git access tokens.
-- Secrets already written with that backend are not silently decrypted or used.
-- Settings → Privacy now reports the selected secret-storage backend and whether it is considered secure.
+- Clone an existing session into a prepopulated new-session form.
+- Delete session folders from Settings with confirmation. Sessions are preserved and moved to the parent folder.
+- Choose from Midnight, Ocean, and Ember application themes.
 
-When a Linux keyring is unavailable, SSH remains usable with per-connection prompts and unencrypted private keys. To persist secrets, start a supported desktop keyring such as GNOME Keyring/libsecret or KWallet and restart HedgeCon.
+## Updates
+
+- See a compact update badge in the unused lower-right sidebar corner when a release is available, downloading, or ready to install.
+- Hover the badge for its action label and select it to open the Updates settings directly.

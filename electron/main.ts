@@ -13,7 +13,7 @@ type StoredCredential = { id: string; name: string; username: string; authMethod
 type GitRepository = { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; encryptedToken?: string };
 type InventorySettings = { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string };
 type UpdateSettings = { automaticChecks: boolean };
-type StoredData = { folders: unknown[]; sessions: unknown[]; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings };
+type StoredData = { folders: unknown[]; sessions: unknown[]; uiSettings?: unknown; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings };
 type UpdateStatus = { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number };
 type SecureStorageStatus = { available: boolean; secure: boolean; backend: string; message: string };
 type SshKeyInfo = { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' };
@@ -24,6 +24,7 @@ function readStore() {
   try {
     const parsed = JSON.parse(fs.readFileSync(dataPath(), 'utf8')) as Partial<StoredData>;
     stored = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false } };
+    stored.uiSettings = parsed.uiSettings;
   } catch { stored = { ...defaults }; }
 }
 function writeStore() { fs.mkdirSync(path.dirname(dataPath()), { recursive: true }); fs.writeFileSync(dataPath(), JSON.stringify(stored, null, 2), { mode: 0o600 }); }
@@ -145,7 +146,7 @@ app.on('will-quit', cleanupRuntime);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
-ipcMain.handle('data:load', () => ({ folders: stored.folders, sessions: stored.sessions, inventorySettings: stored.inventorySettings }));
+ipcMain.handle('data:load', () => ({ folders: stored.folders, sessions: stored.sessions, inventorySettings: stored.inventorySettings, uiSettings: stored.uiSettings }));
 ipcMain.handle('update:status', () => publishUpdateStatus({}));
 ipcMain.handle('update:settings', (_event, input?: { automaticChecks?: boolean }) => { if (input) { if (typeof input.automaticChecks !== 'boolean') throw new Error('Invalid update preference.'); stored.updateSettings = { automaticChecks: input.automaticChecks }; writeStore(); } return stored.updateSettings; });
 ipcMain.handle('update:check', async () => { if (!app.isPackaged || portableBuild) return publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Download the latest portable build from GitHub Releases.' : 'Update checks are only available in packaged builds.' }); await autoUpdater.checkForUpdates(); return updateStatus; });
@@ -157,9 +158,9 @@ ipcMain.handle('inventory:git-read', () => { if (stored.inventorySettings.mode !
 ipcMain.handle('inventory:git-write', (_event, source: string) => { if (stored.inventorySettings.mode !== 'git' || !stored.inventorySettings.repositoryPath || typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > 5_000_000 || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(source)) throw new Error('Invalid Git inventory.'); const target = safeRepoPath(stored.inventorySettings.repositoryPath); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, source, 'utf8'); return true; });
 ipcMain.handle('clipboard:read-text', () => clipboard.readText().slice(0, 1024 * 1024));
 ipcMain.handle('clipboard:write-text', (_event, value: string) => { if (typeof value !== 'string' || value.length > 1024 * 1024) throw new Error('Clipboard text is too large.'); clipboard.writeText(value); return true; });
-ipcMain.handle('data:save', (_event, data: { folders: unknown[]; sessions: unknown[] }) => {
+ipcMain.handle('data:save', (_event, data: { folders: unknown[]; sessions: unknown[]; uiSettings?: unknown }) => {
   if (!data || !Array.isArray(data.folders) || !Array.isArray(data.sessions) || data.folders.length > 10_000 || data.sessions.length > 50_000 || Buffer.byteLength(JSON.stringify(data), 'utf8') > 10_000_000) throw new Error('Invalid or oversized workspace data.');
-  stored.folders = data.folders; stored.sessions = data.sessions; writeStore(); return data;
+  stored.folders = data.folders; stored.sessions = data.sessions; stored.uiSettings = data.uiSettings; writeStore(); return data;
 });
 ipcMain.handle('app:reset-local-data', () => {
   const userDataRoot = path.resolve(app.getPath('userData')); const targets = [path.resolve(dataPath()), path.resolve(managedKeysPath())];

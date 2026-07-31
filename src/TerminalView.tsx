@@ -1,7 +1,7 @@
 import { FormEvent, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { HostKeyPrompt, Session, SshKeyInfo } from './types';
+import type { HostKeyPrompt, Session, SshKeyInfo, UiSettings } from './types';
 import PingMonitor from './PingMonitor';
 import RemoteFiles from './RemoteFiles';
 import ConfirmDialog from './ConfirmDialog';
@@ -17,6 +17,11 @@ export default function TerminalView({ session, secret, onClose, onNotes = () =>
   const [notesOpen, setNotesOpen] = useState(false);
   const [keyPickerOpen, setKeyPickerOpen] = useState(false); const [availableKeys, setAvailableKeys] = useState<SshKeyInfo[]>([]); const [installedPublicKeys, setInstalledPublicKeys] = useState<string[]>([]); const [keyMessage, setKeyMessage] = useState(''); const [installingKey, setInstallingKey] = useState(''); const [keyToRemove, setKeyToRemove] = useState<SshKeyInfo | null>(null);
   const [attempt, setAttempt] = useState({ secret, overrideCredential: false, number: 0 });
+  const readUiSettings = (): UiSettings => { try { return JSON.parse(localStorage.getItem('hedgecon-ui-settings') || '') as UiSettings; } catch { return { theme: 'midnight', terminalDefault: '#080c12', terminalMeanings: [] }; } };
+  const [uiSettings, setUiSettings] = useState(readUiSettings); const [terminalColour, setTerminalColour] = useState(() => readUiSettings().terminalDefault);
+  useEffect(() => { const update = (event: Event) => setUiSettings((event as CustomEvent<UiSettings>).detail); window.addEventListener('hedgecon:ui-settings', update); return () => window.removeEventListener('hedgecon:ui-settings', update); }, []);
+  useEffect(() => { if (terminalRef.current) terminalRef.current.options.theme = { ...terminalRef.current.options.theme, background: terminalColour }; }, [terminalColour]);
+  useEffect(() => { const stage = hostRef.current?.parentElement; if (!stage) return; const button = document.createElement('button'); button.className = 'terminal-colour-button'; const choices = [{ word: 'Default', colour: uiSettings.terminalDefault }, ...uiSettings.terminalMeanings]; let choice = Math.max(0, choices.findIndex(item => item.colour === terminalColour)); const refresh = () => { button.textContent = '◐'; button.title = `Terminal colour: ${choices[choice]?.word ?? 'Default'}`; button.style.setProperty('--terminal-colour', choices[choice]?.colour ?? uiSettings.terminalDefault); }; button.onclick = () => { choice = (choice + 1) % Math.max(choices.length, 1); setTerminalColour(choices[choice]?.colour ?? uiSettings.terminalDefault); refresh(); }; refresh(); stage.appendChild(button); return () => button.remove(); }, [uiSettings]);
   const reconnectFailures = useRef(0); const suppressReconnect = useRef(false);
   const answerHostKey = (accepted: boolean) => { if (!hostPrompt) return; if (!accepted) suppressReconnect.current = true; window.hedge.trustHost(hostPrompt.connectionId, accepted); setHostPrompt(null); };
   const retryAuthentication = (event: FormEvent) => { event.preventDefault(); setAuthFailed(false); setAttempt(current => ({ secret: retrySecret, overrideCredential: Boolean(session.credentialSetId), number: current.number + 1 })); setRetrySecret(''); };
@@ -24,7 +29,7 @@ export default function TerminalView({ session, secret, onClose, onNotes = () =>
   useEffect(() => {
     const connectionId = crypto.randomUUID();
     setLiveConnectionId(connectionId);
-    const terminal = new Terminal({ cursorBlink: true, scrollback: 10000, fontFamily: 'Cascadia Code, Consolas, monospace', fontSize: 14, theme: { background: '#080c12', foreground: '#d7e0ea', cursor: '#70d6b2', selectionBackground: '#264c48' } }); terminalRef.current = terminal;
+    const terminal = new Terminal({ cursorBlink: true, scrollback: 10000, fontFamily: 'Cascadia Code, Consolas, monospace', fontSize: 14, theme: { background: terminalColour, foreground: '#d7e0ea', cursor: '#70d6b2', selectionBackground: '#264c48' } }); terminalRef.current = terminal;
     const fit = new FitAddon(); terminal.loadAddon(fit); terminal.open(hostRef.current!); fit.fit();
     let selectionTimer: number | undefined; const copySelection = () => { window.clearTimeout(selectionTimer); selectionTimer = window.setTimeout(() => { const selected = terminal.getSelection(); if (selected) void window.hedge.writeClipboardText(selected); }, 120); }; const selectionDisposable = terminal.onSelectionChange(copySelection);
     const pasteClipboard = (event: MouseEvent) => { event.preventDefault(); void window.hedge.readClipboardText().then(value => { if (value) { terminal.scrollToBottom(); window.hedge.write(connectionId, value); } }); }; hostRef.current!.addEventListener('contextmenu', pasteClipboard);
