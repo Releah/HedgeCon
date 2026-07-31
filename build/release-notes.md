@@ -1,20 +1,13 @@
-# HedgeCon v0.2.3
+# HedgeCon v0.2.4
 
-This release corrects terminal control behaviour, refines update status styling, and prevents Wiki data from being placed where an update can remove it.
+This release adds configurable terminal text colour.
 
-## Terminal controls
+## Terminal appearance
 
-- Close the terminal background-colour palette immediately after selecting a colour.
-- Move the jump-to-latest arrow into the terminal canvas instead of positioning it relative to the bottom tools strip.
-- Keep the arrow correctly positioned when the ping monitor is open.
+- Choose the terminal text colour from **Settings → CLI colours**.
+- Apply changes immediately to terminals that are already open.
+- Use the selected text colour automatically for new connections.
+- Persist the preference across application restarts and updates.
+- Migrate existing settings safely using HedgeCon's previous light-grey text colour as the default.
 
-## Update status
-
-- Restyle the sidebar update indicator as a compact rounded rectangle consistent with HedgeCon's New session action.
-- Preserve the expandable **Update** and **Up to date** labels.
-
-## Wiki storage
-
-- Default Wiki creation and Gitea clones to `Documents/HedgeCon Wiki`.
-- Prevent choosing a Wiki location inside the replaceable HedgeCon installation directory.
-- Explain why the location is unsafe and suggest the persistent Documents location.
+ANSI colours explicitly emitted by a remote shell or application continue to take precedence where appropriate.

@@ -11,7 +11,7 @@ export interface CredentialSet { id: string; name: string; username: string; aut
 export interface CredentialSetInput { id?: string; name: string; username: string; authMethod: AuthMethod; privateKeyPath?: string; secret?: string; clearSecret?: boolean }
 export interface InventorySettings { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string }
 export interface ColourMeaning { id: string; word: string; colour: string }
-export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; terminalDefault: string; terminalMeanings: ColourMeaning[] }
+export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[] }
 export interface AppData { folders: Folder[]; sessions: Session[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings }
 export interface ConnectRequest extends Session { connectionId: string; password?: string; passphrase?: string; credentialOverride?: string }
 export interface HostKeyPrompt { connectionId: string; host: string; fingerprint: string; changed: boolean }
