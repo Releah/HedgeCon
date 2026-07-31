@@ -1,13 +1,13 @@
-# HedgeCon v0.2.4
+# HedgeCon v0.2.5
 
-This release adds configurable terminal text colour.
+This release introduces selectable update branches ahead of experimental feature development.
 
-## Terminal appearance
+## Update branches
 
-- Choose the terminal text colour from **Settings → CLI colours**.
-- Apply changes immediately to terminals that are already open.
-- Use the selected text colour automatically for new connections.
-- Persist the preference across application restarts and updates.
-- Migrate existing settings safely using HedgeCon's previous light-grey text colour as the default.
+- Choose an update branch from **Settings → Updates**.
+- Use **Main** for stable HedgeCon releases.
+- Use **Experimental** to receive prerelease builds containing work-in-progress or breaking changes.
+- Persist the selected branch across application restarts and updates.
+- Migrate existing installations to Main automatically.
 
-ANSI colours explicitly emitted by a remote shell or application continue to take precedence where appropriate.
+Changing the setting updates prerelease eligibility immediately. No active session or application restart is required.
