@@ -48,6 +48,14 @@ function secureStorageStatus(): SecureStorageStatus {
   return { available, secure, backend, message };
 }
 function requireSecureStorage(kind: string) { const status = secureStorageStatus(); if (!status.secure) throw new Error(`${kind} cannot be stored or used securely. ${status.message}`); }
+function persistentWikiDefaultPath() { return path.join(app.getPath('documents'), 'HedgeCon Wiki'); }
+function assertPersistentRepositoryLocation(directory: string) {
+  const resolved = path.resolve(directory); const installRoot = path.resolve(path.dirname(process.execPath));
+  const compare = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value;
+  const candidate = compare(resolved); const installation = compare(installRoot);
+  if (candidate === installation || candidate.startsWith(`${installation}${path.sep}`)) throw new Error(`The Wiki cannot be stored inside the HedgeCon installation folder because application updates replace that directory. Choose a persistent location such as ${persistentWikiDefaultPath()}.`);
+  return resolved;
+}
 function gitAuth(repository: GitRepository) { if (!repository.encryptedToken) return undefined; requireSecureStorage('The saved Git token'); const token = safeStorage.decryptString(Buffer.from(repository.encryptedToken, 'base64')); return () => ({ username: repository.username || token, password: token }); }
 function safeRepoPath(relativePath: string) { const repository = getRepository(); if (typeof relativePath !== 'string' || !relativePath || relativePath.length > 4096 || path.isAbsolute(relativePath) || relativePath.includes('\0')) throw new Error('Invalid repository path.'); const root = path.resolve(repository.localPath); const target = path.resolve(root, relativePath); const compare = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value; if (!compare(target).startsWith(`${compare(root)}${path.sep}`)) throw new Error('Repository path escapes the workspace.'); let cursor = root; for (const segment of path.relative(root, target).split(path.sep)) { cursor = path.join(cursor, segment); if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink()) throw new Error('Symbolic links are not allowed in managed Wiki paths.'); } return target; }
 function seedRepository(directory: string) { for (const [relativePath, contents] of Object.entries(starterWiki)) { const target = path.join(directory, ...relativePath.split('/')); if (fs.existsSync(target)) continue; fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, contents, 'utf8'); } }
@@ -197,9 +205,9 @@ ipcMain.handle('repo:freshness', async () => {
 });
 ipcMain.handle('repo:open-local', async (_event, input: any) => {
   validateRepositoryInput(input);
-  const chosen = await dialog.showOpenDialog(mainWindow!, { title: 'Choose HedgeCon repository', properties: ['openDirectory', 'createDirectory'] });
+  const chosen = await dialog.showOpenDialog(mainWindow!, { title: 'Choose a persistent HedgeCon Wiki folder', defaultPath: persistentWikiDefaultPath(), buttonLabel: 'Use this folder', properties: ['openDirectory', 'createDirectory'] });
   if (chosen.canceled) return null;
-  const directory = path.resolve(chosen.filePaths[0]); const gitDirectory = path.join(directory, '.git'); const isNew = !fs.existsSync(gitDirectory);
+  const directory = assertPersistentRepositoryLocation(chosen.filePaths[0]); const gitDirectory = path.join(directory, '.git'); const isNew = !fs.existsSync(gitDirectory);
   if (isNew) await git.init({ fs, dir: directory, defaultBranch: 'main' });
   const branch = await git.currentBranch({ fs, dir: directory, fullname: false }) || 'main'; const repository = storeRepository(input, directory, branch);
   if (input.remoteUrl) await configureOrigin(repository);
@@ -208,9 +216,9 @@ ipcMain.handle('repo:open-local', async (_event, input: any) => {
 });
 ipcMain.handle('repo:clone', async (_event, input: any) => {
   validateRepositoryInput(input); if (!input.remoteUrl) throw new Error('An HTTPS remote repository URL is required.');
-  const chosen = await dialog.showOpenDialog(mainWindow!, { title: 'Choose an empty folder for the repository', properties: ['openDirectory', 'createDirectory'] });
+  const chosen = await dialog.showOpenDialog(mainWindow!, { title: 'Choose a persistent folder for the Wiki clone', defaultPath: persistentWikiDefaultPath(), buttonLabel: 'Clone here', properties: ['openDirectory', 'createDirectory'] });
   if (chosen.canceled) return null;
-  const directory = path.resolve(chosen.filePaths[0]); if (fs.readdirSync(directory).length) throw new Error('Choose an empty folder for the clone.');
+  const directory = assertPersistentRepositoryLocation(chosen.filePaths[0]); if (fs.readdirSync(directory).length) throw new Error('Choose an empty folder for the clone.');
   const temporary: GitRepository = { localPath: directory, remoteUrl: input.remoteUrl.trim(), branch: input.branch?.trim() || 'main', authorName: input.authorName.trim(), authorEmail: input.authorEmail.trim(), username: input.username?.trim() || undefined };
   if (input.token) { requireSecureStorage('The Git token'); temporary.encryptedToken = safeStorage.encryptString(input.token).toString('base64'); }
   await git.clone({ fs, http: gitHttp, dir: directory, url: temporary.remoteUrl!, ref: temporary.branch, singleBranch: true, onAuth: gitAuth(temporary) });

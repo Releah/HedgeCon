@@ -1,24 +1,20 @@
-# HedgeCon v0.2.2
+# HedgeCon v0.2.3
 
-This release polishes terminal colour selection, update visibility, and the Wiki workflow while hardening settings persistence across updates.
+This release corrects terminal control behaviour, refines update status styling, and prevents Wiki data from being placed where an update can remove it.
 
-## Terminal colours
+## Terminal controls
 
-- Close the terminal colour palette immediately after selecting a colour.
-- Keep click-to-toggle behaviour between the default background and first configured meaning.
+- Close the terminal background-colour palette immediately after selecting a colour.
+- Move the jump-to-latest arrow into the terminal canvas instead of positioning it relative to the bottom tools strip.
+- Keep the arrow correctly positioned when the ping monitor is open.
 
 ## Update status
 
-- Show a green tick in the sidebar when HedgeCon is current.
-- Expand the green status to **Up to date** on hover.
-- Continue showing the blue download arrow and **Update** label when a newer release is available.
+- Restyle the sidebar update indicator as a compact rounded rectangle consistent with HedgeCon's New session action.
+- Preserve the expandable **Update** and **Up to date** labels.
 
-## Wiki
+## Wiki storage
 
-- Open Wiki pages in rendered preview mode by default.
-- Use the explicit **Edit** action to enter the Markdown editor.
-
-## Persistence
-
-- Write workspace configuration atomically and keep a recovery backup.
-- Recover saved repository details—including Gitea URLs—from the backup if an updater restart interrupts a settings write.
+- Default Wiki creation and Gitea clones to `Documents/HedgeCon Wiki`.
+- Prevent choosing a Wiki location inside the replaceable HedgeCon installation directory.
+- Explain why the location is unsafe and suggest the persistent Documents location.
