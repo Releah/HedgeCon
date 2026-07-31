@@ -1,21 +1,18 @@
-# HedgeCon v0.2.0
+# HedgeCon v0.2.1
 
-This feature release makes active terminal work easier to identify and gives the workspace more flexibility.
+This refinement release makes the v0.2 workspace controls visible and easier to operate.
 
-## Terminal workflow
+## Terminal colours
 
-- Map operational meanings such as **Critical change** or **Do not change** to terminal background colours.
-- Cycle a live terminal through configured safety colours using its unobtrusive colour control.
-- Resize the remote file explorer alongside the terminal.
-- Use the transparent jump-to-latest control without obscuring terminal output.
+- Click the terminal colour control to toggle between the default background and the first configured meaning.
+- Hover over the control to open a labelled palette and select any configured colour directly.
 
-## Workspace organisation
+## Visible session controls
 
-- Clone an existing session into a prepopulated new-session form.
-- Delete session folders from Settings with confirmation. Sessions are preserved and moved to the parent folder.
-- Choose from Midnight, Ocean, and Ember application themes.
+- Clone sessions directly from each session card into a prepopulated new-session dialog.
+- Delete folders using the visible control on each folder row. Sessions remain safe and move to the parent folder.
 
-## Updates
+## Terminal workspace
 
-- See a compact update badge in the unused lower-right sidebar corner when a release is available, downloading, or ready to install.
-- Hover the badge for its action label and select it to open the Updates settings directly.
+- Resize the remote file browser using its visible draggable divider.
+- Keep the jump-to-latest arrow raised inside the terminal canvas instead of against the bottom edge.
