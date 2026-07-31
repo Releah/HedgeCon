@@ -26,10 +26,14 @@ jobs:
 
       - name: Create GitHub Release
         run: |
+          release_flags=()
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release edit "${GITHUB_REF_NAME}" --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md
+            gh release edit "${GITHUB_REF_NAME}" --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
           else
-            gh release create "${GITHUB_REF_NAME}" --verify-tag --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md
+            gh release create "${GITHUB_REF_NAME}" --verify-tag --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,4 +1,4 @@
-import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiPage } from './types';
+import type { AppData, ConnectRequest, CredentialSet, CredentialSetInput, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -24,13 +24,17 @@ declare global {
     openLocalRepository(input: RepositoryInput): Promise<RepositoryMeta | null>;
     cloneRepository(input: RepositoryInput): Promise<RepositoryMeta | null>;
     updateRepository(input: RepositoryInput): Promise<RepositoryMeta>;
+    testRepositoryConnection(): Promise<{ remoteUrl: string; branch: string; branchFound: boolean }>;
     commitRepository(message: string): Promise<{ oid: string | null; status: RepositoryStatus }>;
     pullRepository(): Promise<RepositoryStatus>;
     pushRepository(): Promise<RepositoryStatus>;
     listWikiPages(): Promise<WikiPage[]>;
+    listWikiFolders(): Promise<WikiFolder[]>;
     readWikiPage(path: string): Promise<string>;
     writeWikiPage(path: string, contents: string): Promise<boolean>;
-    createWikiPage(section: 'general' | 'vendors', name: string): Promise<WikiPage>;
+    createWikiPage(section: 'general' | 'vendors', name: string, parentPath?: string): Promise<WikiPage>;
+    createWikiFolder(section: 'general' | 'vendors', name: string, parentPath?: string): Promise<WikiFolder>;
+    moveWikiPage(sourcePath: string, targetFolder: string): Promise<WikiPage>;
     ensureSessionWikiPage(sessionId: string, sessionName: string, host: string): Promise<WikiPage>;
     choosePrivateKey(): Promise<string | null>;
     listSshKeys(): Promise<SshKeyInfo[]>;

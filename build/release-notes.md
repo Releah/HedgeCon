@@ -1,13 +1,24 @@
-# HedgeCon v0.2.5
+# HedgeCon v0.2.6-experimental.1
 
-This release introduces selectable update branches ahead of experimental feature development.
+This experimental release improves terminal controls and adds a more capable, understandable versioned workspace.
 
-## Update branches
+## Wiki organisation
 
-- Choose an update branch from **Settings → Updates**.
-- Use **Main** for stable HedgeCon releases.
-- Use **Experimental** to receive prerelease builds containing work-in-progress or breaking changes.
-- Persist the selected branch across application restarts and updates.
-- Migrate existing installations to Main automatically.
+- Organise General and Vendor notes into nested folders.
+- Drag pages between folders or back to a section's top level.
+- Keep session-generated notes together under Session Notes.
+- Create pages and folders directly in the selected Wiki location.
 
-Changing the setting updates prerelease eligibility immediately. No active session or application restart is required.
+## Git feedback and diagnostics
+
+- See clear progress and success messages for Wiki commits, pulls, and pushes.
+- See commit IDs and branch-specific confirmation after Git operations.
+- Follow validation, commit, connection, and push progress when publishing inventory YAML.
+- Save and test Gitea or GitHub connection details from Git settings.
+- Use clearer repository setup choices for a local folder or a server clone.
+
+## Terminal polish
+
+- Close the terminal colour palette when a colour is selected or the pointer leaves it.
+
+This is an Experimental branch build and may contain unfinished behaviour.
