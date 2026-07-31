@@ -1,27 +1,37 @@
-# HedgeCon v0.2.6-experimental.3
+# HedgeCon v0.2.6
 
-This experimental release polishes navigation and adds a more useful live connection monitor.
+This stable release adds collaborative Git workflows, private credential profiles, improved Wiki organisation, and expanded terminal tooling.
 
-## Session navigation
+## Multi-user Git collaboration
 
-- Open any session folder while terminal tabs remain connected.
-- Browse and connect from the normal session-card library.
-- Return to active terminals with a clear button showing the connected tab count.
-- Open sessions selected from the library as new terminal tabs.
+- Check the server before every push and automatically merge compatible changes.
+- Resolve same-file conflicts by keeping the local version, keeping the server version, or editing the combined result.
+- Preserve both users' histories with proper merge commits and never force-push.
+- Use guarded synchronization for both Wiki content and inventory YAML.
+- Test saved Gitea or GitHub connection details directly from Settings.
 
-## Ping and TCP monitoring
+## Shared inventory with private credentials
 
-- Keep the Monitor button visible while the panel is open so it can toggle closed.
-- Use the shorter **Monitor** label in the terminal toolbar.
-- Switch the live graph between ICMP Ping and TCP reachability.
-- Probe the SSH port configured for the active session and graph TCP connection latency.
-- Reset samples when changing mode so Ping and TCP measurements are not mixed.
+- Share neutral roles such as `network-admin` instead of personal authentication details.
+- Map each shared profile to a different local credential set for every user.
+- Keep usernames, passwords, authentication methods, and private-key paths out of newly generated inventory YAML.
+- Highlight profiles that require a local mapping and suggest profiles already in use.
+- Continue importing the previous credential-set format for compatibility.
 
-## Wiki and credentials
+## Wiki organisation
 
-- Reveal matching Wiki pages inside collapsed sections and nested folders while searching.
-- Search Session Notes by session name and host address.
-- Show a clear message when Wiki search has no results.
-- Suggest existing shared credential profiles while still allowing new profile names.
+- Organise General and Vendor notes in nested folders and drag pages between them.
+- Keep Session Notes in a dedicated section below the other notes.
+- Collapse sections and folders with state remembered between application sessions.
+- Resize the Wiki sidebar and retain its width.
+- Search through collapsed folders and Session Notes with clear no-result feedback.
+- See clearer progress, commit IDs, and errors for Git actions.
 
-This is an Experimental branch build and may contain unfinished behaviour.
+## Sessions and terminal tools
+
+- Browse session folders while active terminal tabs remain connected.
+- Return to active sessions using a clear workspace control.
+- Open a selected library session as a new terminal tab.
+- Switch the live connection monitor between ICMP Ping and TCP checks against the configured SSH port.
+- Keep the Monitor button visible so it can toggle the panel closed.
+- Use stable Git action sizing and improved terminal colour-menu behaviour.
