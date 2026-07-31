@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('hedge', {
     ipcRenderer.on('ssh:host-key', listener); return () => ipcRenderer.removeListener('ssh:host-key', listener);
   },
   startPing: (host: string, monitorId: string) => ipcRenderer.invoke('ping:start', host, monitorId),
+  startTcpMonitor: (host: string, port: number, monitorId: string) => ipcRenderer.invoke('tcp-monitor:start', host, port, monitorId),
   stopPing: (id: string) => ipcRenderer.send('ping:stop', id),
   onPingSample: (callback: (sample: unknown) => void) => {
     const listener = (_: unknown, sample: unknown) => callback(sample);

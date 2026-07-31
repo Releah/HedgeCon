@@ -1,36 +1,27 @@
-# HedgeCon v0.2.6-experimental.2
+# HedgeCon v0.2.6-experimental.3
 
-This experimental release completes the first multi-user Git workflow for shared Wiki and inventory data.
+This experimental release polishes navigation and adds a more useful live connection monitor.
 
-## Multi-user Git safety
+## Session navigation
 
-- Check the server before every push.
-- Automatically fast-forward or merge compatible changes.
-- Stop safely when multiple people edit the same content.
-- Resolve conflicts by keeping the local version, keeping the server version, or editing the combined result.
-- Preserve both histories with a proper merge commit and never force-push.
-- Use the same guarded Sync & push flow for the Wiki and inventory YAML.
+- Open any session folder while terminal tabs remain connected.
+- Browse and connect from the normal session-card library.
+- Return to active terminals with a clear button showing the connected tab count.
+- Open sessions selected from the library as new terminal tabs.
 
-## Private credential profiles
+## Ping and TCP monitoring
 
-- Share neutral profile names such as `network-admin` in inventory YAML.
-- Map each profile to a different local credential set for every member of staff.
-- Keep usernames, passwords, authentication methods, and private-key paths out of newly generated shared YAML.
-- Inherit profiles through YAML groups or override them on individual hosts.
-- Highlight profiles that still need a local mapping.
-- Continue importing the previous `hedgecon_credential_set` format for compatibility.
+- Keep the Monitor button visible while the panel is open so it can toggle closed.
+- Use the shorter **Monitor** label in the terminal toolbar.
+- Switch the live graph between ICMP Ping and TCP reachability.
+- Probe the SSH port configured for the active session and graph TCP connection latency.
+- Reset samples when changing mode so Ping and TCP measurements are not mixed.
 
-## Wiki navigation
+## Wiki and credentials
 
-- Collapse General Notes, Vendor Notes, Session Notes, and nested folders.
-- Remember collapsed state and sidebar width between application sessions.
-- Resize the Wiki navigation panel with a draggable divider.
-- Move Session Notes below General and Vendor notes.
-- Use a quieter sidebar with compact page metadata and creation controls.
-
-## Interface fixes
-
-- Keep Wiki Git buttons at a stable size while status messages change.
-- Close the terminal colour palette after choosing a colour or moving the pointer away.
+- Reveal matching Wiki pages inside collapsed sections and nested folders while searching.
+- Search Session Notes by session name and host address.
+- Show a clear message when Wiki search has no results.
+- Suggest existing shared credential profiles while still allowing new profile names.
 
 This is an Experimental branch build and may contain unfinished behaviour.

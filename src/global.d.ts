@@ -60,6 +60,7 @@ declare global {
     onSshEvent(callback: (event: SshEvent) => void): () => void;
     onHostKey(callback: (prompt: HostKeyPrompt) => void): () => void;
     startPing(host: string, monitorId: string): Promise<{ monitorId: string }>;
+    startTcpMonitor(host: string, port: number, monitorId: string): Promise<{ monitorId: string }>;
     stopPing(monitorId: string): void;
     onPingSample(callback: (sample: PingSample) => void): () => void;
     listRemoteFiles(connectionId: string, path: string): Promise<SftpEntry[]>;

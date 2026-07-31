@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { ChildProcess, execFile } from 'node:child_process';
-import { isIP } from 'node:net';
+import { isIP, Socket } from 'node:net';
 import { Client, ClientChannel, SFTPWrapper } from 'ssh2';
 import git from 'isomorphic-git';
 import gitHttp from 'isomorphic-git/http/node';
@@ -126,7 +126,7 @@ function keyInfo(privateKeyPath: string, source: 'managed' | 'discovered'): SshK
 function assertManagedOrDiscoveredKey(privateKeyPath: string) { if (typeof privateKeyPath !== 'string' || privateKeyPath.length > 4096) throw new Error('Invalid key path.'); const resolved = path.resolve(privateKeyPath); const comparable = process.platform === 'win32' ? resolved.toLowerCase() : resolved; const roots = [path.resolve(managedKeysPath()), path.resolve(app.getPath('home'), '.ssh')].map(root => process.platform === 'win32' ? root.toLowerCase() : root); if (!roots.some(root => comparable.startsWith(`${root}${path.sep}`))) throw new Error('Key is outside the managed SSH key locations.'); const stats = fs.statSync(resolved); if (!stats.isFile() || stats.size > 1024 * 1024) throw new Error('Invalid private key file.'); return resolved; }
 const connections = new Map<string, { client: Client; stream?: ClientChannel; sftp?: SFTPWrapper }>();
 const pendingTrust = new Map<string, (accepted: boolean) => void>();
-const pingMonitors = new Map<string, { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess }>();
+const pingMonitors = new Map<string, { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess; socket?: Socket }>();
 let mainWindow: BrowserWindow | null = null;
 const releaseUrl = 'https://github.com/Releah/HedgeCon/releases/latest';
 const portableBuild = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
@@ -165,7 +165,7 @@ function createWindow() {
 
 function send(id: string, type: string, data: string) { mainWindow?.webContents.send('ssh:event', { connectionId: id, type, data }); }
 
-function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); pingMonitors.delete(monitorId); }
+function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
 function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
 
 const primaryInstance = app.requestSingleInstanceLock();
@@ -408,6 +408,17 @@ ipcMain.handle('ping:start', (_event, host: string, requestedId: string) => {
       mainWindow?.webContents.send('ping:sample', { monitorId, timestamp: Date.now(), reachable: !error, latencyMs, error: error?.message });
       monitor.timer = setTimeout(probe, 1000);
     });
+  };
+  probe(); return { monitorId };
+});
+ipcMain.handle('tcp-monitor:start', (_event, host: string, port: number, requestedId: string) => {
+  if (typeof host !== 'string' || !isValidHost(host) || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid TCP monitor target.');
+  const monitorId = typeof requestedId === 'string' && requestedId ? requestedId : crypto.randomUUID(); const monitor = { stopped: false } as { stopped: boolean; timer?: NodeJS.Timeout; socket?: Socket }; pingMonitors.set(monitorId, monitor);
+  const probe = () => {
+    if (monitor.stopped) return;
+    const started = Date.now(); const socket = new Socket(); monitor.socket = socket; let settled = false;
+    const finish = (reachable: boolean, error?: Error) => { if (settled) return; settled = true; socket.destroy(); monitor.socket = undefined; if (monitor.stopped) return; mainWindow?.webContents.send('ping:sample', { monitorId, timestamp: Date.now(), reachable, latencyMs: reachable ? Math.max(1, Date.now() - started) : null, error: error?.message }); monitor.timer = setTimeout(probe, 1000); };
+    socket.setTimeout(1500); socket.once('connect', () => finish(true)); socket.once('timeout', () => finish(false, new Error('TCP connection timed out.'))); socket.once('error', error => finish(false, error)); socket.connect(port, host);
   };
   probe(); return { monitorId };
 });
