@@ -3005,12 +3005,11 @@ export default function App() {
                         ×
                       </button>
                     )}
-                    {visible &&
-                      (tab.kind === "web" ? (
+                    {tab.kind === "web" ? (
                         <WebDeviceView
                           tabId={tab.id}
                           session={tab.session}
-                          visible
+                          visible={visible}
                           onClose={() => closeTab(tab.id)}
                         />
                       ) : tab.kind === "vnc" ? (
@@ -3035,7 +3034,7 @@ export default function App() {
                           onManageMacros={() => setCommandsOpen(true)}
                           onClose={() => closeTab(tab.id)}
                         />
-                      ))}
+                      )}
                   </div>
                 );
               })}

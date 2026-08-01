@@ -6,6 +6,7 @@ function enteredUrl(value: string) { const trimmed = value.trim(); return /^[a-z
 
 export default function WebDeviceView({ tabId, session, visible, onClose }: { tabId: string; session: Session; visible: boolean; onClose: () => void }) {
   const surface = useRef<HTMLDivElement>(null);
+  const visibleRef = useRef(visible);
   const initialUrl = session.webUrl ?? `https://${session.host}`;
   const [address, setAddress] = useState(initialUrl);
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
@@ -18,6 +19,7 @@ export default function WebDeviceView({ tabId, session, visible, onClose }: { ta
   const [darkMode, setDarkMode] = useState(() => { try { return JSON.parse(localStorage.getItem('hedgecon-ui-settings') || '{}').browserTheme === 'dark'; } catch { return false; } });
 
   useEffect(() => { const listener = (event: Event) => setDarkMode((event as CustomEvent).detail?.browserTheme === 'dark'); window.addEventListener('hedgecon:ui-settings', listener); return () => window.removeEventListener('hedgecon:ui-settings', listener); }, []);
+  useEffect(() => { visibleRef.current = visible; }, [visible]);
 
   useEffect(() => {
     const element = surface.current; if (!element) return;
@@ -30,7 +32,7 @@ export default function WebDeviceView({ tabId, session, visible, onClose }: { ta
     });
     const removeCertificate = window.hedge.onBrowserCertificate(prompt => { if (prompt.tabId === tabId) setCertificatePrompt(prompt); });
     const resize = new ResizeObserver(updateBounds); resize.observe(element);
-    const modalObserver = new MutationObserver(() => window.hedge.setBrowserVisible(tabId, visible && !document.querySelector('.overlay') && !element.closest('.device-browser')?.querySelector('.browser-error'))); modalObserver.observe(document.body, { childList: true, subtree: true });
+    const modalObserver = new MutationObserver(() => window.hedge.setBrowserVisible(tabId, visibleRef.current && !document.querySelector('.overlay') && !element.closest('.device-browser')?.querySelector('.browser-error'))); modalObserver.observe(document.body, { childList: true, subtree: true });
     void window.hedge.createBrowser(tabId, initialUrl, bounds(element), darkMode).catch(reason => setError(reason instanceof Error ? reason.message : String(reason)));
     return () => { remove(); removeCertificate(); resize.disconnect(); modalObserver.disconnect(); window.hedge.destroyBrowser(tabId); };
   }, [tabId, initialUrl, session.name]);

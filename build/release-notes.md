@@ -1,4 +1,19 @@
-# HedgeCon v0.2.9-experimental.2
+# HedgeCon v0.2.9-experimental.3
+
+## Connection stability fixes
+
+- Keep SSH, web and VNC sessions mounted when switching tabs so live connections and page state are preserved.
+- Hide inactive embedded browser views without recreating them when their tab is selected again.
+- Coalesce simultaneous invalid-certificate requests into a single trust prompt.
+- Remember an accepted host and certificate fingerprint for the lifetime of its browser tab, then forget it when the tab closes.
+
+This remains an experimental release for testing connection stability and the macro organisation workflow. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.2
 
 ## Macro and update-page fixes
 

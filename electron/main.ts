@@ -130,7 +130,8 @@ const pendingTrust = new Map<string, (accepted: boolean) => void>();
 const pingMonitors = new Map<string, { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess; socket?: Socket }>();
 const browserViews = new Map<string, WebContentsView>();
 const configuredBrowserPartitions = new Set<string>();
-const pendingBrowserCertificates = new Map<string, (accepted: boolean) => void>();
+const pendingBrowserCertificates = new Map<string, { key: string; callbacks: Array<(accepted: boolean) => void> }>();
+const trustedBrowserCertificates = new Map<string, Set<string>>();
 const browserDarkCss = new Map<string, string>();
 const vncBridges = new Map<string, { server: WebSocketServer; sockets: Set<Socket> }>();
 let mainWindow: BrowserWindow | null = null;
@@ -185,7 +186,7 @@ function send(id: string, type: string, data: string) { sendToRenderer('ssh:even
 
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
 function destroyVncBridge(tabId: string) { const bridge = vncBridges.get(tabId); if (!bridge) return; vncBridges.delete(tabId); for (const socket of bridge.sockets) socket.destroy(); for (const client of bridge.server.clients) client.terminate(); bridge.server.close(); }
-function destroyBrowserView(tabId: string) { pendingBrowserCertificates.get(tabId)?.(false); pendingBrowserCertificates.delete(tabId); browserDarkCss.delete(tabId); const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
+function destroyBrowserView(tabId: string) { for (const callback of pendingBrowserCertificates.get(tabId)?.callbacks ?? []) callback(false); pendingBrowserCertificates.delete(tabId); trustedBrowserCertificates.delete(tabId); browserDarkCss.delete(tabId); const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
 function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
 
 const primaryInstance = app.requestSingleInstanceLock();
@@ -210,12 +211,17 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
   event.preventDefault();
   let host = url; try { host = new URL(url).host; } catch { /* Keep the supplied URL. */ }
   const [tabId] = browser;
-  pendingBrowserCertificates.get(tabId)?.(false);
-  pendingBrowserCertificates.set(tabId, callback);
+  const fingerprint = certificate.fingerprint || 'Unavailable';
+  const certificateKey = `${host}\n${fingerprint}`;
+  if (trustedBrowserCertificates.get(tabId)?.has(certificateKey)) { callback(true); return; }
+  const pending = pendingBrowserCertificates.get(tabId);
+  if (pending?.key === certificateKey) { pending.callbacks.push(callback); return; }
+  for (const previous of pending?.callbacks ?? []) previous(false);
+  pendingBrowserCertificates.set(tabId, { key: certificateKey, callbacks: [callback] });
   sendToRenderer('browser:certificate', { tabId, host, error, fingerprint: certificate.fingerprint || 'Unavailable', subject: certificate.subjectName || '', issuer: certificate.issuerName || '', validExpiry: certificate.validExpiry || 0 });
 });
 
-ipcMain.on('browser:certificate-response', (_event, tabId: string, accepted: boolean) => { const respond = pendingBrowserCertificates.get(tabId); if (!respond) return; pendingBrowserCertificates.delete(tabId); respond(Boolean(accepted)); });
+ipcMain.on('browser:certificate-response', (_event, tabId: string, accepted: boolean) => { const pending = pendingBrowserCertificates.get(tabId); if (!pending) return; pendingBrowserCertificates.delete(tabId); if (accepted) { const trusted = trustedBrowserCertificates.get(tabId) ?? new Set<string>(); trusted.add(pending.key); trustedBrowserCertificates.set(tabId, trusted); } for (const callback of pending.callbacks) callback(Boolean(accepted)); });
 
 function remoteTarget(value: unknown, port: unknown) { if (typeof value !== 'string' || !/^(?!-)[A-Za-z0-9._:-]{1,253}$/.test(value) || !Number.isInteger(port) || Number(port) < 1 || Number(port) > 65535) throw new Error('Invalid remote desktop target.'); return { host: value, port: Number(port) }; }
 function findExecutable(names: string[]) { const extensions = process.platform === 'win32' ? ['.exe', '.cmd', ''] : ['']; for (const directory of (process.env.PATH || '').split(path.delimiter)) for (const name of names) for (const extension of extensions) { const candidate = path.join(directory, `${name}${extension}`); try { fs.accessSync(candidate, fs.constants.X_OK); return candidate; } catch { /* Try the next client. */ } } return null; }
