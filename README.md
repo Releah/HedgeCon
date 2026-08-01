@@ -75,6 +75,16 @@ Node.js, pnpm and Electron do not need to be installed.
 
 Windows may warn when opening the current build because it is not yet code-signed. Confirm that the installer came from this repository before running it.
 
+### Code signing policy
+
+Windows release signing is being prepared through SignPath. Free code signing will be provided by [SignPath.io](https://signpath.io/), with a certificate issued to the [SignPath Foundation](https://signpath.org/).
+
+- Committer and reviewer: [@Releah](https://github.com/Releah)
+- Signing approver: [@Releah](https://github.com/Releah)
+- Source and release builds: [Releah/HedgeCon](https://github.com/Releah/HedgeCon)
+
+HedgeCon does not include advertising or telemetry. It communicates with networked systems only to perform a user-configured or user-initiated operation: SSH connections and monitoring, Git repository operations, opening external release links, and update checks against the public HedgeCon GitHub release feed. Automatic update checks can be disabled in **Settings → Application updates**. Credentials, private keys, terminal contents, session data and Wiki contents are not sent to HedgeCon or SignPath. See [Code signing and release process](docs/code-signing.md) for the complete release policy and verification procedure.
+
 ### Updates
 
 Installed builds check the public `Releah/HedgeCon` GitHub Releases feed after startup. Open **Settings → Application updates** to check manually, disable automatic checks, download an available release or restart to install one. HedgeCon never silently closes active SSH sessions: installing an update requires confirmation and warns when connections are open.

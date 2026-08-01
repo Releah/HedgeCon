@@ -132,8 +132,17 @@ const releaseUrl = 'https://github.com/Releah/HedgeCon/releases/latest';
 const portableBuild = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
 let updateStatus: UpdateStatus = { status: 'idle', currentVersion: app.getVersion(), portable: portableBuild, activeConnections: 0 };
 
+function sendToRenderer(channel: string, payload: unknown) {
+  const window = mainWindow;
+  if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+  try { window.webContents.send(channel, payload); }
+  catch (error) {
+    // Asynchronous SSH and monitor callbacks can race with window destruction.
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) throw error;
+  }
+}
 function releaseNotesText(info: UpdateInfo) { if (typeof info.releaseNotes === 'string') return info.releaseNotes.slice(0, 20_000); if (Array.isArray(info.releaseNotes)) return info.releaseNotes.map(note => `${note.version}: ${note.note ?? ''}`).join('\n\n').slice(0, 20_000); return undefined; }
-function publishUpdateStatus(patch: Partial<UpdateStatus>) { updateStatus = { ...updateStatus, ...patch, currentVersion: app.getVersion(), portable: portableBuild, activeConnections: connections.size }; mainWindow?.webContents.send('update:status', updateStatus); return updateStatus; }
+function publishUpdateStatus(patch: Partial<UpdateStatus>) { updateStatus = { ...updateStatus, ...patch, currentVersion: app.getVersion(), portable: portableBuild, activeConnections: connections.size }; sendToRenderer('update:status', updateStatus); return updateStatus; }
 function configureUpdates() {
   if (!app.isPackaged || portableBuild) { publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Portable builds notify you about releases but must be updated manually.' : 'Automatic updates are available in packaged builds.' }); return; }
   autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.allowDowngrade = false; autoUpdater.allowPrerelease = stored.updateSettings.branch === 'experimental';
@@ -160,10 +169,13 @@ function createWindow() {
   });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', event => event.preventDefault());
+  const window = mainWindow;
+  window.on('close', cleanupRuntime);
+  window.on('closed', () => { if (mainWindow === window) mainWindow = null; });
   if (devUrl) mainWindow.loadURL(devUrl); else mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
 }
 
-function send(id: string, type: string, data: string) { mainWindow?.webContents.send('ssh:event', { connectionId: id, type, data }); }
+function send(id: string, type: string, data: string) { sendToRenderer('ssh:event', { connectionId: id, type, data }); }
 
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
 function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
@@ -366,7 +378,7 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
         if (accepted) { stored.knownHosts[hostKey] = hash; writeStore(); }
         callback(accepted);
       });
-      mainWindow?.webContents.send('ssh:host-key', { connectionId: id, host: hostKey, fingerprint: hash, changed: Boolean(known) });
+      sendToRenderer('ssh:host-key', { connectionId: id, host: hostKey, fingerprint: hash, changed: Boolean(known) });
     }
   };
   if (authMethod === 'privateKey') {
@@ -405,7 +417,7 @@ ipcMain.handle('ping:start', (_event, host: string, requestedId: string) => {
       monitor.child = undefined;
       if (monitor.stopped) return;
       const match = stdout.match(/time[=<]?\s*([\d.]+)\s*ms/i); const latencyMs = !error ? (match ? Number(match[1]) : Math.max(1, Date.now() - started)) : null;
-      mainWindow?.webContents.send('ping:sample', { monitorId, timestamp: Date.now(), reachable: !error, latencyMs, error: error?.message });
+      sendToRenderer('ping:sample', { monitorId, timestamp: Date.now(), reachable: !error, latencyMs, error: error?.message });
       monitor.timer = setTimeout(probe, 1000);
     });
   };
@@ -417,7 +429,7 @@ ipcMain.handle('tcp-monitor:start', (_event, host: string, port: number, request
   const probe = () => {
     if (monitor.stopped) return;
     const started = Date.now(); const socket = new Socket(); monitor.socket = socket; let settled = false;
-    const finish = (reachable: boolean, error?: Error) => { if (settled) return; settled = true; socket.destroy(); monitor.socket = undefined; if (monitor.stopped) return; mainWindow?.webContents.send('ping:sample', { monitorId, timestamp: Date.now(), reachable, latencyMs: reachable ? Math.max(1, Date.now() - started) : null, error: error?.message }); monitor.timer = setTimeout(probe, 1000); };
+    const finish = (reachable: boolean, error?: Error) => { if (settled) return; settled = true; socket.destroy(); monitor.socket = undefined; if (monitor.stopped) return; sendToRenderer('ping:sample', { monitorId, timestamp: Date.now(), reachable, latencyMs: reachable ? Math.max(1, Date.now() - started) : null, error: error?.message }); monitor.timer = setTimeout(probe, 1000); };
     socket.setTimeout(1500); socket.once('connect', () => finish(true)); socket.once('timeout', () => finish(false, new Error('TCP connection timed out.'))); socket.once('error', error => finish(false, error)); socket.connect(port, host);
   };
   probe(); return { monitorId };

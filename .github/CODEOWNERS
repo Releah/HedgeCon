@@ -1,0 +1,3 @@
+# Release and signing configuration requires review by the project owner.
+/.github/workflows/ @Releah
+/.signpath/ @Releah

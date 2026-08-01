@@ -1,0 +1,97 @@
+name: Test SignPath Windows signing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  sign-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check SignPath configuration
+        shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+        run: |
+          $missing = @(
+            'SIGNPATH_API_TOKEN',
+            'SIGNPATH_ORGANIZATION_ID',
+            'SIGNPATH_PROJECT_SLUG',
+            'SIGNPATH_SIGNING_POLICY_SLUG',
+            'SIGNPATH_ARTIFACT_CONFIGURATION_SLUG'
+          ) | Where-Object { -not (Get-Item "Env:$_" -ErrorAction SilentlyContinue).Value }
+          if ($missing.Count) {
+            throw "Missing SignPath repository configuration: $($missing -join ', ')"
+          }
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read package version
+        id: package-version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build unsigned Windows packages
+        run: pnpm build && pnpm exec electron-builder --win nsis portable --x64 --publish never
+
+      - name: Stage SignPath input
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path signpath-input -Force | Out-Null
+          Copy-Item release/HedgeCon-Setup.exe signpath-input/HedgeCon-Setup.exe
+          Copy-Item release/HedgeCon.exe signpath-input/HedgeCon.exe
+
+      - name: Upload unsigned artifact
+        id: upload-unsigned-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: hedgecon-windows-unsigned
+          path: signpath-input/*
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Submit SignPath signing request
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signpath-output
+          parameters: |
+            version: ${{ toJSON(steps.package-version.outputs.value) }}
+
+      - name: Upload signed test artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: hedgecon-windows-signed
+          path: signpath-output/*
+          if-no-files-found: error
+          retention-days: 7
