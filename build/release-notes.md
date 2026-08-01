@@ -1,4 +1,24 @@
-# HedgeCon v0.2.8
+# HedgeCon v0.2.9-experimental.1
+
+## Organised macro libraries
+
+- Organise macros into unrestricted nested custom folders without changing their session-folder or platform favourites.
+- Resize the Commands library tree and remember its width.
+- Create top-level folders and subfolders, rename them, or safely delete them through matching right-click menus.
+- Promote macros and direct child folders one level when their parent folder is deleted.
+- Drag macros between folders or back into Unfiled.
+- Collapse library folders and persist their state between visits.
+- Display the same macro-folder hierarchy in active SSH sessions while retaining session-aware favourite filtering and search.
+- Remember the terminal macro tree's expanded and collapsed folders per session-library folder, so related sessions share a layout.
+- Preserve macro folders and assignments through inventory imports and application updates.
+
+This remains an experimental release for testing the new macro organisation workflow. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous stable release highlights
+
+## v0.2.8
 
 ## Command macros
 

@@ -3030,6 +3030,7 @@ export default function App() {
                           session={tab.session}
                           secret={tab.secret}
                           macros={data.macros ?? []}
+                          macroFolders={data.macroFolders ?? []}
                           folders={data.folders}
                           onManageMacros={() => setCommandsOpen(true)}
                           onClose={() => closeTab(tab.id)}
@@ -3214,8 +3215,11 @@ export default function App() {
       {commandsOpen && (
         <MacroLibrary
           macros={data.macros ?? []}
+          macroFolders={data.macroFolders ?? []}
           folders={data.folders}
           onChange={(macros) => persist({ ...data, macros })}
+          onFoldersChange={(macroFolders) => persist({ ...data, macroFolders })}
+          onWorkspaceChange={(macros, macroFolders) => persist({ ...data, macros, macroFolders })}
           onClose={() => setCommandsOpen(false)}
         />
       )}

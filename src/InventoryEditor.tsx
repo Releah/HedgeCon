@@ -239,6 +239,7 @@ export function yamlToInventory(
       folders,
       sessions,
       macros: current.macros,
+      macroFolders: current.macroFolders,
       credentialProfileMappings: current.credentialProfileMappings,
       inventorySettings: current.inventorySettings,
       uiSettings: current.uiSettings,
