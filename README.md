@@ -77,7 +77,7 @@ Windows may warn when opening the current build because it is not yet code-signe
 
 ### Code signing policy
 
-Windows release signing is being prepared through SignPath. Free code signing will be provided by [SignPath.io](https://signpath.io/), with a certificate issued to the [SignPath Foundation](https://signpath.org/).
+Windows release signing is being prepared through SignPath. **Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).**
 
 - Committer and reviewer: [@Releah](https://github.com/Releah)
 - Signing approver: [@Releah](https://github.com/Releah)

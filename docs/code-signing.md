@@ -2,7 +2,7 @@
 
 ## Policy
 
-Free code signing is provided by [SignPath.io](https://signpath.io/), with a certificate issued to the [SignPath Foundation](https://signpath.org/).
+**Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).**
 
 - Repository: <https://github.com/Releah/HedgeCon>
 - Committer and reviewer: [@Releah](https://github.com/Releah)
