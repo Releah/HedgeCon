@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('hedge', {
   clearAllKnownHosts: () => ipcRenderer.invoke('host-key:clear-all'),
   getSecureStorageStatus: () => ipcRenderer.invoke('security:storage-status'),
   listCredentialSets: () => ipcRenderer.invoke('credentials:list'),
+  getRemoteCredential: (id: string) => ipcRenderer.invoke('credentials:remote', id),
   saveCredentialSet: (input: unknown) => ipcRenderer.invoke('credentials:save', input),
   deleteCredentialSet: (id: string) => ipcRenderer.invoke('credentials:delete', id),
   onSshEvent: (callback: (event: unknown) => void) => {
@@ -72,7 +73,7 @@ contextBridge.exposeInMainWorld('hedge', {
     ipcRenderer.on('ping:sample', listener); return () => ipcRenderer.removeListener('ping:sample', listener);
   },
   createBrowser: (tabId: string, url: string, bounds: unknown, darkMode: boolean) => ipcRenderer.invoke('browser:create', tabId, url, bounds, darkMode),
-  openRemoteDesktop: (protocol: 'rdp' | 'vnc', host: string, port: number, username?: string, preferredClient?: string) => ipcRenderer.invoke('remote-desktop:open', protocol, host, port, username, preferredClient),
+  openRemoteDesktop: (protocol: 'rdp' | 'vnc', host: string, port: number, username?: string, preferredClient?: string, display?: unknown) => ipcRenderer.invoke('remote-desktop:open', protocol, host, port, username, preferredClient, display),
   createVncBridge: (tabId: string, host: string, port: number) => ipcRenderer.invoke('vnc:create', tabId, host, port),
   destroyVncBridge: (tabId: string) => ipcRenderer.send('vnc:destroy', tabId),
   setBrowserDarkMode: (tabId: string, enabled: boolean) => ipcRenderer.invoke('browser:dark-mode', tabId, enabled),

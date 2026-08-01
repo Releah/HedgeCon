@@ -1,4 +1,4 @@
-import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
+import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UiSettings, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -55,6 +55,7 @@ declare global {
     clearAllKnownHosts(): Promise<number>;
     getSecureStorageStatus(): Promise<SecureStorageStatus>;
     listCredentialSets(): Promise<CredentialSet[]>;
+    getRemoteCredential(id: string): Promise<{ username: string; password: string }>;
     saveCredentialSet(input: CredentialSetInput): Promise<CredentialSet>;
     deleteCredentialSet(id: string): Promise<boolean>;
     onSshEvent(callback: (event: SshEvent) => void): () => void;
@@ -64,7 +65,7 @@ declare global {
     stopPing(monitorId: string): void;
     onPingSample(callback: (sample: PingSample) => void): () => void;
     createBrowser(tabId: string, url: string, bounds: { x: number; y: number; width: number; height: number }, darkMode: boolean): Promise<boolean>;
-    openRemoteDesktop(protocol: 'rdp' | 'vnc', host: string, port: number, username?: string, preferredClient?: 'auto' | 'remmina' | 'freerdp'): Promise<{ client: string; installed?: boolean }>;
+    openRemoteDesktop(protocol: 'rdp' | 'vnc', host: string, port: number, username?: string, preferredClient?: 'auto' | 'remmina' | 'freerdp', display?: { resolution: UiSettings['remoteDesktopResolution']; fullscreen: boolean }): Promise<{ client: string; installed?: boolean }>;
     createVncBridge(tabId: string, host: string, port: number): Promise<{ url: string }>;
     destroyVncBridge(tabId: string): void;
     setBrowserDarkMode(tabId: string, enabled: boolean): Promise<boolean>;

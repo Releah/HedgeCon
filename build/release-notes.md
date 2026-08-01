@@ -1,4 +1,20 @@
-# HedgeCon v0.2.8-experimental.2
+# HedgeCon v0.2.8-experimental.3
+
+## Session library and connection refinements
+
+- Resize the session-library sidebar with a persisted width and cleaner, smaller navigation typography.
+- Keep long folder names on one line with ellipsis truncation and full-name hover text.
+- Delete folders from a right-click context menu; sessions and child folders safely move up one level.
+- Replace session-card text actions with compact icons and keep connection buttons aligned as services are added.
+- Configure HTTP(S) as an explicit session service so its address is shown only when Web access is enabled.
+- Assign a separate saved credential set to RDP and VNC sessions without placing passwords on command lines.
+- Choose a default remote-desktop resolution and fullscreen preference in Settings.
+
+This remains an experimental release. Its Windows binaries are unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
 
 ## Session services and interface polish
 

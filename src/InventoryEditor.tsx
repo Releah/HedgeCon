@@ -34,7 +34,7 @@ const text = (value: unknown, fallback = "") =>
       ? String(value)
       : fallback;
 const validOptionalPort = (value: unknown) => { const port = Number(value); return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : undefined; };
-const inventoryServices = (value: unknown, rdpPort?: number, vncPort?: number): ConnectionService[] => { const allowed = new Set<ConnectionService>(["ssh", "rdp", "vnc"]); if (Array.isArray(value)) { const services = value.filter((item): item is ConnectionService => typeof item === "string" && allowed.has(item as ConnectionService)); if (services.length) return [...new Set(services)]; } return ["ssh", ...(rdpPort ? ["rdp" as const] : []), ...(vncPort ? ["vnc" as const] : [])]; };
+const inventoryServices = (value: unknown, webUrl?: string, rdpPort?: number, vncPort?: number): ConnectionService[] => { const allowed = new Set<ConnectionService>(["ssh", "web", "rdp", "vnc"]); if (Array.isArray(value)) { const services = value.filter((item): item is ConnectionService => typeof item === "string" && allowed.has(item as ConnectionService)); if (services.length) return [...new Set(services)]; } return ["ssh", ...(webUrl ? ["web" as const] : []), ...(rdpPort ? ["rdp" as const] : []), ...(vncPort ? ["vnc" as const] : [])]; };
 const slug = (value: string) =>
   value
     .trim()
@@ -77,7 +77,7 @@ export function inventoryToYaml(data: AppData, credentials: CredentialSet[]) {
       if (session.webUrl?.trim()) host.hedgecon_web_url = session.webUrl.trim();
       if (session.rdpPort) host.hedgecon_rdp_port = session.rdpPort;
       if (session.vncPort) host.hedgecon_vnc_port = session.vncPort;
-      host.hedgecon_services = session.services?.length ? session.services : ["ssh", ...(session.rdpPort ? ["rdp"] : []), ...(session.vncPort ? ["vnc"] : [])];
+      host.hedgecon_services = session.services?.length ? session.services : ["ssh", ...(session.webUrl ? ["web"] : []), ...(session.rdpPort ? ["rdp"] : []), ...(session.vncPort ? ["vnc"] : [])];
       output[uniqueKey(session.name, used)] = host;
     }
     return output;
@@ -214,13 +214,14 @@ export function yamlToInventory(
           webUrl: text(hostVars.hedgecon_web_url) || undefined,
           rdpPort,
           vncPort,
-          services: inventoryServices(hostVars.hedgecon_services, rdpPort, vncPort),
+          services: inventoryServices(hostVars.hedgecon_services, text(hostVars.hedgecon_web_url) || undefined, rdpPort, vncPort),
           username: mappedCredential?.username ?? text(hostVars.ansible_user),
           folderId,
           authMethod,
           privateKeyPath:
             mappedCredential?.privateKeyPath ?? legacyPrivateKeyPath,
           credentialSetId,
+          remoteCredentialSetId: existing?.remoteCredentialSetId ?? null,
           credentialProfile: credentialProfile || undefined,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,

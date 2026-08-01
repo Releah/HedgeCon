@@ -6,6 +6,8 @@ import {
   useLayoutEffect,
   useMemo,
   useState,
+  type CSSProperties,
+  type ReactNode,
 } from "react";
 import { createRoot } from "react-dom/client";
 import type {
@@ -38,6 +40,8 @@ const defaultUiSettings: UiSettings = {
   theme: "midnight",
   browserTheme: "normal",
   linuxRdpClient: "auto",
+  remoteDesktopResolution: "native",
+  remoteDesktopFullscreen: false,
   terminalDefault: "#080c12",
   terminalForeground: "#d7e0ea",
   terminalMeanings: [
@@ -55,8 +59,65 @@ type SettingsSection =
   | "updates"
   | "privacy";
 const id = () => crypto.randomUUID();
-const sessionServices = (session: Session): ConnectionService[] => session.services?.length ? session.services : ["ssh", ...(session.rdpPort ? ["rdp" as const] : []), ...(session.vncPort ? ["vnc" as const] : [])];
-const hasService = (session: Session, service: ConnectionService) => sessionServices(session).includes(service);
+const sessionServices = (session: Session): ConnectionService[] =>
+  session.services?.length
+    ? session.services
+    : [
+        "ssh",
+        ...(session.webUrl ? ["web" as const] : []),
+        ...(session.rdpPort ? ["rdp" as const] : []),
+        ...(session.vncPort ? ["vnc" as const] : []),
+      ];
+const hasService = (session: Session, service: ConnectionService) =>
+  sessionServices(session).includes(service);
+
+function CardAction({
+  label,
+  onClick,
+  children,
+  danger = false,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={`card-action ${danger ? "danger" : ""}`}
+      aria-label={label}
+      data-tooltip={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+const EditIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 20h4l11-11-4-4L4 16v4Zm9.5-13.5 4 4" />
+  </svg>
+);
+const CloneIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="8" y="8" width="11" height="11" rx="2" />
+    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+  </svg>
+);
+const ForgetFingerprintIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M8 10a4 4 0 0 1 7-2.6M7 14c0 3-1 4-1 4m5-7a2 2 0 0 1 2 2c0 4-1 6-2 7m5-9c1 5-1 8-2 10M5 11a7 7 0 0 1 1.1-3.8M3 3l18 18" />
+  </svg>
+);
+const DeleteIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
+  </svg>
+);
 const flattenFolders = (
   folders: Folder[],
   parentId: string | null = null,
@@ -142,19 +203,33 @@ function SessionDialog({
     username: session?.username ?? "",
     folderId: session?.folderId ?? "",
     credentialSetId: session?.credentialSetId ?? "",
+    remoteCredentialSetId: session?.remoteCredentialSetId ?? "",
     credentialProfile: session?.credentialProfile ?? "",
     authMethod: session?.authMethod ?? ("password" as AuthMethod),
     privateKeyPath: session?.privateKeyPath ?? "",
     sshEnabled: initialServices.includes("ssh"),
+    webEnabled: initialServices.includes("web"),
     rdpEnabled: initialServices.includes("rdp"),
     vncEnabled: initialServices.includes("vnc"),
   });
-  const hasSelectedService = form.sshEnabled || form.rdpEnabled || form.vncEnabled;
+  const hasSelectedService =
+    form.sshEnabled || form.webEnabled || form.rdpEnabled || form.vncEnabled;
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const services: ConnectionService[] = [form.sshEnabled && "ssh", form.rdpEnabled && "rdp", form.vncEnabled && "vnc"].filter((service): service is ConnectionService => Boolean(service));
+    const services: ConnectionService[] = [
+      form.sshEnabled && "ssh",
+      form.webEnabled && "web",
+      form.rdpEnabled && "rdp",
+      form.vncEnabled && "vnc",
+    ].filter((service): service is ConnectionService => Boolean(service));
     if (!services.length) return;
-    const { sshEnabled: _sshEnabled, rdpEnabled: _rdpEnabled, vncEnabled: _vncEnabled, ...sessionForm } = form;
+    const {
+      sshEnabled: _sshEnabled,
+      webEnabled: _webEnabled,
+      rdpEnabled: _rdpEnabled,
+      vncEnabled: _vncEnabled,
+      ...sessionForm
+    } = form;
     const now = new Date().toISOString();
     onSave({
       id: session && !cloning ? session.id : id(),
@@ -163,11 +238,12 @@ function SessionDialog({
       ...sessionForm,
       services,
       port: Number(form.port),
-      webUrl: form.webUrl.trim() || undefined,
+      webUrl: form.webEnabled ? form.webUrl.trim() || undefined : undefined,
       rdpPort: form.rdpEnabled ? form.rdpPort || 3389 : undefined,
       vncPort: form.vncEnabled ? form.vncPort || 5900 : undefined,
       folderId: form.folderId || null,
       credentialSetId: form.credentialSetId || null,
+      remoteCredentialSetId: form.remoteCredentialSetId || null,
       credentialProfile: form.credentialProfile.trim() || undefined,
     });
   };
@@ -199,7 +275,49 @@ function SessionDialog({
             placeholder="Production API"
           />
         </label>
-        <fieldset className="service-selector"><legend>Connection services</legend>{([['ssh', 'SSH', '›_'], ['rdp', 'RDP', '▣'], ['vnc', 'VNC', '◉']] as const).map(([service, label, icon]) => { const key = `${service}Enabled` as 'sshEnabled' | 'rdpEnabled' | 'vncEnabled'; return <label key={service} className={form[key] ? 'active' : ''}><input type="checkbox" checked={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.checked, ...(service === 'rdp' && event.target.checked && !form.rdpPort ? { rdpPort: 3389 } : {}), ...(service === 'vnc' && event.target.checked && !form.vncPort ? { vncPort: 5900 } : {}) })} /><span>{icon}</span><strong>{label}</strong></label>; })}</fieldset>
+        <fieldset className="service-selector">
+          <legend>Connection services</legend>
+          {(
+            [
+              ["ssh", "SSH", "›_"],
+              ["web", "Web", "🌐"],
+              ["rdp", "RDP", "▣"],
+              ["vnc", "VNC", "◉"],
+            ] as const
+          ).map(([service, label, icon]) => {
+            const key = `${service}Enabled` as
+              | "sshEnabled"
+              | "webEnabled"
+              | "rdpEnabled"
+              | "vncEnabled";
+            return (
+              <label key={service} className={form[key] ? "active" : ""}>
+                <input
+                  type="checkbox"
+                  checked={form[key]}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      [key]: event.target.checked,
+                      ...(service === "rdp" &&
+                      event.target.checked &&
+                      !form.rdpPort
+                        ? { rdpPort: 3389 }
+                        : {}),
+                      ...(service === "vnc" &&
+                      event.target.checked &&
+                      !form.vncPort
+                        ? { vncPort: 5900 }
+                        : {}),
+                    })
+                  }
+                />
+                <span>{icon}</span>
+                <strong>{label}</strong>
+              </label>
+            );
+          })}
+        </fieldset>
         <div className={form.sshEnabled ? "split" : "host-only-field"}>
           <label>
             Host
@@ -210,51 +328,90 @@ function SessionDialog({
               placeholder="server.example.com"
             />
           </label>
-          {form.sshEnabled && <label className="port">
-            Port
-            <input
-              required
-              min="1"
-              max="65535"
-              type="number"
-              value={form.port}
-              onChange={(e) => setForm({ ...form, port: +e.target.value })}
-            />
-          </label>}
+          {form.sshEnabled && (
+            <label className="port">
+              Port
+              <input
+                required
+                min="1"
+                max="65535"
+                type="number"
+                value={form.port}
+                onChange={(e) => setForm({ ...form, port: +e.target.value })}
+              />
+            </label>
+          )}
         </div>
-        <label>
-          Device web address <em>optional</em>
+        {form.webEnabled && <label>
+          Device web address
           <input
+            required
             type="url"
             value={form.webUrl}
             onChange={(e) => setForm({ ...form, webUrl: e.target.value })}
             placeholder={`https://${form.host || "device.example.com"}`}
           />
-        </label>
-        {(form.rdpEnabled || form.vncEnabled) && <div className={`split remote-port-fields ${form.rdpEnabled !== form.vncEnabled ? 'single' : ''}`}>
-          {form.rdpEnabled && <label>
-            RDP port <em>optional</em>
-            <input
-              type="number"
-              min="0"
-              max="65535"
-              value={form.rdpPort}
-              onChange={(e) => setForm({ ...form, rdpPort: +e.target.value })}
-              placeholder="3389"
-            />
-          </label>}
-          {form.vncEnabled && <label>
-            VNC port <em>optional</em>
-            <input
-              type="number"
-              min="0"
-              max="65535"
-              value={form.vncPort}
-              onChange={(e) => setForm({ ...form, vncPort: +e.target.value })}
-              placeholder="5900"
-            />
-          </label>}
-        </div>}
+        </label>}
+        {(form.rdpEnabled || form.vncEnabled) && (
+          <div
+            className={`split remote-port-fields ${form.rdpEnabled !== form.vncEnabled ? "single" : ""}`}
+          >
+            {form.rdpEnabled && (
+              <label>
+                RDP port <em>optional</em>
+                <input
+                  type="number"
+                  min="0"
+                  max="65535"
+                  value={form.rdpPort}
+                  onChange={(e) =>
+                    setForm({ ...form, rdpPort: +e.target.value })
+                  }
+                  placeholder="3389"
+                />
+              </label>
+            )}
+            {form.vncEnabled && (
+              <label>
+                VNC port <em>optional</em>
+                <input
+                  type="number"
+                  min="0"
+                  max="65535"
+                  value={form.vncPort}
+                  onChange={(e) =>
+                    setForm({ ...form, vncPort: +e.target.value })
+                  }
+                  placeholder="5900"
+                />
+              </label>
+            )}
+          </div>
+        )}
+        {(form.rdpEnabled || form.vncEnabled) && (
+          <label>
+            Remote desktop credentials <em>optional</em>
+            <select
+              value={form.remoteCredentialSetId}
+              onChange={(event) =>
+                setForm({ ...form, remoteCredentialSetId: event.target.value })
+              }
+            >
+              <option value="">Ask when connecting</option>
+              {credentials
+                .filter((credential) => credential.authMethod === "password")
+                .map((credential) => (
+                  <option key={credential.id} value={credential.id}>
+                    {credential.name} ({credential.username})
+                  </option>
+                ))}
+            </select>
+            <small className="field-note">
+              VNC can use the saved password. RDP prefills the username and lets
+              the native client request the password securely.
+            </small>
+          </label>
+        )}
         <label>
           Folder
           <select
@@ -270,85 +427,113 @@ function SessionDialog({
             ))}
           </select>
         </label>
-        {form.sshEnabled && <><label>
-          Credentials
-          <select
-            value={form.credentialSetId}
-            onChange={(e) =>
-              setForm({ ...form, credentialSetId: e.target.value })
-            }
-          >
-            <option value="">Session-specific credentials</option>
-            {credentials.map((credential) => (
-              <option key={credential.id} value={credential.id}>
-                {credential.name} ({credential.username})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Shared credential profile <em>optional</em>
-          <input
-            list="shared-credential-profiles"
-            pattern="[A-Za-z0-9._-]+"
-            value={form.credentialProfile}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                credentialProfile: e.target.value.toLowerCase(),
-              })
-            }
-            placeholder="Choose existing or enter a new profile"
-          />
-          <datalist id="shared-credential-profiles">
-            {credentialProfiles.map((profile) => (
-              <option key={profile} value={profile} />
-            ))}
-          </datalist>
-        </label>
-        {!form.credentialSetId && (
+        {form.sshEnabled && (
           <>
             <label>
-              Username
-              <input
-                required
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                placeholder="deploy"
-              />
-            </label>
-            <label>
-              Authentication
+              Credentials
               <select
-                value={form.authMethod}
+                value={form.credentialSetId}
                 onChange={(e) =>
-                  setForm({ ...form, authMethod: e.target.value as AuthMethod })
+                  setForm({ ...form, credentialSetId: e.target.value })
                 }
               >
-                <option value="password">Password (ask when connecting)</option>
-                <option value="privateKey">Private key</option>
+                <option value="">Session-specific credentials</option>
+                {credentials.map((credential) => (
+                  <option key={credential.id} value={credential.id}>
+                    {credential.name} ({credential.username})
+                  </option>
+                ))}
               </select>
             </label>
-            {form.authMethod === "privateKey" && (
-              <label>
-                Private key
-                <PrivateKeyPicker
-                  value={form.privateKeyPath}
-                  onChange={(privateKeyPath) =>
-                    setForm({ ...form, privateKeyPath })
-                  }
-                />
-              </label>
+            <label>
+              Shared credential profile <em>optional</em>
+              <input
+                list="shared-credential-profiles"
+                pattern="[A-Za-z0-9._-]+"
+                value={form.credentialProfile}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    credentialProfile: e.target.value.toLowerCase(),
+                  })
+                }
+                placeholder="Choose existing or enter a new profile"
+              />
+              <datalist id="shared-credential-profiles">
+                {credentialProfiles.map((profile) => (
+                  <option key={profile} value={profile} />
+                ))}
+              </datalist>
+            </label>
+            {!form.credentialSetId && (
+              <>
+                <label>
+                  Username
+                  <input
+                    required
+                    value={form.username}
+                    onChange={(e) =>
+                      setForm({ ...form, username: e.target.value })
+                    }
+                    placeholder="deploy"
+                  />
+                </label>
+                <label>
+                  Authentication
+                  <select
+                    value={form.authMethod}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        authMethod: e.target.value as AuthMethod,
+                      })
+                    }
+                  >
+                    <option value="password">
+                      Password (ask when connecting)
+                    </option>
+                    <option value="privateKey">Private key</option>
+                  </select>
+                </label>
+                {form.authMethod === "privateKey" && (
+                  <label>
+                    Private key
+                    <PrivateKeyPicker
+                      value={form.privateKeyPath}
+                      onChange={(privateKeyPath) =>
+                        setForm({ ...form, privateKeyPath })
+                      }
+                    />
+                  </label>
+                )}
+              </>
             )}
           </>
-        )}</>}
-        {!form.sshEnabled && form.rdpEnabled && <label>RDP username <em>optional</em><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="DOMAIN\\username" /></label>}
-        {form.sshEnabled && <p className="hint">
-          The shared profile is written to inventory YAML; usernames, passwords,
-          and key paths stay local. Other users map the same profile to their
-          own credential set.
-        </p>}
-        {!hasSelectedService && <p className="service-error">Choose at least one connection service.</p>}
+        )}
+        {!form.sshEnabled && form.rdpEnabled && (
+          <label>
+            RDP username <em>optional</em>
+            <input
+              value={form.username}
+              onChange={(event) =>
+                setForm({ ...form, username: event.target.value })
+              }
+              placeholder="DOMAIN\\username"
+            />
+          </label>
+        )}
+        {form.sshEnabled && (
+          <p className="hint">
+            The shared profile is written to inventory YAML; usernames,
+            passwords, and key paths stay local. Other users map the same
+            profile to their own credential set.
+          </p>
+        )}
+        {!hasSelectedService && (
+          <p className="service-error">
+            Choose at least one connection service.
+          </p>
+        )}
         <div className="actions">
           {session && !cloning && (
             <button
@@ -368,7 +553,11 @@ function SessionDialog({
           <button type="button" className="secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!hasSelectedService}>
+          <button
+            type="submit"
+            className="primary"
+            disabled={!hasSelectedService}
+          >
             {cloning ? "Create clone" : "Save session"}
           </button>
         </div>
@@ -1390,7 +1579,8 @@ function SettingsDialog({
               <div className="folder-settings">
                 <h3>Session folders</h3>
                 <p>
-                  Deleting a folder moves its sessions to the parent folder.
+                  Deleting a folder moves its sessions and child folders up one
+                  level.
                 </p>
                 {folders.map((folder) => (
                   <div key={folder.id}>
@@ -1447,11 +1637,68 @@ function SettingsDialog({
                   </select>
                 </div>
                 <div className="settings-section browser-theme-setting">
-                  <div><h3>Linux RDP client</h3><p>Choose the native client HedgeCon should prefer. Automatic uses Remmina first, then FreeRDP.</p></div>
-                  <select value={uiSettings.linuxRdpClient} onChange={(event) => onUiSettings({ ...uiSettings, linuxRdpClient: event.target.value as UiSettings["linuxRdpClient"] })}>
-                    <option value="auto">Automatic</option><option value="remmina">Remmina</option><option value="freerdp">FreeRDP</option>
+                  <div>
+                    <h3>Linux RDP client</h3>
+                    <p>
+                      Choose the native client HedgeCon should prefer. Automatic
+                      uses Remmina first, then FreeRDP.
+                    </p>
+                  </div>
+                  <select
+                    value={uiSettings.linuxRdpClient}
+                    onChange={(event) =>
+                      onUiSettings({
+                        ...uiSettings,
+                        linuxRdpClient: event.target
+                          .value as UiSettings["linuxRdpClient"],
+                      })
+                    }
+                  >
+                    <option value="auto">Automatic</option>
+                    <option value="remmina">Remmina</option>
+                    <option value="freerdp">FreeRDP</option>
                   </select>
                 </div>
+                <div className="settings-section remote-display-setting">
+                  <div>
+                    <h3>Remote desktop resolution</h3>
+                    <p>
+                      Default display size requested when opening RDP. VNC
+                      continues to scale to its available workspace.
+                    </p>
+                  </div>
+                  <select
+                    value={uiSettings.remoteDesktopResolution}
+                    onChange={(event) =>
+                      onUiSettings({
+                        ...uiSettings,
+                        remoteDesktopResolution: event.target
+                          .value as UiSettings["remoteDesktopResolution"],
+                      })
+                    }
+                  >
+                    <option value="native">Use available display</option>
+                    <option value="1920x1080">1920 × 1080</option>
+                    <option value="1600x900">1600 × 900</option>
+                    <option value="1366x768">1366 × 768</option>
+                    <option value="1280x720">1280 × 720</option>
+                  </select>
+                </div>
+                <label className="update-toggle remote-fullscreen-toggle">
+                  <input
+                    type="checkbox"
+                    checked={uiSettings.remoteDesktopFullscreen}
+                    onChange={(event) =>
+                      onUiSettings({
+                        ...uiSettings,
+                        remoteDesktopFullscreen: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>
+                    Open remote desktop connections full screen by default
+                  </span>
+                </label>
               </>
             )}
             {section === "terminal" && (
@@ -1833,6 +2080,11 @@ export default function App() {
   const [pendingSession, setPendingSession] = useState<Session | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+  const [folderContextMenu, setFolderContextMenu] = useState<{
+    folder: Folder;
+    x: number;
+    y: number;
+  } | null>(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(
@@ -1847,6 +2099,10 @@ export default function App() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [credentials, setCredentials] = useState<CredentialSet[]>([]);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [sessionSidebarWidth, setSessionSidebarWidth] = useState(() => {
+    const saved = Number(localStorage.getItem("hedgecon-session-sidebar-width"));
+    return Number.isFinite(saved) && saved >= 190 && saved <= 420 ? saved : 250;
+  });
   useEffect(() => {
     Promise.all([
       window.hedge.loadData(),
@@ -2013,32 +2269,48 @@ export default function App() {
     setCreatingFolder(false);
   };
   const deleteFolder = (folder: Folder) => {
-    const childIds = new Set<string>();
-    const collect = (parent: string) =>
-      data.folders
-        .filter((item) => item.parentId === parent)
-        .forEach((item) => {
-          childIds.add(item.id);
-          collect(item.id);
-        });
-    collect(folder.id);
-    childIds.add(folder.id);
+    const parentId = folder.parentId ?? null;
+    const now = new Date().toISOString();
     persist({
       ...data,
-      folders: data.folders.filter((item) => !childIds.has(item.id)),
+      folders: data.folders
+        .filter((item) => item.id !== folder.id)
+        .map((item) =>
+          item.parentId === folder.id ? { ...item, parentId } : item,
+        ),
       sessions: data.sessions.map((session) =>
-        childIds.has(session.folderId ?? "")
+        session.folderId === folder.id
           ? {
               ...session,
-              folderId: folder.parentId ?? null,
-              updatedAt: new Date().toISOString(),
+              folderId: parentId,
+              updatedAt: now,
             }
           : session,
       ),
     });
-    setSelectedFolder(folder.parentId ?? "all");
+    setCollapsedFolders((current) => {
+      const next = new Set(current);
+      next.delete(folder.id);
+      return next;
+    });
+    setSelectedFolder(parentId ?? "all");
     setFolderToDelete(null);
   };
+  useEffect(() => {
+    if (!folderContextMenu) return;
+    const close = () => setFolderContextMenu(null);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("blur", close);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("blur", close);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [folderContextMenu]);
   useLayoutEffect(() => {
     const cards = Array.from(
       document.querySelectorAll<HTMLElement>(".session-card"),
@@ -2058,46 +2330,7 @@ export default function App() {
       };
       menu.insertBefore(button, menu.children[1] ?? null);
     });
-    const displayedFolders: Folder[] = [];
-    const collectVisible = (
-      parentId: string | null = null,
-      seen = new Set<string>(),
-    ) =>
-      data.folders
-        .filter(
-          (folder) =>
-            (folder.parentId ?? null) === parentId && !seen.has(folder.id),
-        )
-        .forEach((folder) => {
-          displayedFolders.push(folder);
-          if (!collapsedFolders.has(folder.id))
-            collectVisible(folder.id, new Set(seen).add(folder.id));
-        });
-    collectVisible();
-    const folderRows = Array.from(
-      document.querySelectorAll<HTMLElement>("main > aside nav > button"),
-    ).filter((row) => row.querySelector(".folder-toggle"));
-    folderRows.forEach((row, index) => {
-      const folder = displayedFolders[index];
-      if (!folder || row.querySelector(".delete-folder-row")) return;
-      const button = document.createElement("span");
-      button.className = "delete-folder-row";
-      button.role = "button";
-      button.tabIndex = 0;
-      button.textContent = "×";
-      button.title = `Delete ${folder.name}`;
-      const removeFolder = (event: Event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        setFolderToDelete(folder);
-      };
-      button.onclick = removeFolder;
-      button.onkeydown = (event) => {
-        if (event.key === "Enter" || event.key === " ") removeFolder(event);
-      };
-      row.appendChild(button);
-    });
-  }, [visible, data.folders, collapsedFolders]);
+  }, [visible]);
   const moveSession = (sessionId: string, folderId: string | null) => {
     if (!sessionId) return;
     const now = new Date().toISOString();
@@ -2170,8 +2403,19 @@ export default function App() {
       ...data,
       credentialProfileMappings: mappings,
       sessions: data.sessions.map((session) =>
-        session.credentialSetId === credentialId
-          ? { ...session, credentialSetId: null }
+        session.credentialSetId === credentialId ||
+        session.remoteCredentialSetId === credentialId
+          ? {
+              ...session,
+              credentialSetId:
+                session.credentialSetId === credentialId
+                  ? null
+                  : session.credentialSetId,
+              remoteCredentialSetId:
+                session.remoteCredentialSetId === credentialId
+                  ? null
+                  : session.remoteCredentialSetId,
+            }
           : session,
       ),
     });
@@ -2197,15 +2441,43 @@ export default function App() {
     showTab({ id: id(), session, kind: "web" });
   };
   const openVncTab = (session: Session) => {
-    if (!session.vncPort) return notify("Add a VNC port to this session first.");
+    if (!session.vncPort)
+      return notify("Add a VNC port to this session first.");
     showTab({ id: id(), session, kind: "vnc" });
   };
   const openRdp = async (session: Session) => {
-    if (!session.rdpPort) return notify("Add an RDP port to this session first.");
-    try { const result = await window.hedge.openRemoteDesktop("rdp", session.host, session.rdpPort, session.username, uiSettings.linuxRdpClient); notify(result.installed ? `${result.client} was installed. Select RDP again to connect.` : `${result.client} opened for ${session.name}.`); }
-    catch (error) { notify(error instanceof Error ? error.message : String(error)); }
+    if (!session.rdpPort)
+      return notify("Add an RDP port to this session first.");
+    const remoteCredential = credentials.find(
+      (credential) => credential.id === session.remoteCredentialSetId,
+    );
+    try {
+      const result = await window.hedge.openRemoteDesktop(
+        "rdp",
+        session.host,
+        session.rdpPort,
+        remoteCredential?.username || session.username,
+        uiSettings.linuxRdpClient,
+        {
+          resolution: uiSettings.remoteDesktopResolution,
+          fullscreen: uiSettings.remoteDesktopFullscreen,
+        },
+      );
+      notify(
+        result.installed
+          ? `${result.client} was installed. Select RDP again to connect.`
+          : `${result.client} opened for ${session.name}.`,
+      );
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error));
+    }
   };
-  const openPreferredService = (session: Session) => { if (hasService(session, "ssh")) return void connect(session); if (hasService(session, "rdp")) return void openRdp(session); if (hasService(session, "vnc")) openVncTab(session); };
+  const openPreferredService = (session: Session) => {
+    if (hasService(session, "ssh")) return void connect(session);
+    if (hasService(session, "web")) return void openWebTab(session);
+    if (hasService(session, "rdp")) return void openRdp(session);
+    if (hasService(session, "vnc")) openVncTab(session);
+  };
   const paneIds = [activeTabId, secondaryTabId, ...additionalPaneIds].filter(
     (value, index, all): value is string =>
       Boolean(value) && all.indexOf(value) === index,
@@ -2384,6 +2656,7 @@ export default function App() {
                 : folder.name
             }
             onClick={() => {
+              setFolderContextMenu(null);
               setSelectedFolder(folder.id);
               setLibraryOpen(true);
               if (hasChildren)
@@ -2393,6 +2666,15 @@ export default function App() {
                   else next.add(folder.id);
                   return next;
                 });
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setFolderContextMenu({
+                folder,
+                x: Math.min(event.clientX, window.innerWidth - 170),
+                y: Math.min(event.clientY, window.innerHeight - 70),
+              });
             }}
             onDragOver={(e) => {
               e.preventDefault();
@@ -2410,7 +2692,9 @@ export default function App() {
             >
               {hasChildren ? (collapsed ? "▸" : "▾") : "▰"}
             </span>
-            <span>{folder.name}</span>
+            <span className="folder-name" title={folder.name}>
+              {folder.name}
+            </span>
             <em>
               {data.sessions.filter((s) => s.folderId === folder.id).length}
             </em>
@@ -2453,7 +2737,13 @@ export default function App() {
       </Suspense>
     );
   return (
-    <main>
+    <main
+      style={
+        {
+          "--session-sidebar-width": `${sessionSidebarWidth}px`,
+        } as CSSProperties
+      }
+    >
       <aside>
         <div className="brand">
           <img src="./hedgecon-logo.png" alt="" />
@@ -2523,6 +2813,35 @@ export default function App() {
           ⚙ <span>Settings</span>
         </button>
       </aside>
+      <div
+        className="session-sidebar-resizer"
+        role="separator"
+        aria-label="Resize session library"
+        aria-orientation="vertical"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          const startX = event.clientX;
+          const startWidth = sessionSidebarWidth;
+          const move = (pointer: PointerEvent) => {
+            setSessionSidebarWidth(
+              Math.max(190, Math.min(420, startWidth + pointer.clientX - startX)),
+            );
+          };
+          const finish = (pointer: PointerEvent) => {
+            const width = Math.max(
+              190,
+              Math.min(420, startWidth + pointer.clientX - startX),
+            );
+            setSessionSidebarWidth(width);
+            localStorage.setItem("hedgecon-session-sidebar-width", String(width));
+            window.removeEventListener("pointermove", move);
+            document.body.classList.remove("resizing-session-sidebar");
+          };
+          document.body.classList.add("resizing-session-sidebar");
+          window.addEventListener("pointermove", move);
+          window.addEventListener("pointerup", finish, { once: true });
+        }}
+      />
       <div className="workspace">
         {(!tabs.length || libraryOpen) && selectedFolder === "all" && (
           <div className="session-search-toolbar">
@@ -2572,7 +2891,7 @@ export default function App() {
                           ? tab.session.webUrl
                           : tab.kind === "vnc"
                             ? `VNC · ${tab.session.host}:${tab.session.vncPort}`
-                          : `${tab.session.username}@${tab.session.host}`}
+                            : `${tab.session.username}@${tab.session.host}`}
                       </small>
                     </div>
                     <button
@@ -2688,7 +3007,17 @@ export default function App() {
                           onClose={() => closeTab(tab.id)}
                         />
                       ) : tab.kind === "vnc" ? (
-                        <Suspense fallback={<div className="loading">Preparing VNC viewer…</div>}><VncView tabId={tab.id} session={tab.session} onClose={() => closeTab(tab.id)} /></Suspense>
+                        <Suspense
+                          fallback={
+                            <div className="loading">Preparing VNC viewer…</div>
+                          }
+                        >
+                          <VncView
+                            tabId={tab.id}
+                            session={tab.session}
+                            onClose={() => closeTab(tab.id)}
+                          />
+                        </Suspense>
                       ) : (
                         <TerminalView
                           session={tab.session}
@@ -2740,29 +3069,66 @@ export default function App() {
                     <div className="card-top">
                       <span className="server-icon">›_</span>
                       <div className="card-menu">
-                        <button onClick={() => setEditing(s)}>Edit</button>
-                        {hasService(s, "ssh") && <button onClick={() => void forgetHostKey(s)}>
-                          Forget key
-                        </button>}
-                        <button onClick={() => remove(s)}>Delete</button>
+                        <CardAction
+                          label="Edit session"
+                          onClick={() => setEditing(s)}
+                        >
+                          <EditIcon />
+                        </CardAction>
+                        <CardAction
+                          label="Clone session"
+                          onClick={() =>
+                            setEditing({ ...s, id: "", name: `${s.name} copy` })
+                          }
+                        >
+                          <CloneIcon />
+                        </CardAction>
+                        {hasService(s, "ssh") && (
+                          <CardAction
+                            label="Forget fingerprint"
+                            onClick={() => void forgetHostKey(s)}
+                          >
+                            <ForgetFingerprintIcon />
+                          </CardAction>
+                        )}
+                        <CardAction
+                          label="Delete session"
+                          danger
+                          onClick={() => remove(s)}
+                        >
+                          <DeleteIcon />
+                        </CardAction>
                       </div>
                     </div>
                     <h3>{s.name}</h3>
                     <p>
-                      {s.username ? `${s.username}@` : ""}{s.host}
+                      {s.username ? `${s.username}@` : ""}
+                      {s.host}
                     </p>
                     <div className="meta">
-                      <span>{sessionServices(s).map(service => service.toUpperCase()).join(" · ")}</span>
-                      <span>{hasService(s, "ssh") ? `:${s.port}` : hasService(s, "rdp") ? `:${s.rdpPort ?? 3389}` : `:${s.vncPort ?? 5900}`}</span>
+                      <span>
+                        {sessionServices(s)
+                          .map((service) => service.toUpperCase())
+                          .join(" · ")}
+                      </span>
+                      <span>
+                        {hasService(s, "ssh")
+                          ? `:${s.port}`
+                          : hasService(s, "rdp")
+                            ? `:${s.rdpPort ?? 3389}`
+                            : `:${s.vncPort ?? 5900}`}
+                      </span>
                     </div>
                     <div className="session-connect-actions">
-                      {hasService(s, "ssh") && <button
-                        className="connect"
-                        onClick={() => void connect(s)}
-                      >
-                        SSH <span>›_</span>
-                      </button>}
-                      {s.webUrl && (
+                      {hasService(s, "ssh") && (
+                        <button
+                          className="connect"
+                          onClick={() => void connect(s)}
+                        >
+                          SSH <span>›_</span>
+                        </button>
+                      )}
+                      {hasService(s, "web") && (
                         <button
                           className="connect web-connect"
                           onClick={() => openWebTab(s)}
@@ -2770,8 +3136,22 @@ export default function App() {
                           Web <span>↗</span>
                         </button>
                       )}
-                      {hasService(s, "rdp") && <button className="connect rdp-connect" onClick={() => void openRdp(s)}>RDP <span>▣</span></button>}
-                      {hasService(s, "vnc") && <button className="connect vnc-connect" onClick={() => openVncTab(s)}>VNC <span>◉</span></button>}
+                      {hasService(s, "rdp") && (
+                        <button
+                          className="connect rdp-connect"
+                          onClick={() => void openRdp(s)}
+                        >
+                          RDP <span>▣</span>
+                        </button>
+                      )}
+                      {hasService(s, "vnc") && (
+                        <button
+                          className="connect vnc-connect"
+                          onClick={() => openVncTab(s)}
+                        >
+                          VNC <span>◉</span>
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -2896,12 +3276,32 @@ export default function App() {
         <ConfirmDialog
           eyebrow="DELETE FOLDER"
           title={`Delete “${folderToDelete.name}”?`}
-          message="The folder and its subfolders will be removed. Saved sessions are kept and moved to the parent folder."
+          message="The folder will be removed. Its sessions and any child folders will move up one level."
           confirmLabel="Delete folder"
           danger
           onCancel={() => setFolderToDelete(null)}
           onConfirm={() => deleteFolder(folderToDelete)}
         />
+      )}
+      {folderContextMenu && (
+        <div
+          className="folder-context-menu"
+          role="menu"
+          style={{ left: folderContextMenu.x, top: folderContextMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setFolderToDelete(folderContextMenu.folder);
+              setFolderContextMenu(null);
+            }}
+          >
+            <DeleteIcon />
+            Delete folder
+          </button>
+        </div>
       )}
       {notice && (
         <div className="toast">
