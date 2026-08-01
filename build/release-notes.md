@@ -1,4 +1,19 @@
-# HedgeCon v0.2.9-experimental.3
+# HedgeCon v0.2.9-experimental.4
+
+## Terminal focus and Wiki picker fixes
+
+- Automatically focus newly opened and newly selected SSH terminals so commands can be typed immediately.
+- Preserve modal-dialog focus instead of redirecting keyboard input to the terminal underneath.
+- Open the Windows Wiki folder picker on a real, pre-created persistent directory.
+- Use platform-appropriate folder-picker options and avoid adding Wiki locations to Windows Recent Items.
+
+This remains an experimental release for validating connection stability and Windows folder-picker behaviour. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.3
 
 ## Connection stability fixes
 

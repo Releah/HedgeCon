@@ -50,6 +50,16 @@ function secureStorageStatus(): SecureStorageStatus {
 }
 function requireSecureStorage(kind: string) { const status = secureStorageStatus(); if (!status.secure) throw new Error(`${kind} cannot be stored or used securely. ${status.message}`); }
 function persistentWikiDefaultPath() { return path.join(app.getPath('documents'), 'HedgeCon Wiki'); }
+async function choosePersistentWikiFolder(title: string, buttonLabel: string) {
+  const defaultPath = persistentWikiDefaultPath();
+  fs.mkdirSync(defaultPath, { recursive: true });
+  return dialog.showOpenDialog(mainWindow!, {
+    title,
+    defaultPath,
+    buttonLabel,
+    properties: process.platform === 'win32' ? ['openDirectory', 'dontAddToRecent'] : ['openDirectory', 'createDirectory'],
+  });
+}
 function assertPersistentRepositoryLocation(directory: string) {
   const resolved = path.resolve(directory); const installRoot = path.resolve(path.dirname(process.execPath));
   const compare = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value;
@@ -333,7 +343,7 @@ ipcMain.handle('repo:freshness', async () => {
 });
 ipcMain.handle('repo:open-local', async (_event, input: any) => {
   validateRepositoryInput(input);
-  const chosen = await dialog.showOpenDialog(mainWindow!, { title: 'Choose a persistent HedgeCon Wiki folder', defaultPath: persistentWikiDefaultPath(), buttonLabel: 'Use this folder', properties: ['openDirectory', 'createDirectory'] });
+  const chosen = await choosePersistentWikiFolder('Choose a persistent HedgeCon Wiki folder', 'Use this folder');
   if (chosen.canceled) return null;
   const directory = assertPersistentRepositoryLocation(chosen.filePaths[0]); const gitDirectory = path.join(directory, '.git'); const isNew = !fs.existsSync(gitDirectory);
   if (isNew) await git.init({ fs, dir: directory, defaultBranch: 'main' });
@@ -344,7 +354,7 @@ ipcMain.handle('repo:open-local', async (_event, input: any) => {
 });
 ipcMain.handle('repo:clone', async (_event, input: any) => {
   validateRepositoryInput(input); if (!input.remoteUrl) throw new Error('An HTTPS remote repository URL is required.');
-  const chosen = await dialog.showOpenDialog(mainWindow!, { title: 'Choose a persistent folder for the Wiki clone', defaultPath: persistentWikiDefaultPath(), buttonLabel: 'Clone here', properties: ['openDirectory', 'createDirectory'] });
+  const chosen = await choosePersistentWikiFolder('Choose a persistent folder for the Wiki clone', 'Clone here');
   if (chosen.canceled) return null;
   const directory = assertPersistentRepositoryLocation(chosen.filePaths[0]); if (fs.readdirSync(directory).length) throw new Error('Choose an empty folder for the clone.');
   const temporary: GitRepository = { localPath: directory, remoteUrl: input.remoteUrl.trim(), branch: input.branch?.trim() || 'main', authorName: input.authorName.trim(), authorEmail: input.authorEmail.trim(), username: input.username?.trim() || undefined };

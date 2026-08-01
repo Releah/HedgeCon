@@ -3028,6 +3028,7 @@ export default function App() {
                         <TerminalView
                           session={tab.session}
                           secret={tab.secret}
+                          active={visible}
                           macros={data.macros ?? []}
                           macroFolders={data.macroFolders ?? []}
                           folders={data.folders}
