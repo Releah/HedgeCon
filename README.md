@@ -66,7 +66,9 @@ The long-term goal is a single practical workspace for operating network infrast
 ### Device web interfaces
 
 - Add an optional HTTP or HTTPS management address to any saved session.
-- Open SSH and Web tabs independently from the same session card.
+- Open SSH, Web, RDP and VNC connections independently from the same session card.
+- Launch the Windows Remote Desktop client or a preferred Linux Remmina/FreeRDP client, with an opt-in Remmina installation prompt when Linux has no compatible client.
+- Use VNC inside an isolated HedgeCon workspace tab through a token-protected loopback bridge; VNC passwords remain in memory for the active connection only.
 - Navigate device interfaces with Back, Forward, Reload and an editable address bar.
 - Keep cookies in an isolated local partition for each device address.
 - Confirm untrusted device certificates explicitly and clearly identify insecure HTTP connections.
@@ -120,7 +122,7 @@ A fresh installation contains no sessions, credentials, SSH keys, host fingerpri
 - **Local Git repository** creates or opens a repository containing the inventory and Wiki structure.
 - **Shared Git server** clones an HTTPS GitHub, Gitea or compatible repository and reads its inventory file.
 
-Git-managed inventory contains connection metadata such as folders, hosts, ports, usernames and credential-set references. Passwords, passphrases, private keys, access tokens and trusted host fingerprints remain local to the computer.
+Git-managed inventory contains connection metadata such as folders, hosts, SSH/RDP/VNC ports, usernames and credential-set references. Passwords, passphrases, private keys, access tokens and trusted host fingerprints remain local to the computer.
 
 ## Everyday use
 
@@ -198,9 +200,11 @@ all:
           ansible_port: 22
           hedgecon_credential_profile: network-admin
           hedgecon_web_url: https://192.0.2.10
+          hedgecon_rdp_port: 3389
+          hedgecon_vnc_port: 5900
 ```
 
-Inventory is deliberately not a secret store. Plaintext fields such as `ansible_password`, `ansible_ssh_pass` and passphrases are rejected. Use `hedgecon_credential_profile` to share a neutral role that each user maps to one of their locally stored credential sets. `hedgecon_web_url` shares the device-management address but never browser cookies or credentials.
+Inventory is deliberately not a secret store. Plaintext fields such as `ansible_password`, `ansible_ssh_pass` and passphrases are rejected. Use `hedgecon_credential_profile` to share a neutral role that each user maps to one of their locally stored credential sets. `hedgecon_web_url`, `hedgecon_rdp_port` and `hedgecon_vnc_port` share endpoints but never browser cookies or credentials.
 
 ## Wiki and session notes
 

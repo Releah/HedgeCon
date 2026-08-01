@@ -1,4 +1,14 @@
-# HedgeCon v0.2.7-experimental.2
+# HedgeCon v0.2.8-experimental.1
+
+This experimental release adds RDP and VNC connectivity alongside the existing SSH and device-browser workspace.
+
+## Remote desktop
+
+- Add optional RDP and VNC endpoints to saved sessions and shared inventory YAML.
+- Launch Microsoft Remote Desktop on Windows and Remmina or FreeRDP on Linux, including a user-confirmed Remmina installation prompt for supported Linux package managers.
+- Add an embedded noVNC workspace tab backed by a random-token, loopback-only bridge; VNC passwords are held only for the active connection.
+- Add browser dark-mode preferences and an in-app certificate verification prompt matching SSH host verification.
+- Replace the Web connection arrow with a globe icon.
 
 This experimental release adds isolated device web-interface tabs and refreshes HedgeCon's documentation and security disclosures.
 

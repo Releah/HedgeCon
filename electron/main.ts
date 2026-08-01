@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { ChildProcess, execFile } from 'node:child_process';
 import { isIP, Socket } from 'node:net';
+import { WebSocket, WebSocketServer } from 'ws';
 import { Client, ClientChannel, SFTPWrapper } from 'ssh2';
 import git from 'isomorphic-git';
 import gitHttp from 'isomorphic-git/http/node';
@@ -129,6 +130,9 @@ const pendingTrust = new Map<string, (accepted: boolean) => void>();
 const pingMonitors = new Map<string, { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess; socket?: Socket }>();
 const browserViews = new Map<string, WebContentsView>();
 const configuredBrowserPartitions = new Set<string>();
+const pendingBrowserCertificates = new Map<string, (accepted: boolean) => void>();
+const browserDarkCss = new Map<string, string>();
+const vncBridges = new Map<string, { server: WebSocketServer; sockets: Set<Socket> }>();
 let mainWindow: BrowserWindow | null = null;
 const releaseUrl = 'https://github.com/Releah/HedgeCon/releases/latest';
 const portableBuild = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
@@ -180,8 +184,9 @@ function createWindow() {
 function send(id: string, type: string, data: string) { sendToRenderer('ssh:event', { connectionId: id, type, data }); }
 
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
-function destroyBrowserView(tabId: string) { const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
-function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
+function destroyVncBridge(tabId: string) { const bridge = vncBridges.get(tabId); if (!bridge) return; vncBridges.delete(tabId); for (const socket of bridge.sockets) socket.destroy(); for (const client of bridge.server.clients) client.terminate(); bridge.server.close(); }
+function destroyBrowserView(tabId: string) { pendingBrowserCertificates.get(tabId)?.(false); pendingBrowserCertificates.delete(tabId); browserDarkCss.delete(tabId); const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
+function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
 
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
@@ -204,17 +209,47 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
   if (!browser || !mainWindow || mainWindow.isDestroyed()) return;
   event.preventDefault();
   let host = url; try { host = new URL(url).host; } catch { /* Keep the supplied URL. */ }
-  void dialog.showMessageBox(mainWindow, {
-    type: 'warning', title: 'Untrusted device certificate',
-    message: `The identity of ${host} could not be verified.`,
-    detail: `${error}\n\nCertificate fingerprint: ${certificate.fingerprint || 'Unavailable'}\n\nOnly continue if this is the device you intended to open and you have verified its certificate independently.`,
-    buttons: ['Go back', 'Trust for this app session'], defaultId: 0, cancelId: 0, noLink: true
-  }).then(result => callback(result.response === 1)).catch(() => callback(false));
+  const [tabId] = browser;
+  pendingBrowserCertificates.get(tabId)?.(false);
+  pendingBrowserCertificates.set(tabId, callback);
+  sendToRenderer('browser:certificate', { tabId, host, error, fingerprint: certificate.fingerprint || 'Unavailable', subject: certificate.subjectName || '', issuer: certificate.issuerName || '', validExpiry: certificate.validExpiry || 0 });
 });
 
+ipcMain.on('browser:certificate-response', (_event, tabId: string, accepted: boolean) => { const respond = pendingBrowserCertificates.get(tabId); if (!respond) return; pendingBrowserCertificates.delete(tabId); respond(Boolean(accepted)); });
+
+function remoteTarget(value: unknown, port: unknown) { if (typeof value !== 'string' || !/^(?!-)[A-Za-z0-9._:-]{1,253}$/.test(value) || !Number.isInteger(port) || Number(port) < 1 || Number(port) > 65535) throw new Error('Invalid remote desktop target.'); return { host: value, port: Number(port) }; }
+function findExecutable(names: string[]) { const extensions = process.platform === 'win32' ? ['.exe', '.cmd', ''] : ['']; for (const directory of (process.env.PATH || '').split(path.delimiter)) for (const name of names) for (const extension of extensions) { const candidate = path.join(directory, `${name}${extension}`); try { fs.accessSync(candidate, fs.constants.X_OK); return candidate; } catch { /* Try the next client. */ } } return null; }
+function linuxInstallCommand() { const pkexec = findExecutable(['pkexec']); if (!pkexec) return null; const managers: Array<[string, string[]]> = [['apt-get', ['install', '-y', 'remmina']], ['dnf', ['install', '-y', 'remmina']], ['zypper', ['--non-interactive', 'install', 'remmina']], ['pacman', ['-S', '--needed', '--noconfirm', 'remmina']]]; for (const [name, args] of managers) { const manager = findExecutable([name]); if (manager) return { pkexec, manager, args }; } return null; }
+async function offerLinuxClientInstall(protocol: string) {
+  if (process.platform !== 'linux' || !mainWindow || mainWindow.isDestroyed()) return false;
+  const install = linuxInstallCommand();
+  const result = await dialog.showMessageBox(mainWindow, { type: 'info', title: `${protocol.toUpperCase()} client required`, message: `Install Remmina to open ${protocol.toUpperCase()} connections?`, detail: install ? 'Your Linux authorization prompt will appear. HedgeCon will ask the system package manager to install Remmina.' : 'HedgeCon could not find both a supported package manager and pkexec. Install Remmina using your distribution’s software manager.', buttons: install ? ['Cancel', 'Install Remmina'] : ['Close'], defaultId: 0, cancelId: 0, noLink: true });
+  if (!install || result.response !== 1) return false;
+  try { await new Promise<void>((resolve, reject) => execFile(install.pkexec, [install.manager, ...install.args], { windowsHide: true, timeout: 15 * 60_000 }, error => error ? reject(error) : resolve())); }
+  catch (error) { await dialog.showMessageBox(mainWindow, { type: 'error', title: 'Installation did not complete', message: 'Remmina could not be installed.', detail: error instanceof Error ? error.message : String(error), buttons: ['OK'] }); return false; }
+  await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Remmina installed', message: 'Remmina was installed successfully.', detail: 'Open the connection again to launch it.', buttons: ['OK'] }); return true;
+}
+ipcMain.handle('remote-desktop:open', async (_event, protocol: string, hostValue: unknown, portValue: unknown, usernameValue?: unknown, preferredValue?: unknown) => {
+  const { host, port } = remoteTarget(hostValue, portValue); const username = typeof usernameValue === 'string' && /^(?!-)[^\r\n]{0,200}$/.test(usernameValue) ? usernameValue : ''; let executable: string | null = null; let args: string[] = [];
+  if (protocol === 'rdp' && process.platform === 'win32') { executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'mstsc.exe'); args = [`/v:${host}:${port}`]; }
+  else if (protocol === 'rdp') { const preferred = ['auto', 'remmina', 'freerdp'].includes(String(preferredValue)) ? String(preferredValue) : 'auto'; executable = findExecutable(preferred === 'remmina' ? ['remmina'] : preferred === 'freerdp' ? ['xfreerdp'] : ['remmina', 'xfreerdp']); if (executable?.toLowerCase().includes('remmina')) args = ['-c', `rdp://${username ? `${encodeURIComponent(username)}@` : ''}${host}:${port}`]; else args = [`/v:${host}:${port}`, ...(username ? [`/u:${username}`] : []), '+clipboard']; }
+  else if (protocol === 'vnc') { executable = findExecutable(['remmina', 'vncviewer', 'tigervncviewer']); if (executable?.toLowerCase().includes('remmina')) args = ['-c', `vnc://${host}:${port}`]; else args = [`${host}::${port}`]; }
+  else throw new Error('Unsupported remote desktop protocol.');
+  if (!executable || !fs.existsSync(executable)) { if (await offerLinuxClientInstall(protocol)) return { client: 'Remmina', installed: true }; throw new Error(`No compatible ${protocol.toUpperCase()} client is installed.`); }
+  const child = execFile(executable, args, { windowsHide: false }, error => { if (error) sendToRenderer('remote-desktop:error', error.message); }); child.unref(); return { client: path.basename(executable) };
+});
+ipcMain.handle('vnc:create', async (_event, tabId: string, hostValue: unknown, portValue: unknown) => {
+  if (typeof tabId !== 'string' || !/^[A-Za-z0-9-]{1,100}$/.test(tabId)) throw new Error('Invalid VNC tab.');
+  const { host, port } = remoteTarget(hostValue, portValue); destroyVncBridge(tabId); const token = crypto.randomBytes(24).toString('hex'); const sockets = new Set<Socket>();
+  const server = new WebSocketServer({ host: '127.0.0.1', port: 0, maxPayload: 8 * 1024 * 1024, perMessageDeflate: false }); vncBridges.set(tabId, { server, sockets });
+  server.on('connection', (client, request) => { if (request.url !== `/${token}` || server.clients.size > 1) { client.close(1008, 'Invalid bridge token'); return; } const socket = new Socket(); sockets.add(socket); socket.setTimeout(30_000); socket.connect(port, host, () => socket.setTimeout(0)); client.on('message', data => { if (!socket.destroyed) socket.write(Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer)); }); socket.on('data', data => { if (client.readyState === WebSocket.OPEN) client.send(data, { binary: true }); }); const close = () => { sockets.delete(socket); socket.destroy(); if (client.readyState === WebSocket.OPEN) client.close(); }; client.on('close', close); client.on('error', close); socket.on('close', close); socket.on('error', error => { if (client.readyState === WebSocket.OPEN) client.close(1011, error.message.slice(0, 120)); }); });
+  await new Promise<void>((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); }); const address = server.address(); if (!address || typeof address === 'string') { destroyVncBridge(tabId); throw new Error('Could not start the local VNC bridge.'); } return { url: `ws://127.0.0.1:${address.port}/${token}` };
+});
+ipcMain.on('vnc:destroy', (_event, tabId: string) => destroyVncBridge(tabId));
 function browserUrl(value: unknown) { if (typeof value !== 'string' || value.length > 4096) throw new Error('Invalid device web address.'); const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Device web addresses must use HTTP or HTTPS and must not include credentials.'); return url.toString(); }
 function browserBounds(value: any) { if (!value || !['x', 'y', 'width', 'height'].every(key => Number.isFinite(value[key]))) throw new Error('Invalid browser bounds.'); const windowBounds = mainWindow?.getContentBounds(); if (!windowBounds) throw new Error('The HedgeCon window is unavailable.'); return { x: Math.max(0, Math.round(value.x)), y: Math.max(0, Math.round(value.y)), width: Math.max(1, Math.min(windowBounds.width, Math.round(value.width))), height: Math.max(1, Math.min(windowBounds.height, Math.round(value.height))) }; }
-ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: string, requestedBounds: unknown) => {
+async function setBrowserDarkMode(tabId: string, enabled: boolean) { const view = browserViews.get(tabId); if (!view || view.webContents.isDestroyed()) throw new Error('Browser tab is unavailable.'); const oldKey = browserDarkCss.get(tabId); if (oldKey) { try { await view.webContents.removeInsertedCSS(oldKey); } catch { /* The page may have navigated while the preference changed. */ } browserDarkCss.delete(tabId); } if (enabled) { const key = await view.webContents.insertCSS(':root { color-scheme: dark !important; } html, body { background-color: #10151b !important; }', { cssOrigin: 'user' }); browserDarkCss.set(tabId, key); } return true; }
+ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: string, requestedBounds: unknown, darkMode: boolean) => {
   if (!mainWindow || mainWindow.isDestroyed() || typeof tabId !== 'string' || !/^[A-Za-z0-9-]{1,100}$/.test(tabId)) throw new Error('Invalid browser tab.');
   const url = browserUrl(requestedUrl);
   if (new URL(url).protocol === 'http:') { const result = await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Insecure device connection', message: `Open ${new URL(url).host} over unencrypted HTTP?`, detail: 'Passwords and device data sent through this page can be read or changed by anyone able to intercept the connection. Use HTTPS whenever the device supports it.', buttons: ['Cancel', 'Open HTTP page'], defaultId: 0, cancelId: 0, noLink: true }); if (result.response !== 1) throw new Error('The insecure HTTP connection was cancelled.'); }
@@ -225,6 +260,7 @@ ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: str
   if (!configuredBrowserPartitions.has(partition)) { configuredBrowserPartitions.add(partition); browserSession.on('will-download', (_event, item) => item.setSaveDialogOptions({ title: 'Save device download', defaultPath: path.basename(item.getFilename()) })); }
   const view = new WebContentsView({ webPreferences: { partition, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, devTools: false } });
   browserViews.set(tabId, view); mainWindow.contentView.addChildView(view); view.setBounds(browserBounds(requestedBounds));
+  if (darkMode) await setBrowserDarkMode(tabId, true);
   const publish = (type: string, data?: unknown) => sendToRenderer('browser:event', { tabId, type, data });
   const publishNavigation = () => publish('navigation', { url: view.webContents.getURL(), title: view.webContents.getTitle(), canGoBack: view.webContents.navigationHistory.canGoBack(), canGoForward: view.webContents.navigationHistory.canGoForward() });
   view.webContents.setWindowOpenHandler(details => { try { void view.webContents.loadURL(browserUrl(details.url)).catch(error => publish('error', error instanceof Error ? error.message : String(error))); } catch { publish('error', 'The device tried to open an unsupported address.'); } return { action: 'deny' }; });
@@ -237,6 +273,7 @@ ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: str
 ipcMain.on('browser:bounds', (_event, tabId: string, bounds: unknown) => { const view = browserViews.get(tabId); if (!view || view.webContents.isDestroyed()) return; try { view.setBounds(browserBounds(bounds)); } catch { /* Ignore a final resize while the window is closing. */ } });
 ipcMain.on('browser:visible', (_event, tabId: string, visible: boolean) => { const view = browserViews.get(tabId); if (view && !view.webContents.isDestroyed()) view.setVisible(Boolean(visible)); });
 ipcMain.on('browser:destroy', (_event, tabId: string) => destroyBrowserView(tabId));
+ipcMain.handle('browser:dark-mode', (_event, tabId: string, enabled: boolean) => setBrowserDarkMode(tabId, Boolean(enabled)));
 ipcMain.handle('browser:navigate', async (_event, tabId: string, action: string, value?: string) => { const view = browserViews.get(tabId); if (!view) throw new Error('Browser tab is unavailable.'); if (action === 'back' && view.webContents.navigationHistory.canGoBack()) view.webContents.navigationHistory.goBack(); else if (action === 'forward' && view.webContents.navigationHistory.canGoForward()) view.webContents.navigationHistory.goForward(); else if (action === 'reload') view.webContents.reload(); else if (action === 'url') await view.webContents.loadURL(browserUrl(value)); else throw new Error('Unsupported browser action.'); return true; });
 ipcMain.handle('browser:external', (_event, tabId: string, requestedUrl?: string) => { const view = browserViews.get(tabId); if (!view) throw new Error('Browser tab is unavailable.'); return shell.openExternal(browserUrl(requestedUrl || view.webContents.getURL())); });
 

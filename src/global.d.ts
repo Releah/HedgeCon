@@ -1,4 +1,4 @@
-import type { AppData, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
+import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -63,13 +63,19 @@ declare global {
     startTcpMonitor(host: string, port: number, monitorId: string): Promise<{ monitorId: string }>;
     stopPing(monitorId: string): void;
     onPingSample(callback: (sample: PingSample) => void): () => void;
-    createBrowser(tabId: string, url: string, bounds: { x: number; y: number; width: number; height: number }): Promise<boolean>;
+    createBrowser(tabId: string, url: string, bounds: { x: number; y: number; width: number; height: number }, darkMode: boolean): Promise<boolean>;
+    openRemoteDesktop(protocol: 'rdp' | 'vnc', host: string, port: number, username?: string, preferredClient?: 'auto' | 'remmina' | 'freerdp'): Promise<{ client: string; installed?: boolean }>;
+    createVncBridge(tabId: string, host: string, port: number): Promise<{ url: string }>;
+    destroyVncBridge(tabId: string): void;
+    setBrowserDarkMode(tabId: string, enabled: boolean): Promise<boolean>;
     setBrowserBounds(tabId: string, bounds: { x: number; y: number; width: number; height: number }): void;
     setBrowserVisible(tabId: string, visible: boolean): void;
     destroyBrowser(tabId: string): void;
     navigateBrowser(tabId: string, action: 'back' | 'forward' | 'reload' | 'url', value?: string): Promise<boolean>;
     openBrowserExternal(tabId: string, url?: string): Promise<void>;
     onBrowserEvent(callback: (event: BrowserEvent) => void): () => void;
+    onBrowserCertificate(callback: (event: BrowserCertificatePrompt) => void): () => void;
+    respondBrowserCertificate(tabId: string, accepted: boolean): void;
     listRemoteFiles(connectionId: string, path: string): Promise<SftpEntry[]>;
     uploadRemoteFile(connectionId: string, remoteDirectory: string): Promise<{ canceled: boolean; remotePath?: string }>;
     downloadRemoteFile(connectionId: string, remotePath: string): Promise<{ canceled: boolean; localPath?: string }>;

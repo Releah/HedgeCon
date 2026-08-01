@@ -4,20 +4,21 @@ export interface Folder { id: string; name: string; parentId?: string | null; cr
 export interface Session {
   id: string; name: string; host: string; port: number; username: string;
   folderId: string | null; authMethod: AuthMethod; privateKeyPath?: string;
-  credentialSetId?: string | null; credentialProfile?: string; webUrl?: string;
+  credentialSetId?: string | null; credentialProfile?: string; webUrl?: string; rdpPort?: number; vncPort?: number;
   createdAt: string; updatedAt: string;
 }
 export interface CredentialSet { id: string; name: string; username: string; authMethod: AuthMethod; privateKeyPath?: string; hasSecret: boolean }
 export interface CredentialSetInput { id?: string; name: string; username: string; authMethod: AuthMethod; privateKeyPath?: string; secret?: string; clearSecret?: boolean }
 export interface InventorySettings { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string }
 export interface ColourMeaning { id: string; word: string; colour: string }
-export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[] }
+export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; browserTheme: 'normal' | 'dark'; linuxRdpClient: 'auto' | 'remmina' | 'freerdp'; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[] }
 export interface AppData { folders: Folder[]; sessions: Session[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
 export interface ConnectRequest extends Session { connectionId: string; password?: string; passphrase?: string; credentialOverride?: string }
 export interface HostKeyPrompt { connectionId: string; host: string; fingerprint: string; changed: boolean }
 export interface SshEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'auth-error' | 'closed'; data: string }
 export interface PingSample { monitorId: string; timestamp: number; reachable: boolean; latencyMs: number | null; error?: string }
 export interface BrowserEvent { tabId: string; type: 'loading' | 'navigation' | 'error'; data?: boolean | string | { url: string; title: string; canGoBack: boolean; canGoForward: boolean } }
+export interface BrowserCertificatePrompt { tabId: string; host: string; error: string; fingerprint: string; subject: string; issuer: string; validExpiry: number }
 export interface SftpEntry { name: string; path: string; type: 'directory' | 'file' | 'link' | 'other'; size: number; modifiedAt: number; permissions: number }
 export interface SshKeyInfo { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' }
 export interface RepositoryMeta { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; hasToken: boolean }
