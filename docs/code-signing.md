@@ -18,6 +18,7 @@ Release signing requests require manual approval in SignPath. The SignPath certi
 HedgeCon does not include advertising or telemetry. It communicates with networked systems only for a configured or user-initiated operation:
 
 - SSH, SFTP, SCP, ping and TCP monitoring connect to hosts selected by the user.
+- Device-browser tabs make HTTP or HTTPS requests to addresses entered by the user. Cookies are stored locally in a separate partition for each device address.
 - Git features connect to a repository configured by the user.
 - Update checks connect to the public `Releah/HedgeCon` GitHub Releases feed. Automatic checks can be disabled in the application settings.
 - External links are opened only when selected by the user.

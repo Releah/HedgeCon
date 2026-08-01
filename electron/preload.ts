@@ -71,6 +71,13 @@ contextBridge.exposeInMainWorld('hedge', {
     const listener = (_: unknown, sample: unknown) => callback(sample);
     ipcRenderer.on('ping:sample', listener); return () => ipcRenderer.removeListener('ping:sample', listener);
   },
+  createBrowser: (tabId: string, url: string, bounds: unknown) => ipcRenderer.invoke('browser:create', tabId, url, bounds),
+  setBrowserBounds: (tabId: string, bounds: unknown) => ipcRenderer.send('browser:bounds', tabId, bounds),
+  setBrowserVisible: (tabId: string, visible: boolean) => ipcRenderer.send('browser:visible', tabId, visible),
+  destroyBrowser: (tabId: string) => ipcRenderer.send('browser:destroy', tabId),
+  navigateBrowser: (tabId: string, action: string, value?: string) => ipcRenderer.invoke('browser:navigate', tabId, action, value),
+  openBrowserExternal: (tabId: string, url?: string) => ipcRenderer.invoke('browser:external', tabId, url),
+  onBrowserEvent: (callback: (event: unknown) => void) => { const listener = (_: unknown, event: unknown) => callback(event); ipcRenderer.on('browser:event', listener); return () => ipcRenderer.removeListener('browser:event', listener); },
   listRemoteFiles: (id: string, path: string) => ipcRenderer.invoke('sftp:list', id, path),
   uploadRemoteFile: (id: string, remoteDirectory: string) => ipcRenderer.invoke('sftp:upload', id, remoteDirectory),
   downloadRemoteFile: (id: string, remotePath: string) => ipcRenderer.invoke('sftp:download', id, remotePath),

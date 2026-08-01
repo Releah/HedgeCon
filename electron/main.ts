@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, session as electronSession, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, session as electronSession, shell, WebContentsView } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
@@ -127,6 +127,8 @@ function assertManagedOrDiscoveredKey(privateKeyPath: string) { if (typeof priva
 const connections = new Map<string, { client: Client; stream?: ClientChannel; sftp?: SFTPWrapper }>();
 const pendingTrust = new Map<string, (accepted: boolean) => void>();
 const pingMonitors = new Map<string, { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess; socket?: Socket }>();
+const browserViews = new Map<string, WebContentsView>();
+const configuredBrowserPartitions = new Set<string>();
 let mainWindow: BrowserWindow | null = null;
 const releaseUrl = 'https://github.com/Releah/HedgeCon/releases/latest';
 const portableBuild = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
@@ -178,7 +180,8 @@ function createWindow() {
 function send(id: string, type: string, data: string) { sendToRenderer('ssh:event', { connectionId: id, type, data }); }
 
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
-function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
+function destroyBrowserView(tabId: string) { const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
+function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
 
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
@@ -196,6 +199,46 @@ app.on('before-quit', cleanupRuntime);
 app.on('will-quit', cleanupRuntime);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  const browser = [...browserViews.entries()].find(([, view]) => view.webContents === webContents);
+  if (!browser || !mainWindow || mainWindow.isDestroyed()) return;
+  event.preventDefault();
+  let host = url; try { host = new URL(url).host; } catch { /* Keep the supplied URL. */ }
+  void dialog.showMessageBox(mainWindow, {
+    type: 'warning', title: 'Untrusted device certificate',
+    message: `The identity of ${host} could not be verified.`,
+    detail: `${error}\n\nCertificate fingerprint: ${certificate.fingerprint || 'Unavailable'}\n\nOnly continue if this is the device you intended to open and you have verified its certificate independently.`,
+    buttons: ['Go back', 'Trust for this app session'], defaultId: 0, cancelId: 0, noLink: true
+  }).then(result => callback(result.response === 1)).catch(() => callback(false));
+});
+
+function browserUrl(value: unknown) { if (typeof value !== 'string' || value.length > 4096) throw new Error('Invalid device web address.'); const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Device web addresses must use HTTP or HTTPS and must not include credentials.'); return url.toString(); }
+function browserBounds(value: any) { if (!value || !['x', 'y', 'width', 'height'].every(key => Number.isFinite(value[key]))) throw new Error('Invalid browser bounds.'); const windowBounds = mainWindow?.getContentBounds(); if (!windowBounds) throw new Error('The HedgeCon window is unavailable.'); return { x: Math.max(0, Math.round(value.x)), y: Math.max(0, Math.round(value.y)), width: Math.max(1, Math.min(windowBounds.width, Math.round(value.width))), height: Math.max(1, Math.min(windowBounds.height, Math.round(value.height))) }; }
+ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: string, requestedBounds: unknown) => {
+  if (!mainWindow || mainWindow.isDestroyed() || typeof tabId !== 'string' || !/^[A-Za-z0-9-]{1,100}$/.test(tabId)) throw new Error('Invalid browser tab.');
+  const url = browserUrl(requestedUrl);
+  if (new URL(url).protocol === 'http:') { const result = await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Insecure device connection', message: `Open ${new URL(url).host} over unencrypted HTTP?`, detail: 'Passwords and device data sent through this page can be read or changed by anyone able to intercept the connection. Use HTTPS whenever the device supports it.', buttons: ['Cancel', 'Open HTTP page'], defaultId: 0, cancelId: 0, noLink: true }); if (result.response !== 1) throw new Error('The insecure HTTP connection was cancelled.'); }
+  destroyBrowserView(tabId);
+  const partition = `persist:hedgecon-device-${crypto.createHash('sha256').update(new URL(url).host).digest('hex').slice(0, 20)}`;
+  const browserSession = electronSession.fromPartition(partition);
+  browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false)); browserSession.setPermissionCheckHandler(() => false);
+  if (!configuredBrowserPartitions.has(partition)) { configuredBrowserPartitions.add(partition); browserSession.on('will-download', (_event, item) => item.setSaveDialogOptions({ title: 'Save device download', defaultPath: path.basename(item.getFilename()) })); }
+  const view = new WebContentsView({ webPreferences: { partition, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, devTools: false } });
+  browserViews.set(tabId, view); mainWindow.contentView.addChildView(view); view.setBounds(browserBounds(requestedBounds));
+  const publish = (type: string, data?: unknown) => sendToRenderer('browser:event', { tabId, type, data });
+  const publishNavigation = () => publish('navigation', { url: view.webContents.getURL(), title: view.webContents.getTitle(), canGoBack: view.webContents.navigationHistory.canGoBack(), canGoForward: view.webContents.navigationHistory.canGoForward() });
+  view.webContents.setWindowOpenHandler(details => { try { void view.webContents.loadURL(browserUrl(details.url)).catch(error => publish('error', error instanceof Error ? error.message : String(error))); } catch { publish('error', 'The device tried to open an unsupported address.'); } return { action: 'deny' }; });
+  view.webContents.on('will-navigate', (event, target) => { try { browserUrl(target); } catch { event.preventDefault(); publish('error', 'Navigation outside HTTP or HTTPS was blocked.'); } });
+  view.webContents.on('did-start-loading', () => publish('loading', true)); view.webContents.on('did-stop-loading', () => { publish('loading', false); publishNavigation(); });
+  view.webContents.on('did-navigate', publishNavigation); view.webContents.on('did-navigate-in-page', publishNavigation);
+  view.webContents.on('did-fail-load', (_event, code, description, failedUrl, isMainFrame) => { if (isMainFrame && code !== -3) publish('error', `${description} (${failedUrl})`); });
+  await view.webContents.loadURL(url); return true;
+});
+ipcMain.on('browser:bounds', (_event, tabId: string, bounds: unknown) => { const view = browserViews.get(tabId); if (!view || view.webContents.isDestroyed()) return; try { view.setBounds(browserBounds(bounds)); } catch { /* Ignore a final resize while the window is closing. */ } });
+ipcMain.on('browser:visible', (_event, tabId: string, visible: boolean) => { const view = browserViews.get(tabId); if (view && !view.webContents.isDestroyed()) view.setVisible(Boolean(visible)); });
+ipcMain.on('browser:destroy', (_event, tabId: string) => destroyBrowserView(tabId));
+ipcMain.handle('browser:navigate', async (_event, tabId: string, action: string, value?: string) => { const view = browserViews.get(tabId); if (!view) throw new Error('Browser tab is unavailable.'); if (action === 'back' && view.webContents.navigationHistory.canGoBack()) view.webContents.navigationHistory.goBack(); else if (action === 'forward' && view.webContents.navigationHistory.canGoForward()) view.webContents.navigationHistory.goForward(); else if (action === 'reload') view.webContents.reload(); else if (action === 'url') await view.webContents.loadURL(browserUrl(value)); else throw new Error('Unsupported browser action.'); return true; });
+ipcMain.handle('browser:external', (_event, tabId: string, requestedUrl?: string) => { const view = browserViews.get(tabId); if (!view) throw new Error('Browser tab is unavailable.'); return shell.openExternal(browserUrl(requestedUrl || view.webContents.getURL())); });
 
 ipcMain.handle('data:load', () => ({ folders: stored.folders, sessions: stored.sessions, inventorySettings: stored.inventorySettings, uiSettings: stored.uiSettings, credentialProfileMappings: stored.credentialProfileMappings }));
 ipcMain.handle('update:status', () => publishUpdateStatus({}));
