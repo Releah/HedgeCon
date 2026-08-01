@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest an improvement or new capability for HedgeCon
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Describe the operational problem first so different solutions can be considered.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or limitation
+      description: What workflow is difficult or impossible today, and who is affected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe how you would like HedgeCon to handle this workflow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: How do you handle this today, or what other approaches might work?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add mock-ups, examples, device vendors, platforms, or related issues. Do not include secrets or production infrastructure details.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and the roadmap for a similar request.
+          required: true
+        - label: This request describes one focused feature or improvement.
+          required: true
