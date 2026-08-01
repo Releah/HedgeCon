@@ -9,7 +9,6 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { createRoot } from "react-dom/client";
 import type {
   AppData,
   AuthMethod,
@@ -2181,28 +2180,6 @@ export default function App() {
       window.removeEventListener("hedgecon:session-notes", openNotes);
   }, []);
   useEffect(() => {
-    if (wikiSessionId === undefined) return;
-    const host = document.createElement("div");
-    host.className = "wiki-overlay-root";
-    document.body.appendChild(host);
-    const root = createRoot(host);
-    root.render(
-      <Suspense fallback={<div className="loading">Loading Wiki...</div>}>
-        <WikiWorkspace
-          sessions={data.sessions}
-          initialSessionId={wikiSessionId ?? undefined}
-          onClose={() => setWikiSessionId(undefined)}
-        />
-      </Suspense>,
-    );
-    return () => {
-      window.setTimeout(() => {
-        root.unmount();
-        host.remove();
-      }, 0);
-    };
-  }, [wikiSessionId, data.sessions]);
-  useEffect(() => {
     if (tabs.length && activeTabId === null) setPickerOpen(true);
   }, [tabs.length, activeTabId]);
   const uiSettings: UiSettings = data.uiSettings
@@ -2563,15 +2540,16 @@ export default function App() {
   };
   useLayoutEffect(() => {
     const container = document.querySelector<HTMLElement>(".terminal-pages");
-    if (!container || splitMode === "single" || paneIds.length < 2) return;
+    if (!container) return;
+    container
+      .querySelectorAll(".pane-divider")
+      .forEach((element) => element.remove());
+    if (libraryOpen || splitMode === "single" || paneIds.length < 2) return;
     const totalUnits = paneSizes.reduce((sum, size) => sum + size, 0);
     const template = paneSizes.map((size) => `${size}fr`).join(" ");
     if (splitMode === "vertical")
       container.style.gridTemplateColumns = template;
     else container.style.gridTemplateRows = template;
-    container
-      .querySelectorAll(".pane-divider")
-      .forEach((element) => element.remove());
     paneSizes.slice(0, -1).forEach((_size, dividerIndex) => {
       const divider = document.createElement("div");
       divider.className = `pane-divider divider-${splitMode}`;
@@ -2634,7 +2612,7 @@ export default function App() {
         .querySelectorAll(".pane-divider")
         .forEach((element) => element.remove());
     };
-  }, [paneIds.length, paneSizes, splitMode]);
+  }, [paneIds.length, paneSizes, splitMode, libraryOpen]);
   const renderFolderTree = (
     parentId: string | null = null,
     depth = 0,
@@ -2871,8 +2849,8 @@ export default function App() {
             )}
           </div>
         )}
-        {tabs.length && !libraryOpen ? (
-          <section className="tab-workspace">
+        {tabs.length && (
+          <section className={`tab-workspace ${libraryOpen ? "workspace-hidden" : ""}`}>
             <div className="session-tabs">
               {tabs.map((tab) => {
                 const paneIndex = paneIds.indexOf(tab.id);
@@ -2985,7 +2963,7 @@ export default function App() {
             >
               {tabs.map((tab) => {
                 const paneIndex = paneIds.indexOf(tab.id);
-                const visible = paneIndex >= 0;
+                const visible = paneIndex >= 0 && !libraryOpen;
                 return (
                   <div
                     key={tab.id}
@@ -3046,7 +3024,8 @@ export default function App() {
               )}
             </div>
           </section>
-        ) : (
+        )}
+        {(!tabs.length || libraryOpen) && (
           <section className="content">
             {tabs.length > 0 && (
               <div className="active-session-return">
@@ -3222,6 +3201,17 @@ export default function App() {
           onWorkspaceChange={(macros, macroFolders) => persist({ ...data, macros, macroFolders })}
           onClose={() => setCommandsOpen(false)}
         />
+      )}
+      {wikiSessionId !== undefined && (
+        <div className="wiki-overlay-root">
+          <Suspense fallback={<div className="loading">Loading Wiki...</div>}>
+            <WikiWorkspace
+              sessions={data.sessions}
+              initialSessionId={wikiSessionId ?? undefined}
+              onClose={() => setWikiSessionId(undefined)}
+            />
+          </Suspense>
+        </div>
       )}
       {creatingFolder && (
         <FolderDialog

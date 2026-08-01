@@ -1,4 +1,20 @@
-# HedgeCon v0.2.9-experimental.4
+# HedgeCon v0.2.9-experimental.5
+
+## Workspace lifecycle and memory fixes
+
+- Keep SSH, web and VNC workspaces mounted while browsing session folders, preserving active connections when returning.
+- Remove split-screen dividers while the session library is visible and restore them cleanly on return.
+- Return keyboard focus to the active terminal after running or inserting a macro, including prompted-variable macros.
+- Replace the Wiki's manually managed secondary React root with a single deterministic component lifecycle.
+- Hide embedded browser views behind the Wiki to prevent native web content remaining active over its setup screen.
+
+This remains an experimental release for validating session preservation and first-time Wiki memory behaviour. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.4
 
 ## Terminal focus and Wiki picker fixes
 
