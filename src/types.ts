@@ -1,11 +1,14 @@
 export type AuthMethod = 'password' | 'privateKey';
 export type ConnectionService = 'ssh' | 'web' | 'rdp' | 'vnc';
+export type SessionPlatform = 'unspecified' | 'linux' | 'windows' | 'network';
+export interface CommandMacro { id: string; name: string; description?: string; command: string; folderIds: string[]; platforms: SessionPlatform[]; createdAt: string; updatedAt: string }
 
 export interface Folder { id: string; name: string; parentId?: string | null; createdAt: string }
 export interface Session {
   id: string; name: string; host: string; port: number; username: string;
   folderId: string | null; authMethod: AuthMethod; privateKeyPath?: string;
   credentialSetId?: string | null; remoteCredentialSetId?: string | null; credentialProfile?: string; webUrl?: string; rdpPort?: number; vncPort?: number; services?: ConnectionService[];
+  platform?: SessionPlatform;
   createdAt: string; updatedAt: string;
 }
 export interface CredentialSet { id: string; name: string; username: string; authMethod: AuthMethod; privateKeyPath?: string; hasSecret: boolean }
@@ -13,7 +16,7 @@ export interface CredentialSetInput { id?: string; name: string; username: strin
 export interface InventorySettings { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string }
 export interface ColourMeaning { id: string; word: string; colour: string }
 export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; browserTheme: 'normal' | 'dark'; linuxRdpClient: 'auto' | 'remmina' | 'freerdp'; remoteDesktopResolution: 'native' | '1920x1080' | '1600x900' | '1366x768' | '1280x720'; remoteDesktopFullscreen: boolean; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[] }
-export interface AppData { folders: Folder[]; sessions: Session[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
+export interface AppData { folders: Folder[]; sessions: Session[]; macros?: CommandMacro[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
 export interface ConnectRequest extends Session { connectionId: string; password?: string; passphrase?: string; credentialOverride?: string }
 export interface HostKeyPrompt { connectionId: string; host: string; fingerprint: string; changed: boolean }
 export interface SshEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'auth-error' | 'closed'; data: string }

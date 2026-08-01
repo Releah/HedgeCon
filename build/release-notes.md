@@ -1,4 +1,28 @@
-# HedgeCon v0.2.8-experimental.3
+# HedgeCon v0.2.8-experimental.4
+
+## Command macros
+
+- Add a global searchable Commands library and editable macro button board.
+- Open a session-aware macro board from active SSH terminals, with favourites matched by folder hierarchy or saved platform.
+- Support prompted `{{ variable }}` substitutions with a rendered preview before insertion.
+- Paste rendered commands without submitting them automatically, leaving operators in control of execution.
+- Persist macros in HedgeCon's protected local application data with validation and size limits.
+- Synchronize Linux, Windows and network-device platform classifications through inventory YAML.
+
+## Folder and session-card refinements
+
+- Rename or safely delete session folders through a right-click menu; contents move up one level on deletion.
+- Add matching rename/delete interactions to General and Vendor Wiki folders with collision protection.
+- Remove custom-folder counters and improve long-name truncation across the session and Wiki sidebars.
+- Keep Clone as an icon-only card action and restore accurate Password or SSH Key authentication labels.
+
+This remains an experimental release. Its Windows binaries are unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.8-experimental.3
 
 ## Session library and connection refinements
 

@@ -77,6 +77,7 @@ export function inventoryToYaml(data: AppData, credentials: CredentialSet[]) {
       if (session.webUrl?.trim()) host.hedgecon_web_url = session.webUrl.trim();
       if (session.rdpPort) host.hedgecon_rdp_port = session.rdpPort;
       if (session.vncPort) host.hedgecon_vnc_port = session.vncPort;
+      if (session.platform && session.platform !== "unspecified") host.hedgecon_platform = session.platform;
       host.hedgecon_services = session.services?.length ? session.services : ["ssh", ...(session.webUrl ? ["web"] : []), ...(session.rdpPort ? ["rdp"] : []), ...(session.vncPort ? ["vnc"] : [])];
       output[uniqueKey(session.name, used)] = host;
     }
@@ -223,6 +224,7 @@ export function yamlToInventory(
           credentialSetId,
           remoteCredentialSetId: existing?.remoteCredentialSetId ?? null,
           credentialProfile: credentialProfile || undefined,
+          platform: ["linux", "windows", "network"].includes(text(hostVars.hedgecon_platform)) ? text(hostVars.hedgecon_platform) as "linux" | "windows" | "network" : existing?.platform ?? "unspecified",
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         });
@@ -236,6 +238,7 @@ export function yamlToInventory(
     data: {
       folders,
       sessions,
+      macros: current.macros,
       credentialProfileMappings: current.credentialProfileMappings,
       inventorySettings: current.inventorySettings,
       uiSettings: current.uiSettings,

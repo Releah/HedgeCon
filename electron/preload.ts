@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('hedge', {
   writeWikiPage: (path: string, contents: string) => ipcRenderer.invoke('wiki:write', path, contents),
   createWikiPage: (section: string, name: string, parentPath?: string) => ipcRenderer.invoke('wiki:create', section, name, parentPath),
   createWikiFolder: (section: string, name: string, parentPath?: string) => ipcRenderer.invoke('wiki:create-folder', section, name, parentPath),
+  renameWikiFolder: (folderPath: string, name: string) => ipcRenderer.invoke('wiki:rename-folder', folderPath, name),
+  deleteWikiFolder: (folderPath: string) => ipcRenderer.invoke('wiki:delete-folder', folderPath),
   moveWikiPage: (sourcePath: string, targetFolder: string) => ipcRenderer.invoke('wiki:move-page', sourcePath, targetFolder),
   ensureSessionWikiPage: (sessionId: string, sessionName: string, host: string) => ipcRenderer.invoke('wiki:session-page', sessionId, sessionName, host),
   choosePrivateKey: () => ipcRenderer.invoke('key:choose'),

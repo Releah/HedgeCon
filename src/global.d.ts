@@ -35,6 +35,8 @@ declare global {
     writeWikiPage(path: string, contents: string): Promise<boolean>;
     createWikiPage(section: 'general' | 'vendors', name: string, parentPath?: string): Promise<WikiPage>;
     createWikiFolder(section: 'general' | 'vendors', name: string, parentPath?: string): Promise<WikiFolder>;
+    renameWikiFolder(folderPath: string, name: string): Promise<WikiFolder>;
+    deleteWikiFolder(folderPath: string): Promise<{ parentPath: string; movedPages: Array<{ from: string; to: string }> }>;
     moveWikiPage(sourcePath: string, targetFolder: string): Promise<WikiPage>;
     ensureSessionWikiPage(sessionId: string, sessionName: string, host: string): Promise<WikiPage>;
     choosePrivateKey(): Promise<string | null>;

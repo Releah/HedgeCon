@@ -29,6 +29,7 @@ import type {
 import TerminalView from "./TerminalView";
 import WebDeviceView from "./WebDeviceView";
 import ConfirmDialog from "./ConfirmDialog";
+import MacroLibrary from "./MacroLibrary";
 
 const InventoryEditor = lazy(() => import("./InventoryEditor"));
 const WikiWorkspace = lazy(() => import("./WikiWorkspace"));
@@ -211,6 +212,7 @@ function SessionDialog({
     webEnabled: initialServices.includes("web"),
     rdpEnabled: initialServices.includes("rdp"),
     vncEnabled: initialServices.includes("vnc"),
+    platform: session?.platform ?? "unspecified",
   });
   const hasSelectedService =
     form.sshEnabled || form.webEnabled || form.rdpEnabled || form.vncEnabled;
@@ -318,6 +320,16 @@ function SessionDialog({
             );
           })}
         </fieldset>
+        <label>
+          Session platform
+          <select value={form.platform} onChange={(event) => setForm({ ...form, platform: event.target.value as NonNullable<Session["platform"]> })}>
+            <option value="unspecified">Unspecified</option>
+            <option value="linux">Linux</option>
+            <option value="windows">Windows</option>
+            <option value="network">Network device</option>
+          </select>
+          <small className="field-note">Used to prioritise relevant command macros.</small>
+        </label>
         <div className={form.sshEnabled ? "split" : "host-only-field"}>
           <label>
             Host
@@ -633,6 +645,11 @@ function FolderDialog({
       </form>
     </div>
   );
+}
+
+function RenameFolderDialog({ folder, onCancel, onSave }: { folder: Folder; onCancel: () => void; onSave: (name: string) => void }) {
+  const [name, setName] = useState(folder.name);
+  return <div className="overlay"><form className="dialog folder-dialog" onSubmit={(event) => { event.preventDefault(); if (name.trim()) onSave(name.trim()); }}><div className="dialog-title"><div><small>ORGANISE</small><h2>Rename folder</h2></div><button type="button" className="icon-button" onClick={onCancel}>×</button></div><label>Folder name<input autoFocus required value={name} onChange={(event) => setName(event.target.value)} /></label><div className="actions"><button type="button" className="secondary" onClick={onCancel}>Cancel</button><button type="submit" className="primary">Rename folder</button></div></form></div>;
 }
 
 function CredentialDialog({
@@ -2080,6 +2097,7 @@ export default function App() {
   const [pendingSession, setPendingSession] = useState<Session | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+  const [folderToRename, setFolderToRename] = useState<Folder | null>(null);
   const [folderContextMenu, setFolderContextMenu] = useState<{
     folder: Folder;
     x: number;
@@ -2093,6 +2111,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [commandsOpen, setCommandsOpen] = useState(false);
   const [wikiSessionId, setWikiSessionId] = useState<
     string | null | undefined
   >();
@@ -2296,6 +2315,10 @@ export default function App() {
     setSelectedFolder(parentId ?? "all");
     setFolderToDelete(null);
   };
+  const renameFolder = (folder: Folder, name: string) => {
+    persist({ ...data, folders: data.folders.map((item) => item.id === folder.id ? { ...item, name } : item) });
+    setFolderToRename(null);
+  };
   useEffect(() => {
     if (!folderContextMenu) return;
     const close = () => setFolderContextMenu(null);
@@ -2311,26 +2334,6 @@ export default function App() {
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [folderContextMenu]);
-  useLayoutEffect(() => {
-    const cards = Array.from(
-      document.querySelectorAll<HTMLElement>(".session-card"),
-    );
-    cards.forEach((card, index) => {
-      const session = visible[index];
-      const menu = card.querySelector<HTMLElement>(".card-menu");
-      if (!session || !menu || menu.querySelector(".clone-session-button"))
-        return;
-      const button = document.createElement("button");
-      button.className = "clone-session-button";
-      button.type = "button";
-      button.textContent = "Clone";
-      button.onclick = (event) => {
-        event.stopPropagation();
-        setEditing({ ...session, id: "" });
-      };
-      menu.insertBefore(button, menu.children[1] ?? null);
-    });
-  }, [visible]);
   const moveSession = (sessionId: string, folderId: string | null) => {
     if (!sessionId) return;
     const now = new Date().toISOString();
@@ -2695,9 +2698,6 @@ export default function App() {
             <span className="folder-name" title={folder.name}>
               {folder.name}
             </span>
-            <em>
-              {data.sessions.filter((s) => s.folderId === folder.id).length}
-            </em>
           </button>
         );
         return [
@@ -2794,6 +2794,12 @@ export default function App() {
           </button>
           {renderFolderTree()}
         </nav>
+        <button
+          className="settings-button inventory-button"
+          onClick={() => setCommandsOpen(true)}
+        >
+          ›_ <span>Commands</span>
+        </button>
         <button
           className="settings-button inventory-button"
           onClick={() => setWikiSessionId(null)}
@@ -3022,6 +3028,9 @@ export default function App() {
                         <TerminalView
                           session={tab.session}
                           secret={tab.secret}
+                          macros={data.macros ?? []}
+                          folders={data.folders}
+                          onManageMacros={() => setCommandsOpen(true)}
                           onClose={() => closeTab(tab.id)}
                         />
                       ))}
@@ -3111,6 +3120,15 @@ export default function App() {
                           .map((service) => service.toUpperCase())
                           .join(" · ")}
                       </span>
+                      {hasService(s, "ssh") && (
+                        <span className="session-auth-method">
+                          {(credentials.find(
+                            (credential) => credential.id === s.credentialSetId,
+                          )?.authMethod ?? s.authMethod) === "privateKey"
+                            ? "SSH KEY"
+                            : "PASSWORD"}
+                        </span>
+                      )}
                       <span>
                         {hasService(s, "ssh")
                           ? `:${s.port}`
@@ -3192,6 +3210,14 @@ export default function App() {
           }}
         />
       )}
+      {commandsOpen && (
+        <MacroLibrary
+          macros={data.macros ?? []}
+          folders={data.folders}
+          onChange={(macros) => persist({ ...data, macros })}
+          onClose={() => setCommandsOpen(false)}
+        />
+      )}
       {creatingFolder && (
         <FolderDialog
           folders={data.folders}
@@ -3205,6 +3231,9 @@ export default function App() {
           onCancel={() => setCreatingFolder(false)}
           onSave={addFolder}
         />
+      )}
+      {folderToRename && (
+        <RenameFolderDialog folder={folderToRename} onCancel={() => setFolderToRename(null)} onSave={(name) => renameFolder(folderToRename, name)} />
       )}
       {pendingSession && (
         <CredentialDialog
@@ -3290,6 +3319,18 @@ export default function App() {
           style={{ left: folderContextMenu.x, top: folderContextMenu.y }}
           onPointerDown={(event) => event.stopPropagation()}
         >
+          <button
+            type="button"
+            role="menuitem"
+            className="rename-folder-action"
+            onClick={() => {
+              setFolderToRename(folderContextMenu.folder);
+              setFolderContextMenu(null);
+            }}
+          >
+            <EditIcon />
+            Rename folder
+          </button>
           <button
             type="button"
             role="menuitem"
