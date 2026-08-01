@@ -9,6 +9,7 @@ import { parse, stringify } from "yaml";
 import type {
   AppData,
   AuthMethod,
+  ConnectionService,
   CredentialSet,
   Folder,
   Session,
@@ -33,6 +34,7 @@ const text = (value: unknown, fallback = "") =>
       ? String(value)
       : fallback;
 const validOptionalPort = (value: unknown) => { const port = Number(value); return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : undefined; };
+const inventoryServices = (value: unknown, rdpPort?: number, vncPort?: number): ConnectionService[] => { const allowed = new Set<ConnectionService>(["ssh", "rdp", "vnc"]); if (Array.isArray(value)) { const services = value.filter((item): item is ConnectionService => typeof item === "string" && allowed.has(item as ConnectionService)); if (services.length) return [...new Set(services)]; } return ["ssh", ...(rdpPort ? ["rdp" as const] : []), ...(vncPort ? ["vnc" as const] : [])]; };
 const slug = (value: string) =>
   value
     .trim()
@@ -75,6 +77,7 @@ export function inventoryToYaml(data: AppData, credentials: CredentialSet[]) {
       if (session.webUrl?.trim()) host.hedgecon_web_url = session.webUrl.trim();
       if (session.rdpPort) host.hedgecon_rdp_port = session.rdpPort;
       if (session.vncPort) host.hedgecon_vnc_port = session.vncPort;
+      host.hedgecon_services = session.services?.length ? session.services : ["ssh", ...(session.rdpPort ? ["rdp"] : []), ...(session.vncPort ? ["vnc"] : [])];
       output[uniqueKey(session.name, used)] = host;
     }
     return output;
@@ -202,14 +205,16 @@ export function yamlToInventory(
             ? "privateKey"
             : "password");
         const now = new Date().toISOString();
+        const rdpPort = validOptionalPort(hostVars.hedgecon_rdp_port); const vncPort = validOptionalPort(hostVars.hedgecon_vnc_port);
         sessions.push({
           id: existing?.id ?? (requestedId || crypto.randomUUID()),
           name: text(hostVars.hedgecon_name, alias),
           host: address,
           port,
           webUrl: text(hostVars.hedgecon_web_url) || undefined,
-          rdpPort: validOptionalPort(hostVars.hedgecon_rdp_port),
-          vncPort: validOptionalPort(hostVars.hedgecon_vnc_port),
+          rdpPort,
+          vncPort,
+          services: inventoryServices(hostVars.hedgecon_services, rdpPort, vncPort),
           username: mappedCredential?.username ?? text(hostVars.ansible_user),
           folderId,
           authMethod,

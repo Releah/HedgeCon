@@ -1,10 +1,11 @@
 export type AuthMethod = 'password' | 'privateKey';
+export type ConnectionService = 'ssh' | 'rdp' | 'vnc';
 
 export interface Folder { id: string; name: string; parentId?: string | null; createdAt: string }
 export interface Session {
   id: string; name: string; host: string; port: number; username: string;
   folderId: string | null; authMethod: AuthMethod; privateKeyPath?: string;
-  credentialSetId?: string | null; credentialProfile?: string; webUrl?: string; rdpPort?: number; vncPort?: number;
+  credentialSetId?: string | null; credentialProfile?: string; webUrl?: string; rdpPort?: number; vncPort?: number; services?: ConnectionService[];
   createdAt: string; updatedAt: string;
 }
 export interface CredentialSet { id: string; name: string; username: string; authMethod: AuthMethod; privateKeyPath?: string; hasSecret: boolean }

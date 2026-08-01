@@ -67,6 +67,7 @@ The long-term goal is a single practical workspace for operating network infrast
 
 - Add an optional HTTP or HTTPS management address to any saved session.
 - Open SSH, Web, RDP and VNC connections independently from the same session card.
+- Select SSH, RDP and VNC independently per session, with SSH enabled by default and any single-service or combined configuration supported.
 - Launch the Windows Remote Desktop client or a preferred Linux Remmina/FreeRDP client, with an opt-in Remmina installation prompt when Linux has no compatible client.
 - Use VNC inside an isolated HedgeCon workspace tab through a token-protected loopback bridge; VNC passwords remain in memory for the active connection only.
 - Navigate device interfaces with Back, Forward, Reload and an editable address bar.

@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client";
 import type {
   AppData,
   AuthMethod,
+  ConnectionService,
   CredentialSet,
   CredentialSetInput,
   Folder,
@@ -54,6 +55,8 @@ type SettingsSection =
   | "updates"
   | "privacy";
 const id = () => crypto.randomUUID();
+const sessionServices = (session: Session): ConnectionService[] => session.services?.length ? session.services : ["ssh", ...(session.rdpPort ? ["rdp" as const] : []), ...(session.vncPort ? ["vnc" as const] : [])];
+const hasService = (session: Session, service: ConnectionService) => sessionServices(session).includes(service);
 const flattenFolders = (
   folders: Folder[],
   parentId: string | null = null,
@@ -128,6 +131,7 @@ function SessionDialog({
   onSave: (s: Session) => void;
 }) {
   const [cloning, setCloning] = useState(session?.id === "");
+  const initialServices = session ? sessionServices(session) : ["ssh" as const];
   const [form, setForm] = useState({
     name: session?.name ?? "",
     host: session?.host ?? "",
@@ -141,19 +145,27 @@ function SessionDialog({
     credentialProfile: session?.credentialProfile ?? "",
     authMethod: session?.authMethod ?? ("password" as AuthMethod),
     privateKeyPath: session?.privateKeyPath ?? "",
+    sshEnabled: initialServices.includes("ssh"),
+    rdpEnabled: initialServices.includes("rdp"),
+    vncEnabled: initialServices.includes("vnc"),
   });
+  const hasSelectedService = form.sshEnabled || form.rdpEnabled || form.vncEnabled;
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    const services: ConnectionService[] = [form.sshEnabled && "ssh", form.rdpEnabled && "rdp", form.vncEnabled && "vnc"].filter((service): service is ConnectionService => Boolean(service));
+    if (!services.length) return;
+    const { sshEnabled: _sshEnabled, rdpEnabled: _rdpEnabled, vncEnabled: _vncEnabled, ...sessionForm } = form;
     const now = new Date().toISOString();
     onSave({
       id: session && !cloning ? session.id : id(),
       createdAt: session && !cloning ? session.createdAt : now,
       updatedAt: now,
-      ...form,
+      ...sessionForm,
+      services,
       port: Number(form.port),
       webUrl: form.webUrl.trim() || undefined,
-      rdpPort: form.rdpPort || undefined,
-      vncPort: form.vncPort || undefined,
+      rdpPort: form.rdpEnabled ? form.rdpPort || 3389 : undefined,
+      vncPort: form.vncEnabled ? form.vncPort || 5900 : undefined,
       folderId: form.folderId || null,
       credentialSetId: form.credentialSetId || null,
       credentialProfile: form.credentialProfile.trim() || undefined,
@@ -169,8 +181,8 @@ function SessionDialog({
               {session && !cloning
                 ? "Edit session"
                 : cloning
-                  ? "Clone SSH session"
-                  : "New SSH session"}
+                  ? "Clone session"
+                  : "New session"}
             </h2>
           </div>
           <button type="button" className="icon-button" onClick={onCancel}>
@@ -187,7 +199,8 @@ function SessionDialog({
             placeholder="Production API"
           />
         </label>
-        <div className="split">
+        <fieldset className="service-selector"><legend>Connection services</legend>{([['ssh', 'SSH', '›_'], ['rdp', 'RDP', '▣'], ['vnc', 'VNC', '◉']] as const).map(([service, label, icon]) => { const key = `${service}Enabled` as 'sshEnabled' | 'rdpEnabled' | 'vncEnabled'; return <label key={service} className={form[key] ? 'active' : ''}><input type="checkbox" checked={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.checked, ...(service === 'rdp' && event.target.checked && !form.rdpPort ? { rdpPort: 3389 } : {}), ...(service === 'vnc' && event.target.checked && !form.vncPort ? { vncPort: 5900 } : {}) })} /><span>{icon}</span><strong>{label}</strong></label>; })}</fieldset>
+        <div className={form.sshEnabled ? "split" : "host-only-field"}>
           <label>
             Host
             <input
@@ -197,7 +210,7 @@ function SessionDialog({
               placeholder="server.example.com"
             />
           </label>
-          <label className="port">
+          {form.sshEnabled && <label className="port">
             Port
             <input
               required
@@ -207,7 +220,7 @@ function SessionDialog({
               value={form.port}
               onChange={(e) => setForm({ ...form, port: +e.target.value })}
             />
-          </label>
+          </label>}
         </div>
         <label>
           Device web address <em>optional</em>
@@ -218,8 +231,8 @@ function SessionDialog({
             placeholder={`https://${form.host || "device.example.com"}`}
           />
         </label>
-        <div className="split">
-          <label>
+        {(form.rdpEnabled || form.vncEnabled) && <div className={`split remote-port-fields ${form.rdpEnabled !== form.vncEnabled ? 'single' : ''}`}>
+          {form.rdpEnabled && <label>
             RDP port <em>optional</em>
             <input
               type="number"
@@ -229,8 +242,8 @@ function SessionDialog({
               onChange={(e) => setForm({ ...form, rdpPort: +e.target.value })}
               placeholder="3389"
             />
-          </label>
-          <label>
+          </label>}
+          {form.vncEnabled && <label>
             VNC port <em>optional</em>
             <input
               type="number"
@@ -240,8 +253,8 @@ function SessionDialog({
               onChange={(e) => setForm({ ...form, vncPort: +e.target.value })}
               placeholder="5900"
             />
-          </label>
-        </div>
+          </label>}
+        </div>}
         <label>
           Folder
           <select
@@ -257,7 +270,7 @@ function SessionDialog({
             ))}
           </select>
         </label>
-        <label>
+        {form.sshEnabled && <><label>
           Credentials
           <select
             value={form.credentialSetId}
@@ -328,12 +341,14 @@ function SessionDialog({
               </label>
             )}
           </>
-        )}
-        <p className="hint">
+        )}</>}
+        {!form.sshEnabled && form.rdpEnabled && <label>RDP username <em>optional</em><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="DOMAIN\\username" /></label>}
+        {form.sshEnabled && <p className="hint">
           The shared profile is written to inventory YAML; usernames, passwords,
           and key paths stay local. Other users map the same profile to their
           own credential set.
-        </p>
+        </p>}
+        {!hasSelectedService && <p className="service-error">Choose at least one connection service.</p>}
         <div className="actions">
           {session && !cloning && (
             <button
@@ -353,7 +368,7 @@ function SessionDialog({
           <button type="button" className="secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button type="submit" className="primary">
+          <button type="submit" className="primary" disabled={!hasSelectedService}>
             {cloning ? "Create clone" : "Save session"}
           </button>
         </div>
@@ -2190,6 +2205,7 @@ export default function App() {
     try { const result = await window.hedge.openRemoteDesktop("rdp", session.host, session.rdpPort, session.username, uiSettings.linuxRdpClient); notify(result.installed ? `${result.client} was installed. Select RDP again to connect.` : `${result.client} opened for ${session.name}.`); }
     catch (error) { notify(error instanceof Error ? error.message : String(error)); }
   };
+  const openPreferredService = (session: Session) => { if (hasService(session, "ssh")) return void connect(session); if (hasService(session, "rdp")) return void openRdp(session); if (hasService(session, "vnc")) openVncTab(session); };
   const paneIds = [activeTabId, secondaryTabId, ...additionalPaneIds].filter(
     (value, index, all): value is string =>
       Boolean(value) && all.indexOf(value) === index,
@@ -2719,35 +2735,33 @@ export default function App() {
                       e.dataTransfer.effectAllowed = "move";
                       e.dataTransfer.setData("text/session-id", s.id);
                     }}
-                    onDoubleClick={() => void connect(s)}
+                    onDoubleClick={() => openPreferredService(s)}
                   >
                     <div className="card-top">
                       <span className="server-icon">›_</span>
                       <div className="card-menu">
                         <button onClick={() => setEditing(s)}>Edit</button>
-                        <button onClick={() => void forgetHostKey(s)}>
+                        {hasService(s, "ssh") && <button onClick={() => void forgetHostKey(s)}>
                           Forget key
-                        </button>
+                        </button>}
                         <button onClick={() => remove(s)}>Delete</button>
                       </div>
                     </div>
                     <h3>{s.name}</h3>
                     <p>
-                      {s.username}@{s.host}
+                      {s.username ? `${s.username}@` : ""}{s.host}
                     </p>
                     <div className="meta">
-                      <span>
-                        {s.authMethod === "privateKey" ? "KEY" : "PASSWORD"}
-                      </span>
-                      <span>:{s.port}</span>
+                      <span>{sessionServices(s).map(service => service.toUpperCase()).join(" · ")}</span>
+                      <span>{hasService(s, "ssh") ? `:${s.port}` : hasService(s, "rdp") ? `:${s.rdpPort ?? 3389}` : `:${s.vncPort ?? 5900}`}</span>
                     </div>
                     <div className="session-connect-actions">
-                      <button
+                      {hasService(s, "ssh") && <button
                         className="connect"
                         onClick={() => void connect(s)}
                       >
                         SSH <span>›_</span>
-                      </button>
+                      </button>}
                       {s.webUrl && (
                         <button
                           className="connect web-connect"
@@ -2756,8 +2770,8 @@ export default function App() {
                           Web <span>↗</span>
                         </button>
                       )}
-                      {s.rdpPort && <button className="connect rdp-connect" onClick={() => void openRdp(s)}>RDP <span>▣</span></button>}
-                      {s.vncPort && <button className="connect vnc-connect" onClick={() => openVncTab(s)}>VNC <span>◉</span></button>}
+                      {hasService(s, "rdp") && <button className="connect rdp-connect" onClick={() => void openRdp(s)}>RDP <span>▣</span></button>}
+                      {hasService(s, "vnc") && <button className="connect vnc-connect" onClick={() => openVncTab(s)}>VNC <span>◉</span></button>}
                     </div>
                   </article>
                 ))}
@@ -2850,7 +2864,7 @@ export default function App() {
           onSelect={(session) => {
             setPickerOpen(false);
             setActiveTabId(tabs[0]?.id ?? null);
-            void connect(session);
+            openPreferredService(session);
           }}
           onCreate={() => {
             setPickerOpen(false);

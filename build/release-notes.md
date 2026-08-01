@@ -1,4 +1,11 @@
-# HedgeCon v0.2.8-experimental.1
+# HedgeCon v0.2.8-experimental.2
+
+## Session services and interface polish
+
+- Choose SSH, RDP and VNC independently for each session, including single-service and mixed-service configurations.
+- Keep existing sessions backward-compatible with SSH enabled by default and synchronize selections through `hedgecon_services` in inventory YAML.
+- Show only configured connection actions and open the first appropriate service when a session is selected.
+- Align the RDP and VNC port fields, remove mismatched number controls and match the connection-dialog scrollbar to the rest of HedgeCon.
 
 This experimental release adds RDP and VNC connectivity alongside the existing SSH and device-browser workspace.
 
