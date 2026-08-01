@@ -1,4 +1,19 @@
-# HedgeCon v0.2.9-experimental.1
+# HedgeCon v0.2.9-experimental.2
+
+## Macro and update-page fixes
+
+- Fix dragging macro cards into top-level and nested macro folders in Electron.
+- Highlight valid macro-folder drop targets and retain a compatible fallback drag format.
+- Keep update action buttons in a stable position across current, available and downloaded states.
+- Give release notes a larger reading area with clearer text, spacing and contrast.
+
+This remains an experimental release for testing the macro organisation workflow. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.1
 
 ## Organised macro libraries
 
