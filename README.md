@@ -6,6 +6,10 @@
   **Your network sessions, tools and notes in one workspace.**
 
   A modern, self-contained SSH workspace built for network engineers and systems administrators.
+
+  <a href="https://buymeacoffee.com/releah">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Support HedgeCon on Buy Me a Coffee" width="180">
+  </a>
 </div>
 
 ---
@@ -41,6 +45,10 @@ The long-term goal is a single practical workspace for operating network infrast
 
 ### Tools alongside the terminal
 
+- Global searchable command-macro library with reusable terminal button boards.
+- Folder- and platform-aware macro favourites for Linux, Windows and network-device sessions.
+- Prompted `{{ variable }}` substitutions, rendered previews and optional immediate execution.
+- Resizable per-terminal macro panel with a remembered width.
 - Resizable Ping or SSH-port TCP monitor with response-time history, outage duration and selectable Live, 5m, 30m, 1h, 4h and Max ranges.
 - SFTP remote file browser with uploads and downloads.
 - SCP uploads and downloads for hosts where SFTP is unavailable or unsuitable.
@@ -301,6 +309,14 @@ git status
 ```
 
 Never add passwords, access tokens, private keys or real production inventories to a commit.
+
+## Support HedgeCon
+
+HedgeCon is developed independently and remains free to use. If it saves you time and you would like to support its continued development, you can [buy Releah a coffee](https://buymeacoffee.com/releah).
+
+<a href="https://buymeacoffee.com/releah">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" width="180">
+</a>
 
 ## Contributing
 

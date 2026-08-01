@@ -1098,7 +1098,7 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
         <div>
           <strong>{statusText}</strong>
           {status?.releaseNotes && (
-            <details>
+            <details open>
               <summary>What changed</summary>
               <pre>{status.releaseNotes}</pre>
             </details>
@@ -2098,6 +2098,7 @@ export default function App() {
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
   const [folderToRename, setFolderToRename] = useState<Folder | null>(null);
+  const [folderCreationParent, setFolderCreationParent] = useState<Folder | null>(null);
   const [folderContextMenu, setFolderContextMenu] = useState<{
     folder: Folder;
     x: number;
@@ -3222,14 +3223,15 @@ export default function App() {
         <FolderDialog
           folders={data.folders}
           defaultParentId={
-            typeof selectedFolder === "string" &&
+            folderCreationParent?.id ??
+            (typeof selectedFolder === "string" &&
             selectedFolder !== "all" &&
             selectedFolder !== "unfiled"
               ? selectedFolder
-              : null
+              : null)
           }
-          onCancel={() => setCreatingFolder(false)}
-          onSave={addFolder}
+          onCancel={() => { setCreatingFolder(false); setFolderCreationParent(null); }}
+          onSave={(name, parentId) => { addFolder(name, parentId); setFolderCreationParent(null); }}
         />
       )}
       {folderToRename && (
@@ -3319,6 +3321,19 @@ export default function App() {
           style={{ left: folderContextMenu.x, top: folderContextMenu.y }}
           onPointerDown={(event) => event.stopPropagation()}
         >
+          <button
+            type="button"
+            role="menuitem"
+            className="create-folder-action"
+            onClick={() => {
+              setFolderCreationParent(folderContextMenu.folder);
+              setCreatingFolder(true);
+              setFolderContextMenu(null);
+            }}
+          >
+            <span>＋</span>
+            Create subfolder
+          </button>
           <button
             type="button"
             role="menuitem"

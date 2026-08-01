@@ -1,4 +1,4 @@
-# HedgeCon v0.2.8-experimental.4
+# HedgeCon v0.2.8
 
 ## Command macros
 
@@ -8,6 +8,8 @@
 - Paste rendered commands without submitting them automatically, leaving operators in control of execution.
 - Persist macros in HedgeCon's protected local application data with validation and size limits.
 - Synchronize Linux, Windows and network-device platform classifications through inventory YAML.
+- Optionally run a macro immediately after insertion, while keeping review-first behaviour as the default.
+- Resize the active-terminal macro panel and remember its width.
 
 ## Folder and session-card refinements
 
@@ -15,8 +17,15 @@
 - Add matching rename/delete interactions to General and Vendor Wiki folders with collision protection.
 - Remove custom-folder counters and improve long-name truncation across the session and Wiki sidebars.
 - Keep Clone as an icon-only card action and restore accurate Password or SSH Key authentication labels.
+- Create nested folders directly from the right-click menu in both the session library and Wiki.
+- Expand the update release-notes reader to the full available width with actions beneath it.
 
-This remains an experimental release. Its Windows binaries are unsigned while the SignPath Foundation application is under review.
+## Project and community
+
+- Add structured GitHub forms for bug reports and feature requests.
+- Add an optional Buy Me a Coffee link for supporting HedgeCon development.
+
+This stable release promotes the tested experimental feature set to the main update channel. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
 
 ---
 

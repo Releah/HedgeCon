@@ -1,7 +1,7 @@
 export type AuthMethod = 'password' | 'privateKey';
 export type ConnectionService = 'ssh' | 'web' | 'rdp' | 'vnc';
 export type SessionPlatform = 'unspecified' | 'linux' | 'windows' | 'network';
-export interface CommandMacro { id: string; name: string; description?: string; command: string; folderIds: string[]; platforms: SessionPlatform[]; createdAt: string; updatedAt: string }
+export interface CommandMacro { id: string; name: string; description?: string; command: string; runImmediately?: boolean; folderIds: string[]; platforms: SessionPlatform[]; createdAt: string; updatedAt: string }
 
 export interface Folder { id: string; name: string; parentId?: string | null; createdAt: string }
 export interface Session {
