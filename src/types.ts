@@ -35,5 +35,6 @@ export type RepositoryPushResult = { outcome: 'pushed'; status: RepositoryStatus
 export interface WikiPage { path: string; title: string; section: 'general' | 'sessions' | 'vendors' }
 export interface WikiFolder { path: string; name: string; section: 'general' | 'vendors' }
 export interface UpdateSettings { automaticChecks: boolean; branch: 'main' | 'experimental' }
+export interface SessionLogSettings { enabled: boolean; retentionDays: number; maxFileSizeMb: number; maxTotalSizeMb: number }
 export interface UpdateStatus { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number }
 export interface SecureStorageStatus { available: boolean; secure: boolean; backend: string; message: string }

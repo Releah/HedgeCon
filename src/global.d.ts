@@ -1,4 +1,4 @@
-import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SftpEntry, SshEvent, SshKeyInfo, UiSettings, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
+import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SessionLogSettings, SftpEntry, SshEvent, SshKeyInfo, UiSettings, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -15,6 +15,9 @@ declare global {
     downloadUpdate(): Promise<UpdateStatus>;
     installUpdate(): Promise<boolean>;
     openLatestRelease(): Promise<void>;
+    getSessionLogSettings(): Promise<SessionLogSettings>;
+    setSessionLogSettings(input: SessionLogSettings): Promise<SessionLogSettings>;
+    openSessionLogFolder(): Promise<string>;
     onUpdateStatus(callback: (status: UpdateStatus) => void): () => void;
     readClipboardText(): Promise<string>;
     writeClipboardText(value: string): Promise<boolean>;

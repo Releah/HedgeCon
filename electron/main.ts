@@ -14,17 +14,20 @@ type StoredCredential = { id: string; name: string; username: string; authMethod
 type GitRepository = { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; encryptedToken?: string };
 type InventorySettings = { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string };
 type UpdateSettings = { automaticChecks: boolean; branch: 'main' | 'experimental' };
-type StoredData = { folders: unknown[]; sessions: unknown[]; macros: unknown[]; macroFolders: unknown[]; uiSettings?: unknown; credentialProfileMappings: Record<string, string>; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings };
+type SessionLogSettings = { enabled: boolean; retentionDays: number; maxFileSizeMb: number; maxTotalSizeMb: number };
+type StoredData = { folders: unknown[]; sessions: unknown[]; macros: unknown[]; macroFolders: unknown[]; uiSettings?: unknown; credentialProfileMappings: Record<string, string>; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings; sessionLogSettings: SessionLogSettings };
 type UpdateStatus = { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number };
 type SecureStorageStatus = { available: boolean; secure: boolean; backend: string; message: string };
 type SshKeyInfo = { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' };
-const defaults: StoredData = { folders: [], sessions: [], macros: [], macroFolders: [], credentialProfileMappings: {}, knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true, branch: 'main' } };
+const defaultSessionLogSettings: SessionLogSettings = { enabled: false, retentionDays: 30, maxFileSizeMb: 25, maxTotalSizeMb: 500 };
+const defaults: StoredData = { folders: [], sessions: [], macros: [], macroFolders: [], credentialProfileMappings: {}, knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true, branch: 'main' }, sessionLogSettings: defaultSessionLogSettings };
 let stored: StoredData = defaults;
 function dataPath() { return path.join(app.getPath('userData'), 'sessions.json'); }
 function backupDataPath() { return `${dataPath()}.bak`; }
 function parseStore(source: string) {
   const parsed = JSON.parse(source) as Partial<StoredData>;
-  const next: StoredData = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], macros: Array.isArray(parsed.macros) ? parsed.macros : [], macroFolders: Array.isArray(parsed.macroFolders) ? parsed.macroFolders : [], credentialProfileMappings: parsed.credentialProfileMappings && typeof parsed.credentialProfileMappings === 'object' && !Array.isArray(parsed.credentialProfileMappings) ? parsed.credentialProfileMappings : {}, knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false, branch: parsed.updateSettings?.branch === 'experimental' ? 'experimental' : 'main' } };
+  const logSettings = parsed.sessionLogSettings as Partial<SessionLogSettings> | undefined;
+  const next: StoredData = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], macros: Array.isArray(parsed.macros) ? parsed.macros : [], macroFolders: Array.isArray(parsed.macroFolders) ? parsed.macroFolders : [], credentialProfileMappings: parsed.credentialProfileMappings && typeof parsed.credentialProfileMappings === 'object' && !Array.isArray(parsed.credentialProfileMappings) ? parsed.credentialProfileMappings : {}, knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false, branch: parsed.updateSettings?.branch === 'experimental' ? 'experimental' : 'main' }, sessionLogSettings: { enabled: logSettings?.enabled === true, retentionDays: Number.isInteger(logSettings?.retentionDays) ? Math.max(1, Math.min(3650, Number(logSettings!.retentionDays))) : 30, maxFileSizeMb: Number.isInteger(logSettings?.maxFileSizeMb) ? Math.max(1, Math.min(1000, Number(logSettings!.maxFileSizeMb))) : 25, maxTotalSizeMb: Number.isInteger(logSettings?.maxTotalSizeMb) ? Math.max(10, Math.min(10000, Number(logSettings!.maxTotalSizeMb))) : 500 } };
   next.uiSettings = parsed.uiSettings; return next;
 }
 function readStore() {
@@ -144,6 +147,7 @@ const pendingBrowserCertificates = new Map<string, { key: string; callbacks: Arr
 const trustedBrowserCertificates = new Map<string, Set<string>>();
 const browserDarkCss = new Map<string, string>();
 const vncBridges = new Map<string, { server: WebSocketServer; sockets: Set<Socket> }>();
+const sessionLogs = new Map<string, { stream: ReturnType<typeof fs.createWriteStream>; path: string; base: string; part: number; bytes: number }>();
 let mainWindow: BrowserWindow | null = null;
 const releaseUrl = 'https://github.com/Releah/HedgeCon/releases/latest';
 const portableBuild = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
@@ -160,6 +164,31 @@ function sendToRenderer(channel: string, payload: unknown) {
 }
 function releaseNotesText(info: UpdateInfo) { if (typeof info.releaseNotes === 'string') return info.releaseNotes.slice(0, 20_000); if (Array.isArray(info.releaseNotes)) return info.releaseNotes.map(note => `${note.version}: ${note.note ?? ''}`).join('\n\n').slice(0, 20_000); return undefined; }
 function publishUpdateStatus(patch: Partial<UpdateStatus>) { updateStatus = { ...updateStatus, ...patch, currentVersion: app.getVersion(), portable: portableBuild, activeConnections: connections.size }; sendToRenderer('update:status', updateStatus); return updateStatus; }
+function sessionLogDirectory() { return path.join(app.getPath('userData'), 'session-logs'); }
+function safeLogName(value: string) { return value.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'session'; }
+function logFiles() { const directory = sessionLogDirectory(); if (!fs.existsSync(directory)) return []; const files: Array<{ path: string; size: number; modified: number }> = []; for (const entry of fs.readdirSync(directory, { withFileTypes: true })) { if (!entry.isFile() || !entry.name.endsWith('.log')) continue; try { const filePath = path.join(directory, entry.name); const stats = fs.statSync(filePath); files.push({ path: filePath, size: stats.size, modified: stats.mtimeMs }); } catch { /* A file may disappear during pruning. */ } } return files; }
+function createSessionLogStream(connectionId: string, filePath: string) { const stream = fs.createWriteStream(filePath, { flags: 'a', mode: 0o600 }); stream.on('error', () => { const current = sessionLogs.get(connectionId); if (current?.stream === stream) sessionLogs.delete(connectionId); }); return stream; }
+function pruneSessionLogs() {
+  const settings = stored.sessionLogSettings; const cutoff = Date.now() - settings.retentionDays * 86_400_000; const active = new Set([...sessionLogs.values()].map(log => log.path));
+  let files = logFiles();
+  for (const file of files) if (file.modified < cutoff && !active.has(file.path)) { try { fs.unlinkSync(file.path); } catch { /* Retry at the next prune. */ } }
+  files = logFiles().sort((left, right) => left.modified - right.modified); let total = files.reduce((sum, file) => sum + file.size, 0); const limit = settings.maxTotalSizeMb * 1024 * 1024;
+  for (const file of files) { if (total <= limit) break; if (active.has(file.path)) continue; try { fs.unlinkSync(file.path); total -= file.size; } catch { /* Retry at the next prune. */ } }
+}
+function openSessionLog(connectionId: string, sessionName: string, host: string) {
+  if (!stored.sessionLogSettings.enabled) return; try { fs.mkdirSync(sessionLogDirectory(), { recursive: true }); pruneSessionLogs();
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-'); const base = `${stamp}_${safeLogName(sessionName)}_${safeLogName(host)}_${connectionId.slice(0, 8)}`;
+    const filePath = path.join(sessionLogDirectory(), `${base}.log`); const header = `HedgeCon SSH session log\nSession: ${sessionName}\nHost: ${host}\nStarted: ${new Date().toISOString()}\n${'-'.repeat(72)}\n`;
+    const stream = createSessionLogStream(connectionId, filePath); stream.write(header); sessionLogs.set(connectionId, { stream, path: filePath, base, part: 1, bytes: Buffer.byteLength(header) });
+  } catch { /* Logging must never block an SSH connection. */ }
+}
+function writeSessionLog(connectionId: string, contents: string) {
+  const log = sessionLogs.get(connectionId); if (!log) return; const cleaned = contents.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, ''); const size = Buffer.byteLength(cleaned); const limit = stored.sessionLogSettings.maxFileSizeMb * 1024 * 1024;
+  try { if (log.bytes > 0 && log.bytes + size > limit) { log.stream.end(`\n${'-'.repeat(72)}\nContinued in next log file at ${new Date().toISOString()}\n`); log.part += 1; log.path = path.join(sessionLogDirectory(), `${log.base}.part-${log.part}.log`); log.stream = createSessionLogStream(connectionId, log.path); const header = `HedgeCon SSH session log (part ${log.part})\nContinued: ${new Date().toISOString()}\n${'-'.repeat(72)}\n`; log.stream.write(header); log.bytes = Buffer.byteLength(header); }
+    log.stream.write(cleaned); log.bytes += size;
+  } catch { sessionLogs.delete(connectionId); }
+}
+function closeSessionLog(connectionId: string) { const log = sessionLogs.get(connectionId); if (!log) return; sessionLogs.delete(connectionId); log.stream.end(`\n${'-'.repeat(72)}\nEnded: ${new Date().toISOString()}\n`); setTimeout(pruneSessionLogs, 250); }
 function configureUpdates() {
   if (!app.isPackaged || portableBuild) { publishUpdateStatus({ status: 'unsupported', message: portableBuild ? 'Portable builds notify you about releases but must be updated manually.' : 'Automatic updates are available in packaged builds.' }); return; }
   autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.allowDowngrade = false; autoUpdater.allowPrerelease = stored.updateSettings.branch === 'experimental';
@@ -197,7 +226,7 @@ function send(id: string, type: string, data: string) { sendToRenderer('ssh:even
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
 function destroyVncBridge(tabId: string) { const bridge = vncBridges.get(tabId); if (!bridge) return; vncBridges.delete(tabId); for (const socket of bridge.sockets) socket.destroy(); for (const client of bridge.server.clients) client.terminate(); bridge.server.close(); }
 function destroyBrowserView(tabId: string) { for (const callback of pendingBrowserCertificates.get(tabId)?.callbacks ?? []) callback(false); pendingBrowserCertificates.delete(tabId); trustedBrowserCertificates.delete(tabId); browserDarkCss.delete(tabId); const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
-function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* Client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
+function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); closeSessionLog(id); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* The client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
 
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
@@ -300,6 +329,11 @@ ipcMain.handle('update:check', async () => { if (!app.isPackaged || portableBuil
 ipcMain.handle('update:download', async () => { if (updateStatus.status !== 'available') throw new Error('No update is ready to download.'); await autoUpdater.downloadUpdate(); return updateStatus; });
 ipcMain.handle('update:install', () => { if (updateStatus.status !== 'downloaded') throw new Error('Download the update before installing it.'); cleanupRuntime(); for (const window of BrowserWindow.getAllWindows()) window.removeAllListeners('close'); setTimeout(() => autoUpdater.quitAndInstall(true, true), 150); return true; });
 ipcMain.handle('update:open-release', () => shell.openExternal(releaseUrl));
+ipcMain.handle('session-logs:settings', (_event, input?: SessionLogSettings) => {
+  if (input) { if (typeof input.enabled !== 'boolean' || !Number.isInteger(input.retentionDays) || input.retentionDays < 1 || input.retentionDays > 3650 || !Number.isInteger(input.maxFileSizeMb) || input.maxFileSizeMb < 1 || input.maxFileSizeMb > 1000 || !Number.isInteger(input.maxTotalSizeMb) || input.maxTotalSizeMb < 10 || input.maxTotalSizeMb > 10000) throw new Error('Invalid session log settings.'); stored.sessionLogSettings = input; writeStore(); pruneSessionLogs(); }
+  return stored.sessionLogSettings;
+});
+ipcMain.handle('session-logs:open-folder', async () => { const directory = sessionLogDirectory(); fs.mkdirSync(directory, { recursive: true }); const error = await shell.openPath(directory); if (error) throw new Error(error); return directory; });
 ipcMain.handle('inventory:configure', (_event, input: InventorySettings) => { if (!input || typeof input.configured !== 'boolean' || !['local', 'git'].includes(input.mode) || (input.mode === 'git' && (!input.repositoryPath || !/^[a-z0-9._/-]+\.ya?ml$/i.test(input.repositoryPath)))) throw new Error('Invalid inventory configuration.'); if (input.mode === 'git') safeRepoPath(input.repositoryPath!); stored.inventorySettings = input; writeStore(); return input; });
 ipcMain.handle('inventory:git-read', () => { if (stored.inventorySettings.mode !== 'git' || !stored.inventorySettings.repositoryPath) throw new Error('Git inventory is not configured.'); const target = safeRepoPath(stored.inventorySettings.repositoryPath); return fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : null; });
 ipcMain.handle('inventory:git-write', (_event, source: string) => { if (stored.inventorySettings.mode !== 'git' || !stored.inventorySettings.repositoryPath || typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > 5_000_000 || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(source)) throw new Error('Invalid Git inventory.'); const target = safeRepoPath(stored.inventorySettings.repositoryPath); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, source, 'utf8'); return true; });
@@ -311,11 +345,11 @@ ipcMain.handle('data:save', (_event, data: { folders: unknown[]; sessions: unkno
   if (data.macroFolders && (!Array.isArray(data.macroFolders) || data.macroFolders.length > 2000 || data.macroFolders.some((folder: any) => !folder || typeof folder.id !== 'string' || typeof folder.name !== 'string' || !folder.name.trim() || folder.name.length > 120))) throw new Error('Invalid macro folder data.');
   if (data.credentialProfileMappings && (typeof data.credentialProfileMappings !== 'object' || Array.isArray(data.credentialProfileMappings) || Object.keys(data.credentialProfileMappings).length > 500 || Object.entries(data.credentialProfileMappings).some(([profile, credentialId]) => !/^[A-Za-z0-9._ -]{1,120}$/.test(profile) || typeof credentialId !== 'string' || credentialId.length > 200))) throw new Error('Invalid credential profile mappings.'); stored.folders = data.folders; stored.sessions = data.sessions; stored.macros = data.macros ?? []; stored.macroFolders = data.macroFolders ?? []; stored.uiSettings = data.uiSettings; stored.credentialProfileMappings = data.credentialProfileMappings ?? {}; writeStore(); return data;
 });
-ipcMain.handle('app:reset-local-data', () => {
-  const userDataRoot = path.resolve(app.getPath('userData')); const targets = [path.resolve(dataPath()), path.resolve(managedKeysPath())];
+ipcMain.handle('app:reset-local-data', async () => {
+  const userDataRoot = path.resolve(app.getPath('userData')); const targets = [path.resolve(dataPath()), path.resolve(managedKeysPath()), path.resolve(sessionLogDirectory())];
   const comparableRoot = process.platform === 'win32' ? userDataRoot.toLowerCase() : userDataRoot;
   for (const target of targets) { const comparableTarget = process.platform === 'win32' ? target.toLowerCase() : target; if (!comparableTarget.startsWith(`${comparableRoot}${path.sep}`)) throw new Error('Refusing to reset data outside the HedgeCon application directory.'); }
-  cleanupRuntime(); if (fs.existsSync(targets[0])) fs.unlinkSync(targets[0]); if (fs.existsSync(targets[1])) fs.rmSync(targets[1], { recursive: true, force: true }); stored = { ...defaults };
+  cleanupRuntime(); await new Promise(resolve => setTimeout(resolve, 100)); if (fs.existsSync(targets[0])) fs.unlinkSync(targets[0]); for (const target of targets.slice(1)) if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true }); stored = { ...defaults };
   setTimeout(() => { app.relaunch(); app.exit(0); }, 200); return true;
 });
 ipcMain.handle('repo:get', () => repositoryMeta());
@@ -495,18 +529,19 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
     client.shell({ term: 'xterm-256color', cols: 100, rows: 30 }, (err, stream) => {
       if (err) return send(id, 'error', err.message);
       const entry = connections.get(id); if (entry) entry.stream = stream;
-      stream.on('data', (data: Buffer) => send(id, 'data', data.toString()));
-      stream.stderr.on('data', (data: Buffer) => send(id, 'data', data.toString()));
-      stream.on('close', () => { send(id, 'closed', 'Connection closed'); client.end(); connections.delete(id); });
+      openSessionLog(id, typeof request.name === 'string' ? request.name.slice(0, 200) : request.host, request.host);
+      stream.on('data', (data: Buffer) => { const text = data.toString(); writeSessionLog(id, text); send(id, 'data', text); });
+      stream.stderr.on('data', (data: Buffer) => { const text = data.toString(); writeSessionLog(id, text); send(id, 'data', text); });
+      stream.on('close', () => { closeSessionLog(id); send(id, 'closed', 'Connection closed'); client.end(); connections.delete(id); });
     });
-  }).on('error', (err) => { const authenticationFailure = (err as any).level === 'client-authentication' || /authentication methods failed|authentication failure/i.test(err.message); send(id, authenticationFailure ? 'auth-error' : 'error', err.message); connections.delete(id); })
-    .on('close', () => { pendingTrust.delete(id); connections.delete(id); send(id, 'closed', 'Disconnected'); }).connect(config);
+  }).on('error', (err) => { closeSessionLog(id); const authenticationFailure = (err as any).level === 'client-authentication' || /authentication methods failed|authentication failure/i.test(err.message); send(id, authenticationFailure ? 'auth-error' : 'error', err.message); connections.delete(id); })
+    .on('close', () => { closeSessionLog(id); pendingTrust.delete(id); connections.delete(id); send(id, 'closed', 'Disconnected'); }).connect(config);
   return { connectionId: id };
 });
 ipcMain.on('ssh:trust', (_e, id: string, accepted: boolean) => pendingTrust.get(id)?.(accepted));
 ipcMain.on('ssh:write', (_e, id: string, data: string) => { if (typeof data === 'string' && data.length <= 1024 * 1024) connections.get(id)?.stream?.write(data); });
 ipcMain.on('ssh:resize', (_e, id: string, cols: number, rows: number) => { if (Number.isInteger(cols) && Number.isInteger(rows) && cols >= 2 && cols <= 1000 && rows >= 1 && rows <= 1000) connections.get(id)?.stream?.setWindow(rows, cols, 0, 0); });
-ipcMain.on('ssh:disconnect', (_e, id: string) => { pendingTrust.get(id)?.(false); connections.get(id)?.client.end(); connections.delete(id); });
+ipcMain.on('ssh:disconnect', (_e, id: string) => { closeSessionLog(id); pendingTrust.get(id)?.(false); connections.get(id)?.client.end(); connections.delete(id); });
 ipcMain.handle('ping:start', (_event, host: string, requestedId: string) => {
   if (typeof host !== 'string' || !isValidHost(host)) throw new Error('Invalid ping target.');
   const monitorId = typeof requestedId === 'string' && requestedId ? requestedId : crypto.randomUUID(); const monitor = { stopped: false } as { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess }; pingMonitors.set(monitorId, monitor);

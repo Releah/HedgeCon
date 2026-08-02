@@ -20,6 +20,7 @@ import type {
   RepositoryMeta,
   SecureStorageStatus,
   Session,
+  SessionLogSettings,
   SshKeyInfo,
   UiSettings,
   UpdateSettings,
@@ -53,6 +54,7 @@ type SettingsSection =
   | "general"
   | "appearance"
   | "terminal"
+  | "logging"
   | "credentials"
   | "keys"
   | "git"
@@ -1492,6 +1494,15 @@ function CredentialProfileMappings({
   );
 }
 
+function SessionLoggingSettings({ notify }: { notify: (message: string) => void }) {
+  const [settings, setSettings] = useState<SessionLogSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { void window.hedge.getSessionLogSettings().then(setSettings).catch(error => notify(error instanceof Error ? error.message : String(error))); }, []);
+  if (!settings) return <div className="settings-state">Loading session log settings...</div>;
+  const save = async () => { setSaving(true); try { setSettings(await window.hedge.setSessionLogSettings(settings)); notify(settings.enabled ? "Session logging enabled." : "Session logging disabled."); } catch (error) { notify(error instanceof Error ? error.message : String(error)); } finally { setSaving(false); } };
+  return <><div className="settings-page-heading"><small>SESSION LOGGING</small><h3>Terminal transcripts</h3><p>Optionally retain SSH terminal output in rolling local log files.</p></div><label className="update-toggle session-logging-toggle"><input type="checkbox" checked={settings.enabled} onChange={event => setSettings({ ...settings, enabled: event.target.checked })} /><span><strong>Record SSH session output</strong><small>Newly connected sessions are logged after authentication. Existing sessions are unaffected until they reconnect.</small></span></label><div className={`session-log-limits ${settings.enabled ? "" : "disabled"}`}><label>Keep logs for<input type="number" min="1" max="3650" value={settings.retentionDays} onChange={event => setSettings({ ...settings, retentionDays: Number(event.target.value) })} /><small>days</small></label><label>Roll each file at<input type="number" min="1" max="1000" value={settings.maxFileSizeMb} onChange={event => setSettings({ ...settings, maxFileSizeMb: Number(event.target.value) })} /><small>MB</small></label><label>Maximum log storage<input type="number" min="10" max="10000" value={settings.maxTotalSizeMb} onChange={event => setSettings({ ...settings, maxTotalSizeMb: Number(event.target.value) })} /><small>MB</small></label></div><div className="session-log-warning"><strong>Logs are plaintext</strong><p>Terminal output may contain commands, host details, configuration data, or secrets printed by remote programs. HedgeCon does not separately record keystrokes, passwords, or private-key contents.</p></div><div className="session-log-actions"><button className="secondary" onClick={() => void window.hedge.openSessionLogFolder().catch(error => notify(error instanceof Error ? error.message : String(error)))}>Open logs folder</button><button className="primary" disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Save logging settings"}</button></div></>;
+}
+
 function SettingsDialog({
   credentials,
   sessions,
@@ -1868,6 +1879,7 @@ function SettingsDialog({
               </>
             )}
             {section === "keys" && <SshKeyManager notify={notify} />}
+            {section === "logging" && <SessionLoggingSettings notify={notify} />}
             {section === "git" && <GitRepositorySettings notify={notify} />}
             {section === "updates" && <UpdateManager notify={notify} />}
             {section === "privacy" && (
@@ -1948,6 +1960,12 @@ function SettingsDialog({
             onClick={() => setSection("keys")}
           >
             <span>⌁</span>SSH keys
+          </button>
+          <button
+            className={section === "logging" ? "active" : ""}
+            onClick={() => setSection("logging")}
+          >
+            <span>≡</span>Session logs
           </button>
           <button
             className={section === "git" ? "active" : ""}
