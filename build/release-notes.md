@@ -1,4 +1,21 @@
-# HedgeCon v0.2.9-experimental.6
+# HedgeCon v0.2.9-experimental.7
+
+## Compact macros and session-aware variables
+
+- Reduce macro-card height and empty space so more commands fit comfortably on the button board.
+- Replace the terminal-style macro-card symbol with a clearer automation icon.
+- Resolve safe built-in macro variables from the active session, including username, host, SSH port and session name.
+- Continue prompting for any user-defined variables, with support for multiple values in one command.
+- Add expandable Variable help to the macro editor with built-in and prompted-variable examples.
+- Keep passwords, tokens, passphrases and private-key contents unavailable to macros.
+
+This remains an experimental release for testing session-aware command templates before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.6
 
 ## Macro library and split-terminal polish
 
