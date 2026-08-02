@@ -1,14 +1,29 @@
-# HedgeCon v0.2.9-experimental.9
+# HedgeCon v0.2.9
 
-## Final macro-board layout and dragging fix
+## Organised, session-aware command macros
 
-- Override the global application grid inside the macro board so its heading and command groups share the full content width.
-- Remove the empty column beneath All commands.
-- Let the draggable macro card own pointer input instead of its nested edit button intercepting drag gestures.
-- Match the session library's click-and-hold whole-card dragging while preserving click-to-edit and independent deletion.
-- Trigger releases from versioned commits and keep the release tag unpublished until both platform builds finish.
+- Organise macros into resizable, nested custom folders with create, rename, delete, collapse and whole-card drag-and-drop interactions.
+- Group the All macros board by folder while retaining focused individual-folder views and session-aware favourites.
+- Resolve safe built-in template values such as username, host, SSH port and session name from the active session.
+- Prompt for one or more user-defined values, preview the rendered command, and optionally run it immediately.
+- Explain built-in and user-defined variables directly in the macro builder without exposing passwords, tokens or private-key contents.
 
-This remains an experimental release for confirming the corrected macro-library interaction before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+## Connection and workspace reliability
+
+- Preserve active SSH, web and VNC connections while switching tabs or browsing the session library.
+- Restore terminal focus when opening tabs, returning to active sessions and running macros.
+- Coalesce repeated invalid-certificate requests and remember temporary browser trust for the lifetime of a tab.
+- Correct Wiki first-run folder selection and component cleanup to avoid runaway resource usage.
+- Keep split-screen controls and macro colour selectors correctly positioned.
+
+## Interface and release improvements
+
+- Refine the compact macro-card layout and match session-card drag behaviour.
+- Expand and stabilise the update release-notes area.
+- Build releases behind a hidden draft and publish the release tag only after Windows and Linux artifacts are complete.
+- Update GitHub Actions to their Node.js 24-compatible runtimes.
+
+This stable release promotes the tested experimental feature set to the main update channel. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
 
 ---
 
