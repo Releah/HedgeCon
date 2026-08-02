@@ -1,4 +1,20 @@
-# HedgeCon v0.2.9-experimental.7
+# HedgeCon v0.2.9-experimental.8
+
+## Macro-board interaction fixes
+
+- Show one clean automation icon on each macro card instead of layering it over the previous terminal glyph.
+- Keep the All commands heading and board explicitly within the main content column, removing wasted sidebar space.
+- Drag a macro from anywhere on its card, matching the natural whole-card interaction used by session cards.
+- Remove the separate drag grip while retaining folder highlighting and nested-folder moves.
+- Keep GitHub releases hidden as drafts until Windows and Linux updater artifacts have both uploaded.
+
+This remains an experimental release for testing the refined macro-library interaction before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.7
 
 ## Compact macros and session-aware variables
 

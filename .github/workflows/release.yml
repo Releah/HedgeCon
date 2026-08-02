@@ -24,16 +24,16 @@ jobs:
             exit 1
           fi
 
-      - name: Create GitHub Release
+      - name: Create draft GitHub Release
         run: |
           release_flags=()
           if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
             release_flags+=(--prerelease)
           fi
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release edit "${GITHUB_REF_NAME}" --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
+            gh release edit "${GITHUB_REF_NAME}" --draft --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
           else
-            gh release create "${GITHUB_REF_NAME}" --verify-tag --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
+            gh release create "${GITHUB_REF_NAME}" --draft --verify-tag --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,5 +87,23 @@ jobs:
 
       - name: Build and publish Linux AppImage
         run: pnpm release:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Publish completed GitHub Release
+        shell: bash
+        run: |
+          release_flags=()
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release edit "${GITHUB_REF_NAME}" --draft=false --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

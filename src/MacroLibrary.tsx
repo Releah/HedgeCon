@@ -31,20 +31,14 @@ export default function MacroLibrary({ macros, macroFolders, folders, onChange, 
       const macroId = filtered[index]?.id;
       if (!macroId) return () => {};
       if (selected === 'all') { const group = macroFolderPath(filtered[index].macroFolderId); if (group !== previousGroup) { const heading = document.createElement('div'); heading.className = 'macro-group-heading'; const label = document.createElement('strong'); label.textContent = group; const count = document.createElement('span'); count.textContent = `${filtered.filter(macro => macroFolderPath(macro.macroFolderId) === group).length} macro${filtered.filter(macro => macroFolderPath(macro.macroFolderId) === group).length === 1 ? '' : 's'}`; heading.append(label, count); grid.insertBefore(heading, card); headings.push(heading); previousGroup = group; } }
-      card.draggable = false;
+      card.draggable = true;
       const tile = card.querySelector<HTMLButtonElement>('.macro-tile');
       if (tile) tile.draggable = false;
-      const handle = document.createElement('span');
-      handle.className = 'macro-drag-handle';
-      handle.draggable = true;
-      handle.title = `Drag ${filtered[index].name} into a macro folder`;
-      handle.setAttribute('aria-label', handle.title);
-      handle.textContent = '⋮⋮';
+      card.title = `Drag ${filtered[index].name} into a macro folder`;
       const start = (event: DragEvent) => { event.dataTransfer?.setData('application/x-hedgecon-macro', macroId); event.dataTransfer?.setData('text/plain', macroId); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'; setDraggedMacroId(macroId); };
       const end = () => { setDraggedMacroId(null); setDropFolderId(null); };
-      handle.addEventListener('dragstart', start); handle.addEventListener('dragend', end);
-      card.appendChild(handle);
-      return () => { handle.removeEventListener('dragstart', start); handle.removeEventListener('dragend', end); handle.remove(); };
+      card.addEventListener('dragstart', start); card.addEventListener('dragend', end);
+      return () => { card.removeEventListener('dragstart', start); card.removeEventListener('dragend', end); card.removeAttribute('title'); };
     });
     return () => { cleanups.forEach(cleanup => cleanup()); headings.forEach(heading => heading.remove()); };
   }, [filtered, selected, macroFolders]);
