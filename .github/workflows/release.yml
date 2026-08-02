@@ -2,8 +2,12 @@ name: Build desktop release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+      - experimental
+    paths:
+      - package.json
+      - build/release-notes.md
 
 permissions:
   contents: write
@@ -11,32 +15,39 @@ permissions:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.version.outputs.release_tag }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Verify release version
+      - name: Read release version
+        id: version
         shell: bash
         run: |
           package_version=$(node -p "require('./package.json').version")
-          if [ "v${package_version}" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package version ${package_version}." >&2
+          release_tag="v${package_version}"
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${release_tag}" >/dev/null 2>&1; then
+            echo "Tag ${release_tag} already exists." >&2
             exit 1
           fi
 
-      - name: Create draft GitHub Release
-        run: |
-          release_flags=()
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            release_flags+=(--prerelease)
-          fi
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release edit "${GITHUB_REF_NAME}" --draft --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
-          else
-            gh release create "${GITHUB_REF_NAME}" --draft --verify-tag --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
-          fi
+      - name: Create hidden draft release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+        run: |
+          release_flags=()
+          if [[ "${RELEASE_TAG}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" --draft --title "HedgeCon ${RELEASE_TAG}" --notes-file build/release-notes.md "${release_flags[@]}"
+          else
+            gh release create "${RELEASE_TAG}" --draft --target "${GITHUB_SHA}" --title "HedgeCon ${RELEASE_TAG}" --notes-file build/release-notes.md "${release_flags[@]}"
+          fi
 
   windows:
     needs: prepare
@@ -59,7 +70,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build and publish Windows release
+      - name: Build and upload Windows release
         run: pnpm release:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,25 +96,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build and publish Linux AppImage
+      - name: Build and upload Linux AppImage
         run: pnpm release:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
-    needs: [windows, linux]
+    needs: [prepare, windows, linux]
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Publish completed GitHub Release
+      - name: Publish completed GitHub Release and tag
         shell: bash
-        run: |
-          release_flags=()
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            release_flags+=(--prerelease)
-          fi
-          gh release edit "${GITHUB_REF_NAME}" --draft=false --title "HedgeCon ${GITHUB_REF_NAME}" --notes-file build/release-notes.md "${release_flags[@]}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          release_flags=()
+          if [[ "${RELEASE_TAG}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release edit "${RELEASE_TAG}" --draft=false --title "HedgeCon ${RELEASE_TAG}" --notes-file build/release-notes.md "${release_flags[@]}"

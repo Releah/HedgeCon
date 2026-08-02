@@ -183,7 +183,7 @@ main > aside .settings-button,main > aside .new-session { font-size: 12px; }
 
 /* Macro library layout and whole-card dragging. */
 .macro-nav { grid-column: 1; grid-row: 2; }
-.macro-board { grid-column: 2; grid-row: 2; }
+.macro-board { grid-column: 2; grid-row: 2; display: block; }
 .macro-board-heading { margin-bottom: 12px; }
 .macro-board-heading h3 { margin-bottom: 0; }
 .macro-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 310px)); align-content: start; }
@@ -192,6 +192,7 @@ main > aside .settings-button,main > aside .new-session { font-size: 12px; }
 .macro-grid > article[draggable="true"]:active { cursor: grabbing; }
 .macro-drag-handle { display: none; }
 .macro-tile { min-height: 104px; grid-template-columns: 26px minmax(0, 1fr); grid-template-rows: auto auto minmax(18px, auto); gap: 3px 8px; padding: 12px 14px; }
+.macro-grid > article[draggable="true"] .macro-tile { pointer-events: none; }
 .macro-tile > span { width: 26px; height: 26px; font-size: 0; }
 .macro-tile > span::before { content: '⚡'; font: 13px/1 system-ui, sans-serif; }
 .macro-tile strong { padding-right: 28px; font-size: 11px; }

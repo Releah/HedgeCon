@@ -37,8 +37,9 @@ export default function MacroLibrary({ macros, macroFolders, folders, onChange, 
       card.title = `Drag ${filtered[index].name} into a macro folder`;
       const start = (event: DragEvent) => { event.dataTransfer?.setData('application/x-hedgecon-macro', macroId); event.dataTransfer?.setData('text/plain', macroId); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'; setDraggedMacroId(macroId); };
       const end = () => { setDraggedMacroId(null); setDropFolderId(null); };
-      card.addEventListener('dragstart', start); card.addEventListener('dragend', end);
-      return () => { card.removeEventListener('dragstart', start); card.removeEventListener('dragend', end); card.removeAttribute('title'); };
+      const open = (event: MouseEvent) => { if ((event.target as Element).closest('.macro-delete')) return; const selectedMacro = filtered[index]; setEditing({ ...selectedMacro, folderIds: [...selectedMacro.folderIds], platforms: [...selectedMacro.platforms] }); };
+      card.addEventListener('dragstart', start); card.addEventListener('dragend', end); card.addEventListener('click', open);
+      return () => { card.removeEventListener('dragstart', start); card.removeEventListener('dragend', end); card.removeEventListener('click', open); card.removeAttribute('title'); };
     });
     return () => { cleanups.forEach(cleanup => cleanup()); headings.forEach(heading => heading.remove()); };
   }, [filtered, selected, macroFolders]);

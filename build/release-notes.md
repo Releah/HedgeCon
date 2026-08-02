@@ -1,4 +1,20 @@
-# HedgeCon v0.2.9-experimental.8
+# HedgeCon v0.2.9-experimental.9
+
+## Final macro-board layout and dragging fix
+
+- Override the global application grid inside the macro board so its heading and command groups share the full content width.
+- Remove the empty column beneath All commands.
+- Let the draggable macro card own pointer input instead of its nested edit button intercepting drag gestures.
+- Match the session library's click-and-hold whole-card dragging while preserving click-to-edit and independent deletion.
+- Trigger releases from versioned commits and keep the release tag unpublished until both platform builds finish.
+
+This remains an experimental release for confirming the corrected macro-library interaction before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.8
 
 ## Macro-board interaction fixes
 
