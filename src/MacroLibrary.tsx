@@ -18,20 +18,36 @@ export default function MacroLibrary({ macros, macroFolders, folders, onChange, 
   const [context, setContext] = useState<{ folder: MacroFolder; x: number; y: number } | null>(null); const [folderDialog, setFolderDialog] = useState<{ mode: 'create' | 'rename'; folder?: MacroFolder; parentId: string | null } | null>(null); const [folderToDelete, setFolderToDelete] = useState<MacroFolder | null>(null);
   useEffect(() => localStorage.setItem('hedgecon-macro-library-collapsed', JSON.stringify([...collapsed])), [collapsed]);
   useEffect(() => { if (!context) return; const close = () => setContext(null); const key = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); }; window.addEventListener('pointerdown', close); window.addEventListener('keydown', key); return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key); }; }, [context]);
-  const filtered = useMemo(() => macros.filter(macro => (selected === 'all' || (selected === 'unfiled' ? !macro.macroFolderId : macro.macroFolderId === selected)) && `${macro.name} ${macro.description || ''} ${macro.command}`.toLowerCase().includes(query.trim().toLowerCase())), [macros, selected, query]);
+  const macroFolderPath = (folderId?: string | null) => { if (!folderId) return 'Unfiled'; const names: string[] = []; const seen = new Set<string>(); let current = macroFolders.find(folder => folder.id === folderId); while (current && !seen.has(current.id)) { seen.add(current.id); names.unshift(current.name); current = current.parentId ? macroFolders.find(folder => folder.id === current!.parentId) : undefined; } return names.length ? names.join(' / ') : 'Unfiled'; };
+  const filtered = useMemo(() => { const matches = macros.filter(macro => (selected === 'all' || (selected === 'unfiled' ? !macro.macroFolderId : macro.macroFolderId === selected)) && `${macro.name} ${macro.description || ''} ${macro.command}`.toLowerCase().includes(query.trim().toLowerCase())); return selected === 'all' ? [...matches].sort((left, right) => { const leftFolder = macroFolderPath(left.macroFolderId); const rightFolder = macroFolderPath(right.macroFolderId); if (leftFolder === 'Unfiled' && rightFolder !== 'Unfiled') return 1; if (rightFolder === 'Unfiled' && leftFolder !== 'Unfiled') return -1; return leftFolder.localeCompare(rightFolder) || left.name.localeCompare(right.name); }) : matches; }, [macros, macroFolders, selected, query]);
   useEffect(() => {
-    const tiles = [...document.querySelectorAll<HTMLButtonElement>('.macro-grid > article > .macro-tile')];
-    const cleanups = tiles.map((tile, index) => {
+    const grid = document.querySelector<HTMLElement>('.macro-grid');
+    if (!grid) return;
+    grid.querySelectorAll('.macro-group-heading').forEach(heading => heading.remove());
+    const cards = [...grid.querySelectorAll<HTMLElement>(':scope > article')];
+    const headings: HTMLElement[] = [];
+    let previousGroup = '';
+    const cleanups = cards.map((card, index) => {
       const macroId = filtered[index]?.id;
       if (!macroId) return () => {};
-      tile.draggable = true;
+      if (selected === 'all') { const group = macroFolderPath(filtered[index].macroFolderId); if (group !== previousGroup) { const heading = document.createElement('div'); heading.className = 'macro-group-heading'; const label = document.createElement('strong'); label.textContent = group; const count = document.createElement('span'); count.textContent = `${filtered.filter(macro => macroFolderPath(macro.macroFolderId) === group).length} macro${filtered.filter(macro => macroFolderPath(macro.macroFolderId) === group).length === 1 ? '' : 's'}`; heading.append(label, count); grid.insertBefore(heading, card); headings.push(heading); previousGroup = group; } }
+      card.draggable = false;
+      const tile = card.querySelector<HTMLButtonElement>('.macro-tile');
+      if (tile) tile.draggable = false;
+      const handle = document.createElement('span');
+      handle.className = 'macro-drag-handle';
+      handle.draggable = true;
+      handle.title = `Drag ${filtered[index].name} into a macro folder`;
+      handle.setAttribute('aria-label', handle.title);
+      handle.textContent = '⋮⋮';
       const start = (event: DragEvent) => { event.dataTransfer?.setData('application/x-hedgecon-macro', macroId); event.dataTransfer?.setData('text/plain', macroId); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'; setDraggedMacroId(macroId); };
       const end = () => { setDraggedMacroId(null); setDropFolderId(null); };
-      tile.addEventListener('dragstart', start); tile.addEventListener('dragend', end);
-      return () => { tile.removeEventListener('dragstart', start); tile.removeEventListener('dragend', end); };
+      handle.addEventListener('dragstart', start); handle.addEventListener('dragend', end);
+      card.appendChild(handle);
+      return () => { handle.removeEventListener('dragstart', start); handle.removeEventListener('dragend', end); handle.remove(); };
     });
-    return () => cleanups.forEach(cleanup => cleanup());
-  }, [filtered]);
+    return () => { cleanups.forEach(cleanup => cleanup()); headings.forEach(heading => heading.remove()); };
+  }, [filtered, selected, macroFolders]);
   const save = (macro: CommandMacro) => { onChange([...macros.filter(item => item.id !== macro.id), { ...macro, updatedAt: new Date().toISOString() }]); setEditing(null); };
   const moveMacro = (macroId: string, macroFolderId: string | null) => { if (!macroId || !macros.some(macro => macro.id === macroId)) return; onChange(macros.map(macro => macro.id === macroId ? { ...macro, macroFolderId, updatedAt: new Date().toISOString() } : macro)); setDraggedMacroId(null); setDropFolderId(null); };
   const draggedId = (event: React.DragEvent) => event.dataTransfer.getData('application/x-hedgecon-macro') || event.dataTransfer.getData('text/plain') || draggedMacroId || '';

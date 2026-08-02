@@ -1,4 +1,20 @@
-# HedgeCon v0.2.9-experimental.5
+# HedgeCon v0.2.9-experimental.6
+
+## Macro library and split-terminal polish
+
+- Group the All macros board by macro-folder path, including nested folder names and an Unfiled group.
+- Show the number of commands in each macro group while retaining normal individual-folder views.
+- Add a dedicated drag grip to each macro card to provide reliable folder moves in Electron.
+- Keep macro-folder rows outside Electron's draggable window region and highlight valid drop targets.
+- Shift the terminal background-colour selector left in split layouts so it does not overlap the pane-close button.
+
+This remains an experimental release for testing the final macro-library workflow before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release highlights
+
+## v0.2.9-experimental.5
 
 ## Workspace lifecycle and memory fixes
 
