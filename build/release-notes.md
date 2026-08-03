@@ -1,4 +1,19 @@
-# HedgeCon v0.3.0
+# HedgeCon v0.3.1
+
+## Wiki and serial-console fixes
+
+- Make Wiki folder reordering reliable in Electron by retaining the active folder throughout the drag gesture.
+- Preserve the existing page-to-folder drag workflow and locally persisted folder order.
+- Restyle the serial-profile Settings link to match HedgeCon instead of the native white button appearance.
+- Match the Console sidebar button typography and dimensions to New session.
+
+This stable maintenance release contains focused interface fixes for HedgeCon v0.3.0. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous stable release
+
+## v0.3.0
 
 ## Local serial-console profiles
 
