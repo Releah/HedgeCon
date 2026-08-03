@@ -23,6 +23,7 @@ import type {
   SessionLogSettings,
   SshKeyInfo,
   UiSettings,
+  UpdateRelease,
   UpdateSettings,
   UpdateStatus,
 } from "./types";
@@ -30,6 +31,8 @@ import TerminalView from "./TerminalView";
 import WebDeviceView from "./WebDeviceView";
 import ConfirmDialog from "./ConfirmDialog";
 import MacroLibrary from "./MacroLibrary";
+import SerialView from "./SerialView";
+import { validTerminalPattern } from "./terminalPatterns";
 
 const InventoryEditor = lazy(() => import("./InventoryEditor"));
 const WikiWorkspace = lazy(() => import("./WikiWorkspace"));
@@ -49,6 +52,7 @@ const defaultUiSettings: UiSettings = {
     { id: "critical", word: "Critical change", colour: "#351416" },
     { id: "protected", word: "Do not change", colour: "#101f3b" },
   ],
+  terminalPatterns: [],
 };
 type SettingsSection =
   | "general"
@@ -69,6 +73,7 @@ const sessionServices = (session: Session): ConnectionService[] =>
         ...(session.webUrl ? ["web" as const] : []),
         ...(session.rdpPort ? ["rdp" as const] : []),
         ...(session.vncPort ? ["vnc" as const] : []),
+        ...(session.serialPath ? ["serial" as const] : []),
       ];
 const hasService = (session: Session, service: ConnectionService) =>
   sessionServices(session).includes(service);
@@ -202,6 +207,11 @@ function SessionDialog({
     webUrl: session?.webUrl ?? "",
     rdpPort: session?.rdpPort ?? 0,
     vncPort: session?.vncPort ?? 0,
+    serialPath: session?.serialPath ?? "",
+    serialBaudRate: session?.serialBaudRate ?? 9600,
+    serialDataBits: session?.serialDataBits ?? 8,
+    serialStopBits: session?.serialStopBits ?? 1,
+    serialParity: session?.serialParity ?? "none",
     username: session?.username ?? "",
     folderId: session?.folderId ?? "",
     credentialSetId: session?.credentialSetId ?? "",
@@ -213,10 +223,13 @@ function SessionDialog({
     webEnabled: initialServices.includes("web"),
     rdpEnabled: initialServices.includes("rdp"),
     vncEnabled: initialServices.includes("vnc"),
+    serialEnabled: initialServices.includes("serial"),
     platform: session?.platform ?? "unspecified",
   });
+  const [serialPorts, setSerialPorts] = useState<Array<{ path: string; manufacturer?: string }>>([]);
+  useEffect(() => { if (form.serialEnabled) void window.hedge.listSerialPorts().then(setSerialPorts).catch(() => setSerialPorts([])); }, [form.serialEnabled]);
   const hasSelectedService =
-    form.sshEnabled || form.webEnabled || form.rdpEnabled || form.vncEnabled;
+    form.sshEnabled || form.webEnabled || form.rdpEnabled || form.vncEnabled || form.serialEnabled;
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const services: ConnectionService[] = [
@@ -224,6 +237,7 @@ function SessionDialog({
       form.webEnabled && "web",
       form.rdpEnabled && "rdp",
       form.vncEnabled && "vnc",
+      form.serialEnabled && "serial",
     ].filter((service): service is ConnectionService => Boolean(service));
     if (!services.length) return;
     const {
@@ -231,6 +245,7 @@ function SessionDialog({
       webEnabled: _webEnabled,
       rdpEnabled: _rdpEnabled,
       vncEnabled: _vncEnabled,
+      serialEnabled: _serialEnabled,
       ...sessionForm
     } = form;
     const now = new Date().toISOString();
@@ -244,6 +259,7 @@ function SessionDialog({
       webUrl: form.webEnabled ? form.webUrl.trim() || undefined : undefined,
       rdpPort: form.rdpEnabled ? form.rdpPort || 3389 : undefined,
       vncPort: form.vncEnabled ? form.vncPort || 5900 : undefined,
+      serialPath: form.serialEnabled ? form.serialPath.trim() : undefined,
       folderId: form.folderId || null,
       credentialSetId: form.credentialSetId || null,
       remoteCredentialSetId: form.remoteCredentialSetId || null,
@@ -286,13 +302,15 @@ function SessionDialog({
               ["web", "Web", "🌐"],
               ["rdp", "RDP", "▣"],
               ["vnc", "VNC", "◉"],
+              ["serial", "Serial", "⎇"],
             ] as const
           ).map(([service, label, icon]) => {
             const key = `${service}Enabled` as
               | "sshEnabled"
               | "webEnabled"
               | "rdpEnabled"
-              | "vncEnabled";
+              | "vncEnabled"
+              | "serialEnabled";
             return (
               <label key={service} className={form[key] ? "active" : ""}>
                 <input
@@ -335,7 +353,7 @@ function SessionDialog({
           <label>
             Host
             <input
-              required
+              required={form.sshEnabled || form.webEnabled || form.rdpEnabled || form.vncEnabled}
               value={form.host}
               onChange={(e) => setForm({ ...form, host: e.target.value })}
               placeholder="server.example.com"
@@ -401,6 +419,7 @@ function SessionDialog({
             )}
           </div>
         )}
+        {form.serialEnabled && <div className="serial-settings"><label>Serial port<select required value={form.serialPath} onChange={event => setForm({ ...form, serialPath: event.target.value })}><option value="">Select a serial port</option>{serialPorts.map(port => <option key={port.path} value={port.path}>{port.path}{port.manufacturer ? ` · ${port.manufacturer}` : ""}</option>)}</select><small className="field-note">Connect the adapter before opening this window, then reopen it to refresh the list.</small></label><label>Baud rate<select value={form.serialBaudRate} onChange={event => setForm({ ...form, serialBaudRate: Number(event.target.value) })}>{[300,1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,921600].map(rate => <option key={rate} value={rate}>{rate}</option>)}</select></label><label>Data bits<select value={form.serialDataBits} onChange={event => setForm({ ...form, serialDataBits: Number(event.target.value) as 5 | 6 | 7 | 8 })}>{[5,6,7,8].map(bits => <option key={bits} value={bits}>{bits}</option>)}</select></label><label>Parity<select value={form.serialParity} onChange={event => setForm({ ...form, serialParity: event.target.value as NonNullable<Session["serialParity"]> })}>{["none","even","odd","mark","space"].map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Stop bits<select value={form.serialStopBits} onChange={event => setForm({ ...form, serialStopBits: Number(event.target.value) as 1 | 1.5 | 2 })}>{[1,1.5,2].map(value => <option key={value} value={value}>{value}</option>)}</select></label></div>}
         {(form.rdpEnabled || form.vncEnabled) && (
           <label>
             Remote desktop credentials <em>optional</em>
@@ -1022,6 +1041,12 @@ function SshKeyManager({ notify }: { notify: (message: string) => void }) {
   );
 }
 
+function FeedbackDialog({ onClose, notify }: { onClose: () => void; notify: (message: string) => void }) {
+  const [type, setType] = useState<'bug' | 'feature'>('bug'); const [title, setTitle] = useState(''); const [description, setDescription] = useState(''); const [steps, setSteps] = useState(''); const [expected, setExpected] = useState(''); const [actual, setActual] = useState(''); const [alternatives, setAlternatives] = useState(''); const [context, setContext] = useState(''); const [sanitized, setSanitized] = useState(false); const [busy, setBusy] = useState(false);
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (type === 'bug' && !sanitized) return; setBusy(true); try { await window.hedge.openFeedbackIssue({ type, title, description, steps, expected, actual, alternatives, context }); notify('The report is ready in GitHub. Review it, then choose Submit new issue.'); onClose(); } catch (error) { notify(error instanceof Error ? error.message : String(error)); } finally { setBusy(false); } };
+  return <div className="overlay feedback-overlay"><form className="dialog feedback-dialog" onSubmit={event => void submit(event)}><div className="dialog-title"><div><small>HELP IMPROVE HEDGECON</small><h2>Report a bug or request a feature</h2><p>HedgeCon will prepare a GitHub issue for you to review before submission.</p></div><button type="button" className="icon-button" onClick={onClose}>×</button></div><div className="feedback-type"><button type="button" className={type === 'bug' ? 'active' : ''} onClick={() => setType('bug')}><span>!</span><strong>Bug report</strong><small>Something is not working</small></button><button type="button" className={type === 'feature' ? 'active' : ''} onClick={() => setType('feature')}><span>＋</span><strong>Feature request</strong><small>Suggest an improvement</small></button></div><label>Short title<input autoFocus required maxLength={180} value={title} onChange={event => setTitle(event.target.value)} placeholder={type === 'bug' ? 'Terminal reconnects when switching tabs' : 'Add support for…'} /></label><label>{type === 'bug' ? 'What went wrong?' : 'Problem or limitation'}<textarea required maxLength={10000} value={description} onChange={event => setDescription(event.target.value)} placeholder={type === 'bug' ? 'Describe what happened and what you were doing.' : 'Describe the workflow that is difficult today and who it affects.'} /></label>{type === 'bug' ? <><label>Steps to reproduce<textarea value={steps} onChange={event => setSteps(event.target.value)} placeholder={'1. Open…\n2. Select…\n3. Observe…'} /></label><div className="feedback-split"><label>Expected behaviour<textarea value={expected} onChange={event => setExpected(event.target.value)} /></label><label>Actual behaviour<textarea value={actual} onChange={event => setActual(event.target.value)} /></label></div></> : <><label>Proposed solution<textarea value={expected} onChange={event => setExpected(event.target.value)} placeholder="How would you like HedgeCon to handle it?" /></label><label>Alternatives considered<textarea value={alternatives} onChange={event => setAlternatives(event.target.value)} placeholder="How do you handle this today?" /></label></>}<label>Additional context <em>optional</em><textarea value={context} onChange={event => setContext(event.target.value)} placeholder="Device type, platform, examples, or related issues. Do not include credentials or production infrastructure details." /></label>{type === 'bug' && <label className="feedback-check"><input type="checkbox" checked={sanitized} onChange={event => setSanitized(event.target.checked)} /><span>I removed passwords, keys, tokens, hostnames, IP addresses, usernames, and other sensitive information.</span></label>}<div className="feedback-warning"><strong>Before GitHub opens</strong><p>Your app version, operating system, architecture, and installation type will be added automatically. No logs, sessions, notes, or credentials are collected.</p></div><div className="actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy || !title.trim() || !description.trim() || (type === 'bug' && !sanitized)}>{busy ? 'Opening GitHub…' : 'Review on GitHub'}</button></div></form></div>;
+}
+
 function UpdateManager({ notify }: { notify: (message: string) => void }) {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [settings, setSettings] = useState<UpdateSettings>({
@@ -1030,6 +1055,8 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
   });
   const [confirmInstall, setConfirmInstall] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [olderReleases, setOlderReleases] = useState<UpdateRelease[] | null>(null);
+  const [selectedRelease, setSelectedRelease] = useState("");
   useEffect(() => {
     const unsubscribe = window.hedge.onUpdateStatus(setStatus);
     void Promise.all([
@@ -1056,12 +1083,14 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
     }
   };
   const check = () => run(() => window.hedge.checkForUpdates());
+  const loadOlderReleases = () => run(async () => { const releases = await window.hedge.listUpdateReleases(); setOlderReleases(releases); setSelectedRelease(releases[0]?.tag ?? ""); });
+  const prepareDowngrade = () => run(async () => { if (!selectedRelease) return; await window.hedge.selectUpdateRelease(selectedRelease); });
   const download = () => run(() => window.hedge.downloadUpdate());
   const requestInstall = () =>
     run(async () => {
       const latest = await window.hedge.getUpdateStatus();
       setStatus(latest);
-      if (latest.activeConnections) setConfirmInstall(true);
+      if (latest.activeConnections || latest.downgrade) setConfirmInstall(true);
       else await window.hedge.installUpdate();
     });
   const statusText = !status
@@ -1071,7 +1100,7 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
       : status.status === "checking"
         ? "Checking GitHub Releases…"
         : status.status === "available"
-          ? `Version ${status.availableVersion} is available.`
+          ? `Version ${status.availableVersion} is available${status.downgrade ? " as a downgrade" : ""}.`
           : status.status === "downloading"
             ? `Downloading ${status.availableVersion ?? "update"}… ${Math.round(status.progress ?? 0)}%`
             : status.status === "downloaded"
@@ -1138,7 +1167,7 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
               disabled={busy}
               onClick={() => void download()}
             >
-              Download update
+              {status.downgrade ? "Download downgrade" : "Download update"}
             </button>
           )}
           {status?.status === "downloaded" && (
@@ -1147,7 +1176,7 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
               disabled={busy}
               onClick={() => void requestInstall()}
             >
-              Restart and install
+              {status.downgrade ? "Restart and downgrade" : "Restart and install"}
             </button>
           )}
         </div>
@@ -1162,6 +1191,8 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
               branch: event.target.value as UpdateSettings["branch"],
             };
             setSettings(next);
+            setOlderReleases(null);
+            setSelectedRelease("");
             void run(() => window.hedge.setUpdateSettings(next));
           }}
         >
@@ -1172,6 +1203,24 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
           Experimental builds may contain unfinished or breaking changes.
         </small>
       </label>
+      {!status?.portable && (
+        <section className="update-downgrade">
+          <div>
+            <strong>Install an older version</strong>
+            <p>Choose a previous {settings.branch === "main" ? "stable" : "experimental"} release built for this platform. Your saved data is kept, but older clients may not understand settings introduced by newer versions.</p>
+          </div>
+          {olderReleases === null ? (
+            <button className="secondary" disabled={busy} onClick={() => void loadOlderReleases()}>Show older versions</button>
+          ) : olderReleases.length ? (
+            <div className="downgrade-picker">
+              <select value={selectedRelease} onChange={event => setSelectedRelease(event.target.value)} disabled={busy}>
+                {olderReleases.map(release => <option key={release.tag} value={release.tag}>v{release.version} · {release.publishedAt ? new Date(release.publishedAt).toLocaleDateString() : release.name}</option>)}
+              </select>
+              <button className="secondary danger-outline" disabled={busy || !selectedRelease} onClick={() => void prepareDowngrade()}>Prepare downgrade</button>
+            </div>
+          ) : <p className="downgrade-empty">No compatible older releases were found for this branch and platform.</p>}
+        </section>
+      )}
       <label className="update-toggle">
         <input
           type="checkbox"
@@ -1187,9 +1236,10 @@ function UpdateManager({ notify }: { notify: (message: string) => void }) {
       {confirmInstall && (
         <ConfirmDialog
           eyebrow="APPLICATION UPDATE"
-          title="Restart HedgeCon and install the update?"
-          message={`This will close ${status?.activeConnections ?? 0} active SSH session${status?.activeConnections === 1 ? "" : "s"}. The update has already downloaded and your saved sessions and settings will be kept.`}
-          confirmLabel="Close sessions and install"
+          title={status?.downgrade ? `Downgrade HedgeCon to ${status.availableVersion}?` : "Restart HedgeCon and install the update?"}
+          message={status?.downgrade ? `HedgeCon will restart on an older version. Saved data is retained, but settings or data created by newer features may not be understood by version ${status.availableVersion}. ${status.activeConnections ? `This will also close ${status.activeConnections} active connection${status.activeConnections === 1 ? "" : "s"}.` : ""}` : `This will close ${status?.activeConnections ?? 0} active connection${status?.activeConnections === 1 ? "" : "s"}. The update has already downloaded and your saved sessions and settings will be kept.`}
+          confirmLabel={status?.downgrade ? "Downgrade and restart" : "Close sessions and install"}
+          danger={Boolean(status?.downgrade)}
           onCancel={() => setConfirmInstall(false)}
           onConfirm={() => void window.hedge.installUpdate()}
         />
@@ -1829,6 +1879,8 @@ function SettingsDialog({
                 >
                   ＋ Add meaning
                 </button>
+                <div className="terminal-pattern-heading"><div><h3>Regex text highlighting</h3><p>Colour matching terminal text in SSH and serial sessions. Expressions are case-insensitive and global.</p></div><button className="secondary" onClick={() => onUiSettings({ ...uiSettings, terminalPatterns: [...(uiSettings.terminalPatterns || []), { id: id(), name: "New pattern", pattern: "", colour: "#ffcc66", enabled: true }] })}>＋ Add pattern</button></div>
+                <div className="terminal-patterns">{(uiSettings.terminalPatterns || []).map((rule, index) => <div key={rule.id} className={rule.pattern && !validTerminalPattern(rule.pattern) ? "invalid" : ""}><label className="pattern-enabled"><input type="checkbox" checked={rule.enabled} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: event.target.checked } : item) })} /></label><input value={rule.name} aria-label="Pattern name" placeholder="Errors" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} /><input className="pattern-expression" value={rule.pattern} aria-label={`${rule.name} regular expression`} placeholder="error|failed|denied" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, pattern: event.target.value.slice(0, 256) } : item) })} /><input type="color" value={rule.colour} aria-label={`${rule.name} colour`} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, colour: event.target.value } : item) })} /><button className="delete-link" onClick={() => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.filter(item => item.id !== rule.id) })}>Remove</button>{rule.pattern && !validTerminalPattern(rule.pattern) && <small>Enter a valid regular expression (maximum 256 characters).</small>}</div>)}</div>
               </>
             )}
             {section === "credentials" && (
@@ -2088,7 +2140,8 @@ function SessionPicker({
 type WorkspaceTab =
   | { id: string; session: Session; kind: "ssh"; secret: string }
   | { id: string; session: Session; kind: "web" }
-  | { id: string; session: Session; kind: "vnc" };
+  | { id: string; session: Session; kind: "vnc" }
+  | { id: string; session: Session; kind: "serial" };
 
 export default function App() {
   const [data, setData] = useState<AppData>(blankData);
@@ -2128,6 +2181,7 @@ export default function App() {
   );
   const [notice, setNotice] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [wikiSessionId, setWikiSessionId] = useState<
@@ -2444,6 +2498,7 @@ export default function App() {
       return notify("Add a VNC port to this session first.");
     showTab({ id: id(), session, kind: "vnc" });
   };
+  const openSerialTab = (session: Session) => { if (!session.serialPath) return notify("Select a serial port for this session first."); showTab({ id: id(), session, kind: "serial" }); };
   const openRdp = async (session: Session) => {
     if (!session.rdpPort)
       return notify("Add an RDP port to this session first.");
@@ -2475,7 +2530,8 @@ export default function App() {
     if (hasService(session, "ssh")) return void connect(session);
     if (hasService(session, "web")) return void openWebTab(session);
     if (hasService(session, "rdp")) return void openRdp(session);
-    if (hasService(session, "vnc")) openVncTab(session);
+    if (hasService(session, "vnc")) return void openVncTab(session);
+    if (hasService(session, "serial")) openSerialTab(session);
   };
   const paneIds = [activeTabId, secondaryTabId, ...additionalPaneIds].filter(
     (value, index, all): value is string =>
@@ -2815,7 +2871,9 @@ export default function App() {
         >
           ⚙ <span>Settings</span>
         </button>
+        <button className="sidebar-feedback" aria-label="Report a bug or request a feature" title="Feedback" onClick={() => setFeedbackOpen(true)}>?</button>
       </aside>
+      {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} notify={setNotice} />}
       <div
         className="session-sidebar-resizer"
         role="separator"
@@ -2894,6 +2952,8 @@ export default function App() {
                           ? tab.session.webUrl
                           : tab.kind === "vnc"
                             ? `VNC · ${tab.session.host}:${tab.session.vncPort}`
+                            : tab.kind === "serial"
+                              ? `${tab.session.serialPath} · ${tab.session.serialBaudRate || 9600}`
                             : `${tab.session.username}@${tab.session.host}`}
                       </small>
                     </div>
@@ -3020,6 +3080,8 @@ export default function App() {
                             onClose={() => closeTab(tab.id)}
                           />
                         </Suspense>
+                      ) : tab.kind === "serial" ? (
+                        <SerialView session={tab.session} active={visible} />
                       ) : (
                         <TerminalView
                           session={tab.session}
@@ -3110,8 +3172,7 @@ export default function App() {
                     </div>
                     <h3>{s.name}</h3>
                     <p>
-                      {s.username ? `${s.username}@` : ""}
-                      {s.host}
+                      {hasService(s, "serial") && !s.host ? s.serialPath : <>{s.username ? `${s.username}@` : ""}{s.host}</>}
                     </p>
                     <div className="meta">
                       <span>
@@ -3133,7 +3194,9 @@ export default function App() {
                           ? `:${s.port}`
                           : hasService(s, "rdp")
                             ? `:${s.rdpPort ?? 3389}`
-                            : `:${s.vncPort ?? 5900}`}
+                            : hasService(s, "vnc")
+                              ? `:${s.vncPort ?? 5900}`
+                              : `${s.serialBaudRate ?? 9600} baud`}
                       </span>
                     </div>
                     <div className="session-connect-actions">
@@ -3168,6 +3231,9 @@ export default function App() {
                         >
                           VNC <span>◉</span>
                         </button>
+                      )}
+                      {hasService(s, "serial") && (
+                        <button className="connect serial-connect" onClick={() => openSerialTab(s)}>Serial <span>⎇</span></button>
                       )}
                     </div>
                   </article>

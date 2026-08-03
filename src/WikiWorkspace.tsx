@@ -12,7 +12,7 @@ import GitConflictDialog from './GitConflictDialog';
 import type { GitConflict, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryStatus, Session, WikiFolder, WikiPage } from './types';
 
 type Props = { sessions: Session[]; initialSessionId?: string; onClose: () => void };
-type EditableSection = 'general' | 'vendors';
+type EditableSection = 'general' | 'vendors' | 'private';
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 const parentPath = (value: string) => value.slice(0, value.lastIndexOf('/'));
 const readStoredSet = (key: string, fallback: string[]) => { try { const value = JSON.parse(localStorage.getItem(key) || 'null'); return new Set<string>(Array.isArray(value) ? value.filter(item => typeof item === 'string') : fallback); } catch { return new Set(fallback); } };
@@ -52,7 +52,7 @@ export default function WikiWorkspace({ sessions, initialSessionId, onClose }: P
   const [selected, setSelected] = useState<WikiPage | null>(null); const [source, setSource] = useState(''); const [savedSource, setSavedSource] = useState('');
   const [query, setQuery] = useState(''); const [preview, setPreview] = useState(true); const [busy, setBusy] = useState(''); const [message, setMessage] = useState('');
   const [openFolders, setOpenFolders] = useState<Set<string>>(() => readStoredSet('hedgecon-wiki-open-folders', []));
-  const [openSections, setOpenSections] = useState<Set<string>>(() => readStoredSet('hedgecon-wiki-open-sections', ['general', 'vendors', 'sessions'])); const [navWidth, setNavWidth] = useState(readStoredWidth);
+  const [openSections, setOpenSections] = useState<Set<string>>(() => readStoredSet('hedgecon-wiki-open-sections', ['general', 'private', 'vendors', 'sessions'])); const [navWidth, setNavWidth] = useState(readStoredWidth);
   const [pendingConflicts, setPendingConflicts] = useState<{ localOid: string; remoteOid: string; conflicts: GitConflict[] } | null>(null); const [conflictError, setConflictError] = useState('');
   const [commitMessage, setCommitMessage] = useState('Update HedgeCon notes'); const [newItem, setNewItem] = useState(''); const [createKind, setCreateKind] = useState<'page' | 'folder'>('page'); const [newSection, setNewSection] = useState<EditableSection>('general'); const [newParent, setNewParent] = useState('wiki/general');
   const [setup, setSetup] = useState<RepositoryInput>({ authorName: '', authorEmail: '', remoteUrl: '', branch: 'main', username: '', token: '' });
@@ -79,7 +79,7 @@ export default function WikiWorkspace({ sessions, initialSessionId, onClose }: P
   const filtered = useMemo(() => pages.filter(page => `${page.title} ${page.path}`.toLowerCase().includes(searchTerm)), [pages, searchTerm]);
   const filteredSessions = useMemo(() => sessions.filter(session => `${session.name} ${session.host}`.toLowerCase().includes(searchTerm)), [sessions, searchTerm]);
   const configure = async (mode: 'local' | 'clone') => run(mode, async () => { setMessage(mode === 'clone' ? 'Contacting the Git server and cloning the repository...' : 'Choose a folder for the local repository...'); const value = mode === 'local' ? await window.hedge.openLocalRepository(setup) : await window.hedge.cloneRepository(setup); if (!value) { setMessage('Repository setup cancelled.'); return; } setRepository(value); await refresh(); setMessage(mode === 'clone' ? `Connected to ${value.remoteUrl} on branch ${value.branch}.` : `Local repository ready at ${value.localPath}.`); });
-  const save = async () => run('save', async () => { if (!selected) return; await window.hedge.writeWikiPage(selected.path, source); setSavedSource(source); await refresh(selected.path); setMessage('Page saved locally. Commit when you are ready.'); });
+  const save = async () => run('save', async () => { if (!selected) return; await window.hedge.writeWikiPage(selected.path, source); setSavedSource(source); await refresh(selected.path); setMessage(selected.path.startsWith('wiki/general/private-notes/') ? 'Private page saved only on this device.' : 'Page saved locally. Commit when you are ready.'); });
   const create = async (event: FormEvent) => { event.preventDefault(); await run('create', async () => { if (createKind === 'folder') { const folder = await window.hedge.createWikiFolder(newSection, newItem, newParent); setOpenFolders(current => new Set(current).add(newParent).add(folder.path)); setNewParent(folder.path); await refresh(selected?.path); } else { const page = await window.hedge.createWikiPage(newSection, newItem, newParent); await refresh(page.path); } setNewItem(''); }); };
   const movePage = (pagePath: string, folderPath: string) => void run('move', async () => { const moved = await window.hedge.moveWikiPage(pagePath, folderPath); await refresh(moved.path); setMessage(`Moved ${moved.title}.`); });
   const chooseFolder = (section: EditableSection, folderPath: string) => { setNewSection(section); setNewParent(folderPath); };

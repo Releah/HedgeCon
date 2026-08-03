@@ -1,4 +1,33 @@
-# HedgeCon v0.2.9
+# HedgeCon v0.3.0-experimental.1
+
+## Serial connectivity and terminal awareness
+
+- Add serial sessions alongside SSH, Web, RDP and VNC, with discovered ports and configurable baud rate, data bits, parity and stop bits.
+- Share serial-session definitions through Inventory YAML while keeping the physical port selection explicit.
+- Add configurable regex text-highlighting rules for live SSH and serial output, preserving terminal control sequences and safely ignoring invalid expressions.
+- Keep edited highlighting rules live in already-open terminals.
+
+## Session records and private knowledge
+
+- Add optional rolling plaintext SSH session logs with retention age, per-file size and total-storage limits.
+- Keep the terminal macro panel open after commands run and across visits to the Commands library.
+- Switch each session note panel between shared Git-backed notes and private notes stored only in the local HedgeCon profile.
+- Show a local-only Private Notes folder beneath General Notes with nested folders, search and the existing Wiki organisation controls, without exposing its files to Git operations.
+
+## Release control and feedback
+
+- Browse compatible older Stable or Experimental releases and deliberately downgrade an installed client through the trusted updater flow.
+- Warn before installing older versions that may not understand settings created by newer clients.
+- Add an in-app Bug Report and Feature Request form beside the update indicator.
+- Prepare a structured, labelled issue for review on the official HedgeCon GitHub repository without collecting logs, sessions, notes or credentials.
+
+This is an experimental release for quality and regression testing of the new connectivity, terminal, privacy and support workflows. Private notes are local-only rather than encrypted. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous stable release highlights
+
+## v0.2.9
 
 ## Organised, session-aware command macros
 

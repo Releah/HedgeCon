@@ -7,6 +7,7 @@ import PingMonitor from './PingMonitor';
 import RemoteFiles from './RemoteFiles';
 import ConfirmDialog from './ConfirmDialog';
 import MacroBoard from './MacroBoard';
+import { highlightTerminalText } from './terminalPatterns';
 
 const SessionNotesPanel = lazy(() => import('./SessionNotesPanel'));
 
@@ -20,8 +21,9 @@ export default function TerminalView({ session, secret, active = true, macros = 
   const [macrosOpen, setMacrosOpen] = useState(false);
   const [keyPickerOpen, setKeyPickerOpen] = useState(false); const [availableKeys, setAvailableKeys] = useState<SshKeyInfo[]>([]); const [installedPublicKeys, setInstalledPublicKeys] = useState<string[]>([]); const [keyMessage, setKeyMessage] = useState(''); const [installingKey, setInstallingKey] = useState(''); const [keyToRemove, setKeyToRemove] = useState<SshKeyInfo | null>(null);
   const [attempt, setAttempt] = useState({ secret, overrideCredential: false, number: 0 });
-  const readUiSettings = (): UiSettings => { const fallback: UiSettings = { theme: 'midnight', browserTheme: 'normal', linuxRdpClient: 'auto', remoteDesktopResolution: 'native', remoteDesktopFullscreen: false, terminalDefault: '#080c12', terminalForeground: '#d7e0ea', terminalMeanings: [] }; try { return { ...fallback, ...(JSON.parse(localStorage.getItem('hedgecon-ui-settings') || '') as Partial<UiSettings>) }; } catch { return fallback; } };
+  const readUiSettings = (): UiSettings => { const fallback: UiSettings = { theme: 'midnight', browserTheme: 'normal', linuxRdpClient: 'auto', remoteDesktopResolution: 'native', remoteDesktopFullscreen: false, terminalDefault: '#080c12', terminalForeground: '#d7e0ea', terminalMeanings: [], terminalPatterns: [] }; try { return { ...fallback, ...(JSON.parse(localStorage.getItem('hedgecon-ui-settings') || '') as Partial<UiSettings>) }; } catch { return fallback; } };
   const [uiSettings, setUiSettings] = useState(readUiSettings); const [terminalColour, setTerminalColour] = useState(() => readUiSettings().terminalDefault);
+  const uiSettingsRef = useRef(uiSettings); useEffect(() => { uiSettingsRef.current = uiSettings; }, [uiSettings]);
   useEffect(() => { const update = (event: Event) => setUiSettings((event as CustomEvent<UiSettings>).detail); window.addEventListener('hedgecon:ui-settings', update); return () => window.removeEventListener('hedgecon:ui-settings', update); }, []);
   useEffect(() => { if (terminalRef.current) terminalRef.current.options.theme = { ...terminalRef.current.options.theme, background: terminalColour }; }, [terminalColour]);
   useEffect(() => { if (terminalRef.current) terminalRef.current.options.theme = { ...terminalRef.current.options.theme, foreground: uiSettings.terminalForeground }; }, [uiSettings.terminalForeground]);
@@ -45,7 +47,7 @@ export default function TerminalView({ session, secret, active = true, macros = 
     const scheduleReconnect = () => { if (authRejected || suppressReconnect.current || reconnectScheduled) return; reconnectScheduled = true; const delay = Math.min(30000, 2000 * (2 ** reconnectFailures.current)); reconnectFailures.current += 1; terminal.writeln(`\r\n\x1b[38;2;240;190;100mConnection lost. Reconnecting in ${Math.round(delay / 1000)}s...\x1b[0m`); reconnectTimer = window.setTimeout(() => setAttempt(current => ({ ...current, number: current.number + 1 })), delay); };
     const removeEvents = window.hedge.onSshEvent((event) => {
       if (event.connectionId !== connectionId) return;
-      if (event.type === 'data') { const follow = terminal.buffer.active.viewportY >= terminal.buffer.active.baseY; terminal.write(event.data, () => { if (follow) terminal.scrollToBottom(); }); }
+      if (event.type === 'data') { const follow = terminal.buffer.active.viewportY >= terminal.buffer.active.baseY; terminal.write(highlightTerminalText(event.data, uiSettingsRef.current.terminalPatterns), () => { if (follow) terminal.scrollToBottom(); }); }
       else if (event.type === 'status') { reconnectFailures.current = 0; terminal.writeln(`\r\n\x1b[38;2;112;214;178m${event.data}\x1b[0m`); }
       else if (event.type === 'auth-error') { authRejected = true; terminal.writeln('\r\n\x1b[38;2;244;112;112mAuthentication rejected.\x1b[0m'); setAuthFailed(true); }
       else if (event.type === 'error') { terminal.writeln(`\r\n\x1b[38;2;244;112;112m${event.data}\x1b[0m`); scheduleReconnect(); }

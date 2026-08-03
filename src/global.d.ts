@@ -1,4 +1,4 @@
-import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SessionLogSettings, SftpEntry, SshEvent, SshKeyInfo, UiSettings, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
+import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SerialEvent, SerialPortInfo, SessionLogSettings, SftpEntry, SshEvent, SshKeyInfo, UiSettings, UpdateRelease, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -12,9 +12,12 @@ declare global {
     getUpdateSettings(): Promise<UpdateSettings>;
     setUpdateSettings(input: UpdateSettings): Promise<UpdateSettings>;
     checkForUpdates(): Promise<UpdateStatus>;
+    listUpdateReleases(): Promise<UpdateRelease[]>;
+    selectUpdateRelease(tag: string): Promise<UpdateStatus>;
     downloadUpdate(): Promise<UpdateStatus>;
     installUpdate(): Promise<boolean>;
     openLatestRelease(): Promise<void>;
+    openFeedbackIssue(input: { type: 'bug' | 'feature'; title: string; description: string; steps?: string; expected?: string; actual?: string; alternatives?: string; context?: string }): Promise<boolean>;
     getSessionLogSettings(): Promise<SessionLogSettings>;
     setSessionLogSettings(input: SessionLogSettings): Promise<SessionLogSettings>;
     openSessionLogFolder(): Promise<string>;
@@ -36,12 +39,13 @@ declare global {
     listWikiFolders(): Promise<WikiFolder[]>;
     readWikiPage(path: string): Promise<string>;
     writeWikiPage(path: string, contents: string): Promise<boolean>;
-    createWikiPage(section: 'general' | 'vendors', name: string, parentPath?: string): Promise<WikiPage>;
-    createWikiFolder(section: 'general' | 'vendors', name: string, parentPath?: string): Promise<WikiFolder>;
+    createWikiPage(section: 'general' | 'vendors' | 'private', name: string, parentPath?: string): Promise<WikiPage>;
+    createWikiFolder(section: 'general' | 'vendors' | 'private', name: string, parentPath?: string): Promise<WikiFolder>;
     renameWikiFolder(folderPath: string, name: string): Promise<WikiFolder>;
     deleteWikiFolder(folderPath: string): Promise<{ parentPath: string; movedPages: Array<{ from: string; to: string }> }>;
     moveWikiPage(sourcePath: string, targetFolder: string): Promise<WikiPage>;
     ensureSessionWikiPage(sessionId: string, sessionName: string, host: string): Promise<WikiPage>;
+    ensurePrivateSessionNote(sessionId: string, sessionName: string, host: string): Promise<WikiPage>;
     choosePrivateKey(): Promise<string | null>;
     listSshKeys(): Promise<SshKeyInfo[]>;
     generateSshKey(input: { name: string; comment: string; passphrase: string }): Promise<SshKeyInfo>;
@@ -52,6 +56,11 @@ declare global {
     removePublicKey(connectionId: string, privateKeyPath: string): Promise<boolean>;
     getInstalledPublicKeys(connectionId: string): Promise<string[]>;
     connect(request: ConnectRequest): Promise<{ connectionId: string }>;
+    listSerialPorts(): Promise<SerialPortInfo[]>;
+    connectSerial(request: { connectionId: string; path: string; baudRate: number; dataBits: 5 | 6 | 7 | 8; stopBits: 1 | 1.5 | 2; parity: 'none' | 'even' | 'odd' | 'mark' | 'space' }): Promise<{ connectionId: string }>;
+    writeSerial(connectionId: string, data: string): void;
+    disconnectSerial(connectionId: string): void;
+    onSerialEvent(callback: (event: SerialEvent) => void): () => void;
     write(connectionId: string, data: string): void;
     resize(connectionId: string, cols: number, rows: number): void;
     disconnect(connectionId: string): void;

@@ -34,7 +34,7 @@ const text = (value: unknown, fallback = "") =>
       ? String(value)
       : fallback;
 const validOptionalPort = (value: unknown) => { const port = Number(value); return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : undefined; };
-const inventoryServices = (value: unknown, webUrl?: string, rdpPort?: number, vncPort?: number): ConnectionService[] => { const allowed = new Set<ConnectionService>(["ssh", "web", "rdp", "vnc"]); if (Array.isArray(value)) { const services = value.filter((item): item is ConnectionService => typeof item === "string" && allowed.has(item as ConnectionService)); if (services.length) return [...new Set(services)]; } return ["ssh", ...(webUrl ? ["web" as const] : []), ...(rdpPort ? ["rdp" as const] : []), ...(vncPort ? ["vnc" as const] : [])]; };
+const inventoryServices = (value: unknown, webUrl?: string, rdpPort?: number, vncPort?: number, serialPath?: string): ConnectionService[] => { const allowed = new Set<ConnectionService>(["ssh", "web", "rdp", "vnc", "serial"]); if (Array.isArray(value)) { const services = value.filter((item): item is ConnectionService => typeof item === "string" && allowed.has(item as ConnectionService)); if (services.length) return [...new Set(services)]; } return ["ssh", ...(webUrl ? ["web" as const] : []), ...(rdpPort ? ["rdp" as const] : []), ...(vncPort ? ["vnc" as const] : []), ...(serialPath ? ["serial" as const] : [])]; };
 const slug = (value: string) =>
   value
     .trim()
@@ -77,6 +77,7 @@ export function inventoryToYaml(data: AppData, credentials: CredentialSet[]) {
       if (session.webUrl?.trim()) host.hedgecon_web_url = session.webUrl.trim();
       if (session.rdpPort) host.hedgecon_rdp_port = session.rdpPort;
       if (session.vncPort) host.hedgecon_vnc_port = session.vncPort;
+      if (session.serialPath) { host.hedgecon_serial_path = session.serialPath; host.hedgecon_serial_baud = session.serialBaudRate || 9600; host.hedgecon_serial_data_bits = session.serialDataBits || 8; host.hedgecon_serial_stop_bits = session.serialStopBits || 1; host.hedgecon_serial_parity = session.serialParity || "none"; }
       if (session.platform && session.platform !== "unspecified") host.hedgecon_platform = session.platform;
       host.hedgecon_services = session.services?.length ? session.services : ["ssh", ...(session.webUrl ? ["web"] : []), ...(session.rdpPort ? ["rdp"] : []), ...(session.vncPort ? ["vnc"] : [])];
       output[uniqueKey(session.name, used)] = host;
@@ -206,7 +207,7 @@ export function yamlToInventory(
             ? "privateKey"
             : "password");
         const now = new Date().toISOString();
-        const rdpPort = validOptionalPort(hostVars.hedgecon_rdp_port); const vncPort = validOptionalPort(hostVars.hedgecon_vnc_port);
+        const rdpPort = validOptionalPort(hostVars.hedgecon_rdp_port); const vncPort = validOptionalPort(hostVars.hedgecon_vnc_port); const serialPath = text(hostVars.hedgecon_serial_path) || undefined; const serialBaudRate = Number(hostVars.hedgecon_serial_baud) || undefined; const serialDataBits = [5,6,7,8].includes(Number(hostVars.hedgecon_serial_data_bits)) ? Number(hostVars.hedgecon_serial_data_bits) as 5 | 6 | 7 | 8 : undefined; const serialStopBits = [1,1.5,2].includes(Number(hostVars.hedgecon_serial_stop_bits)) ? Number(hostVars.hedgecon_serial_stop_bits) as 1 | 1.5 | 2 : undefined; const serialParity = ["none","even","odd","mark","space"].includes(text(hostVars.hedgecon_serial_parity)) ? text(hostVars.hedgecon_serial_parity) as NonNullable<Session["serialParity"]> : undefined;
         sessions.push({
           id: existing?.id ?? (requestedId || crypto.randomUUID()),
           name: text(hostVars.hedgecon_name, alias),
@@ -215,7 +216,8 @@ export function yamlToInventory(
           webUrl: text(hostVars.hedgecon_web_url) || undefined,
           rdpPort,
           vncPort,
-          services: inventoryServices(hostVars.hedgecon_services, text(hostVars.hedgecon_web_url) || undefined, rdpPort, vncPort),
+          serialPath, serialBaudRate, serialDataBits, serialStopBits, serialParity,
+          services: inventoryServices(hostVars.hedgecon_services, text(hostVars.hedgecon_web_url) || undefined, rdpPort, vncPort, serialPath),
           username: mappedCredential?.username ?? text(hostVars.ansible_user),
           folderId,
           authMethod,

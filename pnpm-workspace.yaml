@@ -1,4 +1,5 @@
 allowBuilds:
+  '@serialport/bindings-cpp': true
   cpu-features: true
   electron: true
   electron-winstaller: false

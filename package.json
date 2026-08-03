@@ -1,7 +1,7 @@
 {
   "name": "hedgecon",
   "productName": "HedgeCon",
-  "version": "0.2.9",
+  "version": "0.3.0-experimental.1",
   "private": true,
   "description": "A self-contained connectivity console for network operations",
   "author": "HedgeCon contributors",
@@ -81,6 +81,7 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "serialport": "^13.0.0",
     "ssh2": "^1.16.0",
     "ws": "^8.21.1",
     "yaml": "^2.9.0"
