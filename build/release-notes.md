@@ -1,4 +1,4 @@
-# HedgeCon v0.3.0-experimental.2
+# HedgeCon v0.3.0
 
 ## Local serial-console profiles
 
@@ -6,18 +6,32 @@
 - Add a dedicated Console launcher beside New session, with profile and detected-adapter selection.
 - Keep physical adapter paths and serial profiles local instead of treating console access as a shared inventory session.
 
-## Terminal and interface fixes
+## Terminal awareness and records
 
-- Apply regex terminal colouring to operator-typed and echoed text as well as pasted or remote output.
-- Make successful bug and feature-request notifications dismiss immediately when clicked.
-- Restore Create subfolder on nested Wiki folders and add it to the protected General Notes and Vendor Notes roots.
-- Keep root Wiki sections protected from rename and delete while allowing folders beneath them.
+- Add configurable regex text-colouring rules for SSH and serial terminals, including typed, echoed, pasted and remote output.
+- Add optional rolling plaintext SSH session logs with retention, per-file and total-storage limits.
+- Organise logs into session-and-host folders with daily subfolders while retaining automatic pruning.
+
+## Wiki and private knowledge
+
+- Keep private session and general notes in local-only storage outside Git.
+- Promote Private Notes to its own protected Wiki root alongside General, Vendor and Session Notes.
+- Create pages and nested folders directly from right-click menus, and remove the old bottom creation form.
+- Reorder sibling Wiki folders by dragging them above or below one another and remember the custom layout locally.
+- Preserve protected roots while supporting rename, safe deletion and page moves for their child folders.
+
+## Release control and feedback
+
+- Browse compatible older Stable or Experimental releases and deliberately downgrade through the trusted updater flow.
+- Add an in-app Bug Report and Feature Request form without collecting logs, sessions, notes or credentials.
+- Keep the terminal macro panel open after commands run and across visits to the Commands library.
+- Make successful feedback notifications dismiss immediately when clicked.
 
 ## Release packaging
 
 - Publish the Windows installer without the additional portable executable to reduce release build time and artifact size.
 
-This is an experimental release for testing the revised serial-console workflow and recent quality fixes. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable release promotes the tested v0.3 feature set to the main update channel. Private notes and serial profiles remain local to each device. Windows binaries remain unsigned while the SignPath Foundation application is under review.
 
 ---
 
