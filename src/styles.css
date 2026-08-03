@@ -17,6 +17,9 @@
 .macro-tile strong { padding-right: 42px; font-size: 11px; }
 .macro-tile small { font-size: 8px; }
 .macro-tile code { max-height: 30px; font-size: 8px; line-height: 1.35; }
+.wiki-folder-row[draggable="true"] { user-select: none; }
+.wiki-folder-row.folder-drop-before { border-top-color: #72d6b4; border-radius: 0 0 6px 6px; box-shadow: 0 -2px 0 #72d6b4; }
+.wiki-folder-row.folder-drop-after { border-bottom-color: #72d6b4; border-radius: 6px 6px 0 0; box-shadow: 0 2px 0 #72d6b4; }
 
 /* Opt-in SSH session logging settings. */
 .session-logging-toggle { align-items: flex-start; margin: 4px 0 18px; padding: 14px; border: 1px solid #2b4037; border-radius: 8px; background: #0d1917; }
@@ -149,7 +152,7 @@ main > aside .nav-heading { font-size: 9px; }
 main > aside .settings-button,main > aside .new-session { font-size: 12px; }
 .folder-context-menu { position: fixed; z-index: 40; width: 160px; padding: 5px; border: 1px solid #30414e; border-radius: 7px; background: #101923f5; box-shadow: 0 12px 32px #000b; backdrop-filter: blur(7px); }.folder-context-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 9px; border: 0; border-radius: 5px; background: transparent; color: #e08e95; text-align: left; cursor: pointer; font-size: 11px; }.folder-context-menu button:hover,.folder-context-menu button:focus-visible { outline: none; background: #321d22; color: #ffb2b8; }.folder-context-menu svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .folder-context-menu .rename-folder-action { color: #a9bac7; }.folder-context-menu .rename-folder-action:hover,.folder-context-menu .rename-folder-action:focus-visible { background: #172a31; color: #7bd5b7; }
-.folder-context-menu .create-folder-action { color: #79cdb1; }.folder-context-menu .create-folder-action:hover,.folder-context-menu .create-folder-action:focus-visible { background: #172d26; color: #96e5c9; }
+.folder-context-menu .create-folder-action,.folder-context-menu .create-page-action { color: #79cdb1; }.folder-context-menu .create-folder-action:hover,.folder-context-menu .create-folder-action:focus-visible,.folder-context-menu .create-page-action:hover,.folder-context-menu .create-page-action:focus-visible { background: #172d26; color: #96e5c9; }
 .sidebar-update { position: absolute; right: 42px; bottom: 7px; z-index: 5; width: 28px; height: 22px; padding: 0; overflow: hidden; border: 1px solid #4da989; border-radius: 6px; background: #17372d; color: #78d8b6; box-shadow: 0 2px 8px #0007; cursor: pointer; font-size: 0; transition: width .15s ease, background .15s ease; }
 .sidebar-feedback { position: absolute; right: 8px; bottom: 7px; z-index: 6; width: 28px; height: 22px; padding: 0; overflow: hidden; border: 1px solid #40556a; border-radius: 6px; background: #172330; color: #92b5d5; box-shadow: 0 2px 8px #0007; cursor: pointer; font-size: 11px; font-weight: 800; transition: width .15s ease, background .15s ease; }.sidebar-feedback:hover { width: 68px; background: #203246; font-size: 0; }.sidebar-feedback:hover::before { content: 'Feedback'; font-size: 9px; white-space: nowrap; }
 .sidebar-update::before { content: '↓'; display: grid; place-items: center; height: 20px; font-size: 11px; font-weight: 800; white-space: nowrap; }
