@@ -1,4 +1,29 @@
-# HedgeCon v0.3.0-experimental.1
+# HedgeCon v0.3.0-experimental.2
+
+## Local serial-console profiles
+
+- Move baud rate, data bits, parity and stop bits into reusable local serial profiles in Settings.
+- Add a dedicated Console launcher beside New session, with profile and detected-adapter selection.
+- Keep physical adapter paths and serial profiles local instead of treating console access as a shared inventory session.
+
+## Terminal and interface fixes
+
+- Apply regex terminal colouring to operator-typed and echoed text as well as pasted or remote output.
+- Make successful bug and feature-request notifications dismiss immediately when clicked.
+- Restore Create subfolder on nested Wiki folders and add it to the protected General Notes and Vendor Notes roots.
+- Keep root Wiki sections protected from rename and delete while allowing folders beneath them.
+
+## Release packaging
+
+- Publish the Windows installer without the additional portable executable to reduce release build time and artifact size.
+
+This is an experimental release for testing the revised serial-console workflow and recent quality fixes. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release
+
+## v0.3.0-experimental.1
 
 ## Serial connectivity and terminal awareness
 

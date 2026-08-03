@@ -21,6 +21,8 @@ import type {
   SecureStorageStatus,
   Session,
   SessionLogSettings,
+  SerialProfile,
+  SerialPortInfo,
   SshKeyInfo,
   UiSettings,
   UpdateRelease,
@@ -58,6 +60,7 @@ type SettingsSection =
   | "general"
   | "appearance"
   | "terminal"
+  | "serial"
   | "logging"
   | "credentials"
   | "keys"
@@ -302,7 +305,6 @@ function SessionDialog({
               ["web", "Web", "🌐"],
               ["rdp", "RDP", "▣"],
               ["vnc", "VNC", "◉"],
-              ["serial", "Serial", "⎇"],
             ] as const
           ).map(([service, label, icon]) => {
             const key = `${service}Enabled` as
@@ -1553,9 +1555,25 @@ function SessionLoggingSettings({ notify }: { notify: (message: string) => void 
   return <><div className="settings-page-heading"><small>SESSION LOGGING</small><h3>Terminal transcripts</h3><p>Optionally retain SSH terminal output in rolling local log files.</p></div><label className="update-toggle session-logging-toggle"><input type="checkbox" checked={settings.enabled} onChange={event => setSettings({ ...settings, enabled: event.target.checked })} /><span><strong>Record SSH session output</strong><small>Newly connected sessions are logged after authentication. Existing sessions are unaffected until they reconnect.</small></span></label><div className={`session-log-limits ${settings.enabled ? "" : "disabled"}`}><label>Keep logs for<input type="number" min="1" max="3650" value={settings.retentionDays} onChange={event => setSettings({ ...settings, retentionDays: Number(event.target.value) })} /><small>days</small></label><label>Roll each file at<input type="number" min="1" max="1000" value={settings.maxFileSizeMb} onChange={event => setSettings({ ...settings, maxFileSizeMb: Number(event.target.value) })} /><small>MB</small></label><label>Maximum log storage<input type="number" min="10" max="10000" value={settings.maxTotalSizeMb} onChange={event => setSettings({ ...settings, maxTotalSizeMb: Number(event.target.value) })} /><small>MB</small></label></div><div className="session-log-warning"><strong>Logs are plaintext</strong><p>Terminal output may contain commands, host details, configuration data, or secrets printed by remote programs. HedgeCon does not separately record keystrokes, passwords, or private-key contents.</p></div><div className="session-log-actions"><button className="secondary" onClick={() => void window.hedge.openSessionLogFolder().catch(error => notify(error instanceof Error ? error.message : String(error)))}>Open logs folder</button><button className="primary" disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Save logging settings"}</button></div></>;
 }
 
+function SerialProfileSettings({ profiles, onChange, notify }: { profiles: SerialProfile[]; onChange: (profiles: SerialProfile[]) => void; notify: (message: string) => void }) {
+  const blank = (): SerialProfile => ({ id: id(), name: 'Network console', baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1 }); const [editing, setEditing] = useState<SerialProfile | null>(null);
+  const save = (profile: SerialProfile) => { const next = profiles.some(item => item.id === profile.id) ? profiles.map(item => item.id === profile.id ? profile : item) : [...profiles, profile]; onChange(next); setEditing(null); notify(`Saved serial profile “${profile.name}”.`); };
+  return <><div className="credential-heading"><div><h3>Serial profiles</h3><p>Reusable console settings stored only on this computer.</p></div><button className="secondary" onClick={() => setEditing(blank())}>＋ Add profile</button></div><div className="serial-profile-list">{profiles.map(profile => <div key={profile.id}><div><strong>{profile.name}</strong><small>{profile.baudRate} baud · {profile.dataBits}{profile.parity === 'none' ? 'N' : profile.parity.charAt(0).toUpperCase()}{profile.stopBits}</small></div><button onClick={() => setEditing({ ...profile })}>Edit</button><button className="delete-link" onClick={() => onChange(profiles.filter(item => item.id !== profile.id))}>Delete</button></div>)}{!profiles.length && <p>No profiles yet. A common network-console profile is 9600 baud, 8 data bits, no parity and 1 stop bit (8N1).</p>}</div>{editing && <div className="overlay"><form className="dialog serial-profile-dialog" onSubmit={event => { event.preventDefault(); save(editing); }}><div className="dialog-title"><div><small>SERIAL CONSOLE</small><h2>{profiles.some(item => item.id === editing.id) ? 'Edit profile' : 'New profile'}</h2></div><button type="button" className="icon-button" onClick={() => setEditing(null)}>×</button></div><label>Profile name<input autoFocus required maxLength={80} value={editing.name} onChange={event => setEditing({ ...editing, name: event.target.value })} /></label><div className="serial-profile-fields"><label>Baud rate<select value={editing.baudRate} onChange={event => setEditing({ ...editing, baudRate: Number(event.target.value) })}>{[300,1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,921600].map(rate => <option key={rate} value={rate}>{rate}</option>)}</select></label><label>Data bits<select value={editing.dataBits} onChange={event => setEditing({ ...editing, dataBits: Number(event.target.value) as SerialProfile['dataBits'] })}>{[5,6,7,8].map(value => <option key={value}>{value}</option>)}</select></label><label>Parity<select value={editing.parity} onChange={event => setEditing({ ...editing, parity: event.target.value as SerialProfile['parity'] })}>{['none','even','odd','mark','space'].map(value => <option key={value}>{value}</option>)}</select></label><label>Stop bits<select value={editing.stopBits} onChange={event => setEditing({ ...editing, stopBits: Number(event.target.value) as SerialProfile['stopBits'] })}>{[1,1.5,2].map(value => <option key={value}>{value}</option>)}</select></label></div><div className="actions"><button type="button" className="secondary" onClick={() => setEditing(null)}>Cancel</button><button className="primary">Save profile</button></div></form></div>}</>;
+}
+
+function ConsoleLauncher({ profiles, onClose, onConnect, onManage }: { profiles: SerialProfile[]; onClose: () => void; onConnect: (profile: SerialProfile, port: SerialPortInfo) => void; onManage: () => void }) {
+  const [ports, setPorts] = useState<SerialPortInfo[]>([]); const [profileId, setProfileId] = useState(profiles[0]?.id || ''); const [portPath, setPortPath] = useState(''); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  const refresh = () => { setLoading(true); setError(''); void window.hedge.listSerialPorts().then(items => { setPorts(items); setPortPath(current => items.some(item => item.path === current) ? current : items[0]?.path || ''); }).catch(value => setError(value instanceof Error ? value.message : String(value))).finally(() => setLoading(false)); };
+  useEffect(refresh, []);
+  const profile = profiles.find(item => item.id === profileId); const port = ports.find(item => item.path === portPath);
+  return <div className="overlay"><form className="dialog console-launcher" onSubmit={event => { event.preventDefault(); if (profile && port) onConnect(profile, port); }}><div className="dialog-title"><div><small>LOCAL CONSOLE</small><h2>Open serial console</h2><p>Choose reusable connection settings and the adapter connected to this computer.</p></div><button type="button" className="icon-button" onClick={onClose}>×</button></div><label>Serial profile<select required value={profileId} onChange={event => setProfileId(event.target.value)}><option value="">Select a profile</option>{profiles.map(item => <option key={item.id} value={item.id}>{item.name} · {item.baudRate} {item.dataBits}{item.parity === 'none' ? 'N' : item.parity.charAt(0).toUpperCase()}{item.stopBits}</option>)}</select></label><button type="button" className="link-button console-manage" onClick={onManage}>{profiles.length ? 'Manage serial profiles in Settings' : 'Create your first serial profile in Settings'}</button><label>Console adapter<select required value={portPath} onChange={event => setPortPath(event.target.value)} disabled={loading}><option value="">{loading ? 'Detecting adapters…' : 'Select an adapter'}</option>{ports.map(item => <option key={item.path} value={item.path}>{item.path}{item.manufacturer ? ` · ${item.manufacturer}` : ''}</option>)}</select></label>{!loading && !ports.length && <p className="console-empty">No serial adapters detected. Connect an adapter, then refresh.</p>}{error && <p className="wiki-error">{error}</p>}<div className="actions"><button type="button" className="secondary" onClick={refresh} disabled={loading}>Refresh adapters</button><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!profile || !port}>Open console</button></div></form></div>;
+}
+
 function SettingsDialog({
   credentials,
   sessions,
+  serialProfiles,
+  onSerialProfiles,
   credentialProfileMappings,
   onMapCredentialProfile,
   folders,
@@ -1572,6 +1590,8 @@ function SettingsDialog({
 }: {
   credentials: CredentialSet[];
   sessions: Session[];
+  serialProfiles: SerialProfile[];
+  onSerialProfiles: (profiles: SerialProfile[]) => void;
   credentialProfileMappings: Record<string, string>;
   onMapCredentialProfile: (
     profile: string,
@@ -1883,6 +1903,7 @@ function SettingsDialog({
                 <div className="terminal-patterns">{(uiSettings.terminalPatterns || []).map((rule, index) => <div key={rule.id} className={rule.pattern && !validTerminalPattern(rule.pattern) ? "invalid" : ""}><label className="pattern-enabled"><input type="checkbox" checked={rule.enabled} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: event.target.checked } : item) })} /></label><input value={rule.name} aria-label="Pattern name" placeholder="Errors" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} /><input className="pattern-expression" value={rule.pattern} aria-label={`${rule.name} regular expression`} placeholder="error|failed|denied" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, pattern: event.target.value.slice(0, 256) } : item) })} /><input type="color" value={rule.colour} aria-label={`${rule.name} colour`} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, colour: event.target.value } : item) })} /><button className="delete-link" onClick={() => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.filter(item => item.id !== rule.id) })}>Remove</button>{rule.pattern && !validTerminalPattern(rule.pattern) && <small>Enter a valid regular expression (maximum 256 characters).</small>}</div>)}</div>
               </>
             )}
+            {section === "serial" && <><div className="settings-page-heading"><small>LOCAL CONSOLE</small><h3>Serial connection profiles</h3><p>Store reusable baud rate, data format, parity and stop-bit settings. Adapter ports are selected when opening Console.</p></div><SerialProfileSettings profiles={serialProfiles} onChange={onSerialProfiles} notify={notify} /></>}
             {section === "credentials" && (
               <>
                 <div className="credential-heading">
@@ -2001,6 +2022,7 @@ function SettingsDialog({
           >
             <span>▣</span>CLI colours
           </button>
+          <button className={section === "serial" ? "active" : ""} onClick={() => setSection("serial")}><span>⎇</span>Serial profiles</button>
           <button
             className={section === "credentials" ? "active" : ""}
             onClick={() => setSection("credentials")}
@@ -2181,6 +2203,7 @@ export default function App() {
   );
   const [notice, setNotice] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
@@ -2499,6 +2522,7 @@ export default function App() {
     showTab({ id: id(), session, kind: "vnc" });
   };
   const openSerialTab = (session: Session) => { if (!session.serialPath) return notify("Select a serial port for this session first."); showTab({ id: id(), session, kind: "serial" }); };
+  const openConsole = (profile: SerialProfile, port: SerialPortInfo) => { const now = new Date().toISOString(); const session: Session = { id: `console-${id()}`, name: `${profile.name} · ${port.path}`, host: '', port: 22, username: '', folderId: null, authMethod: 'password', services: ['serial'], serialPath: port.path, serialBaudRate: profile.baudRate, serialDataBits: profile.dataBits, serialStopBits: profile.stopBits, serialParity: profile.parity, createdAt: now, updatedAt: now }; showTab({ id: id(), session, kind: 'serial' }); setConsoleOpen(false); };
   const openRdp = async (session: Session) => {
     if (!session.rdpPort)
       return notify("Add an RDP port to this session first.");
@@ -2807,6 +2831,7 @@ export default function App() {
         <button className="new-session" onClick={() => setEditing(null)}>
           ＋ New session
         </button>
+        <button className="console-button" onClick={() => setConsoleOpen(true)}>⎇ Console</button>
         <nav>
           <div className="nav-heading">LIBRARY</div>
           <button
@@ -2873,7 +2898,7 @@ export default function App() {
         </button>
         <button className="sidebar-feedback" aria-label="Report a bug or request a feature" title="Feedback" onClick={() => setFeedbackOpen(true)}>?</button>
       </aside>
-      {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} notify={setNotice} />}
+      {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} notify={notify} />}
       <div
         className="session-sidebar-resizer"
         role="separator"
@@ -3326,6 +3351,8 @@ export default function App() {
         <SettingsDialog
           credentials={credentials}
           sessions={data.sessions}
+          serialProfiles={data.serialProfiles ?? []}
+          onSerialProfiles={(serialProfiles) => persist({ ...data, serialProfiles })}
           credentialProfileMappings={data.credentialProfileMappings ?? {}}
           onMapCredentialProfile={mapCredentialProfile}
           folders={data.folders}
@@ -3343,6 +3370,7 @@ export default function App() {
           notify={notify}
         />
       )}
+      {consoleOpen && <ConsoleLauncher profiles={data.serialProfiles ?? []} onClose={() => setConsoleOpen(false)} onConnect={openConsole} onManage={() => { setConsoleOpen(false); sessionStorage.setItem('hedgecon-settings-section', 'serial'); setSettingsOpen(true); }} />}
       {pickerOpen && (
         <SessionPicker
           sessions={data.sessions}
@@ -3438,7 +3466,7 @@ export default function App() {
         </div>
       )}
       {notice && (
-        <div className="toast">
+        <div className="toast" role="status" title="Click to dismiss" onClick={() => setNotice("")}>
           <span>✓</span>
           {notice}
         </div>

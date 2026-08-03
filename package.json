@@ -1,7 +1,7 @@
 {
   "name": "hedgecon",
   "productName": "HedgeCon",
-  "version": "0.3.0-experimental.1",
+  "version": "0.3.0-experimental.2",
   "private": true,
   "description": "A self-contained connectivity console for network operations",
   "author": "HedgeCon contributors",
@@ -13,7 +13,7 @@
     "start": "electron .",
     "package:win": "pnpm build && electron-builder --win portable --x64 --publish never",
     "package:win:installer": "pnpm build && electron-builder --win nsis --x64 --publish never",
-    "release:win": "pnpm build && electron-builder --win nsis portable --x64 --publish always",
+    "release:win": "pnpm build && electron-builder --win nsis --x64 --publish always",
     "package:linux": "pnpm build && electron-builder --linux AppImage --x64 --publish never",
     "release:linux": "pnpm build && electron-builder --linux AppImage --x64 --publish always"
   },

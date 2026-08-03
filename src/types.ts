@@ -18,11 +18,12 @@ export interface InventorySettings { configured: boolean; mode: 'local' | 'git';
 export interface ColourMeaning { id: string; word: string; colour: string }
 export interface TerminalPattern { id: string; name: string; pattern: string; colour: string; enabled: boolean }
 export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; browserTheme: 'normal' | 'dark'; linuxRdpClient: 'auto' | 'remmina' | 'freerdp'; remoteDesktopResolution: 'native' | '1920x1080' | '1600x900' | '1366x768' | '1280x720'; remoteDesktopFullscreen: boolean; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[]; terminalPatterns: TerminalPattern[] }
-export interface AppData { folders: Folder[]; sessions: Session[]; macros?: CommandMacro[]; macroFolders?: MacroFolder[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
+export interface AppData { folders: Folder[]; sessions: Session[]; macros?: CommandMacro[]; macroFolders?: MacroFolder[]; serialProfiles?: SerialProfile[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
 export interface ConnectRequest extends Session { connectionId: string; password?: string; passphrase?: string; credentialOverride?: string }
 export interface HostKeyPrompt { connectionId: string; host: string; fingerprint: string; changed: boolean }
 export interface SshEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'auth-error' | 'closed'; data: string }
 export interface SerialPortInfo { path: string; manufacturer?: string; serialNumber?: string; vendorId?: string; productId?: string }
+export interface SerialProfile { id: string; name: string; baudRate: number; dataBits: 5 | 6 | 7 | 8; stopBits: 1 | 1.5 | 2; parity: 'none' | 'even' | 'odd' | 'mark' | 'space' }
 export interface SerialEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'closed'; data: string }
 export interface PingSample { monitorId: string; timestamp: number; reachable: boolean; latencyMs: number | null; error?: string }
 export interface BrowserEvent { tabId: string; type: 'loading' | 'navigation' | 'error'; data?: boolean | string | { url: string; title: string; canGoBack: boolean; canGoForward: boolean } }

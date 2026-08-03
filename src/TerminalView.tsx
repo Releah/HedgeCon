@@ -7,7 +7,7 @@ import PingMonitor from './PingMonitor';
 import RemoteFiles from './RemoteFiles';
 import ConfirmDialog from './ConfirmDialog';
 import MacroBoard from './MacroBoard';
-import { highlightTerminalText } from './terminalPatterns';
+import { refreshTerminalPatternDecorations } from './terminalPatterns';
 
 const SessionNotesPanel = lazy(() => import('./SessionNotesPanel'));
 
@@ -47,7 +47,7 @@ export default function TerminalView({ session, secret, active = true, macros = 
     const scheduleReconnect = () => { if (authRejected || suppressReconnect.current || reconnectScheduled) return; reconnectScheduled = true; const delay = Math.min(30000, 2000 * (2 ** reconnectFailures.current)); reconnectFailures.current += 1; terminal.writeln(`\r\n\x1b[38;2;240;190;100mConnection lost. Reconnecting in ${Math.round(delay / 1000)}s...\x1b[0m`); reconnectTimer = window.setTimeout(() => setAttempt(current => ({ ...current, number: current.number + 1 })), delay); };
     const removeEvents = window.hedge.onSshEvent((event) => {
       if (event.connectionId !== connectionId) return;
-      if (event.type === 'data') { const follow = terminal.buffer.active.viewportY >= terminal.buffer.active.baseY; terminal.write(highlightTerminalText(event.data, uiSettingsRef.current.terminalPatterns), () => { if (follow) terminal.scrollToBottom(); }); }
+      if (event.type === 'data') { const follow = terminal.buffer.active.viewportY >= terminal.buffer.active.baseY; terminal.write(event.data, () => { refreshTerminalPatternDecorations(terminal, uiSettingsRef.current.terminalPatterns, event.data); if (follow) terminal.scrollToBottom(); }); }
       else if (event.type === 'status') { reconnectFailures.current = 0; terminal.writeln(`\r\n\x1b[38;2;112;214;178m${event.data}\x1b[0m`); }
       else if (event.type === 'auth-error') { authRejected = true; terminal.writeln('\r\n\x1b[38;2;244;112;112mAuthentication rejected.\x1b[0m'); setAuthFailed(true); }
       else if (event.type === 'error') { terminal.writeln(`\r\n\x1b[38;2;244;112;112m${event.data}\x1b[0m`); scheduleReconnect(); }
