@@ -1,4 +1,19 @@
-# HedgeCon v0.3.1
+# HedgeCon v0.3.2
+
+## Session manager and Wiki fixes
+
+- Remove the stray `0` shown in the session manager when no workspace tabs are open.
+- Make existing Wiki pages reliably draggable into folders in Electron.
+- Allow pages to be dragged back to the top level by dropping them on their section heading.
+- Preserve private/shared Wiki boundaries and the separate folder-reordering workflow.
+
+This stable maintenance release contains focused interface fixes for HedgeCon v0.3.1. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous stable release
+
+## v0.3.1
 
 ## Wiki and serial-console fixes
 

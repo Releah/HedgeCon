@@ -2950,7 +2950,7 @@ export default function App() {
             )}
           </div>
         )}
-        {tabs.length && (
+        {tabs.length > 0 && (
           <section className={`tab-workspace ${libraryOpen ? "workspace-hidden" : ""}`}>
             <div className="session-tabs">
               {tabs.map((tab) => {
