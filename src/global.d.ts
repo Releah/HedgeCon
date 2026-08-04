@@ -87,6 +87,7 @@ declare global {
     createVncBridge(tabId: string, host: string, port: number): Promise<{ url: string }>;
     destroyVncBridge(tabId: string): void;
     setBrowserDarkMode(tabId: string, enabled: boolean): Promise<boolean>;
+    captureBrowser(tabId: string): Promise<string>;
     setBrowserBounds(tabId: string, bounds: { x: number; y: number; width: number; height: number }): void;
     setBrowserVisible(tabId: string, visible: boolean): void;
     destroyBrowser(tabId: string): void;

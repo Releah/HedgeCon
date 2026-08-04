@@ -5,6 +5,7 @@ const MAX_PATTERN_LENGTH = 256;
 const MAX_RULES = 25;
 const MAX_LINES_PER_UPDATE = 120;
 const MAX_DECORATIONS_PER_LINE = 100;
+const ANSI_SEQUENCE = /(\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)))/g;
 
 export function terminalPatternError(pattern: string) {
   if (!pattern.trim()) return 'Enter a regular expression.';
@@ -30,6 +31,22 @@ function highlightingExpression(pattern: string) {
   // shell prompt and every other character xterm keeps on the same line.
   const fragment = pattern.startsWith('^') && pattern.endsWith('$') && !pattern.endsWith('\\$') ? pattern.slice(1, -1) : pattern;
   return new RegExp(fragment, 'giu');
+}
+
+function colourSequence(colour: string) {
+  const value = /^#[0-9a-f]{6}$/i.test(colour) ? colour : '#ffffff';
+  const red = Number.parseInt(value.slice(1, 3), 16); const green = Number.parseInt(value.slice(3, 5), 16); const blue = Number.parseInt(value.slice(5, 7), 16);
+  return `\x1b[38;2;${red};${green};${blue}m`;
+}
+
+export function highlightTerminalText(text: string, patterns: TerminalPattern[] = []) {
+  const active = patterns.filter(rule => rule.enabled && !terminalPatternError(rule.pattern)).slice(0, MAX_RULES);
+  if (!active.length || !text) return text;
+  return active.reduce((output, rule) => {
+    let expression: RegExp; try { expression = highlightingExpression(rule.pattern); } catch { return output; }
+    const colour = colourSequence(rule.colour);
+    return output.split(ANSI_SEQUENCE).map(part => part.startsWith('\x1b') ? part : part.replace(expression, match => `${colour}${match}\x1b[39m`)).join('');
+  }, text);
 }
 
 export function refreshTerminalPatternDecorations(terminal: Terminal, patterns: TerminalPattern[] = [], touchedText = '') {

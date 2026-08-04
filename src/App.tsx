@@ -3001,7 +3001,8 @@ export default function App() {
               {tabs.map((tab) => {
                 const paneIndex = paneIds.indexOf(tab.id);
                 const reachability = hostReachability[tab.session.host.trim()] ?? (tab.session.host.trim() ? "checking" : "unavailable");
-                const dotState = unreadTabIds.has(tab.id) ? "unread" : reachability;
+                const tabIsVisible = !libraryOpen && paneIds.includes(tab.id);
+                const dotState = !tabIsVisible && unreadTabIds.has(tab.id) ? "unread" : reachability;
                 const dotTitle = dotState === "unread" ? "New terminal output" : reachabilityTitle(reachability);
                 return (
                   <div

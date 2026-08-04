@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { SerialEvent, Session, UiSettings } from './types';
-import { refreshTerminalPatternDecorations } from './terminalPatterns';
+import { highlightTerminalText, refreshTerminalPatternDecorations } from './terminalPatterns';
 
 export default function SerialView({ session, active = true, onActivity = () => {} }: { session: Session; active?: boolean; onActivity?: () => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -18,7 +18,7 @@ export default function SerialView({ session, active = true, onActivity = () => 
     terminalRef.current = terminal;
     const fit = new FitAddon(); terminal.loadAddon(fit); terminal.open(hostRef.current); fit.fit(); terminal.focus();
     const connectionId = crypto.randomUUID(); const input = terminal.onData(data => window.hedge.writeSerial(connectionId, data));
-    const remove = window.hedge.onSerialEvent((event: SerialEvent) => { if (event.connectionId !== connectionId) return; onActivityRef.current(); if (event.type === 'data') terminal.write(event.data, () => refreshTerminalPatternDecorations(terminal, settingsRef.current.terminalPatterns, event.data)); else if (event.type === 'status') terminal.writeln(`\x1b[38;2;103;215;178m${event.data}\x1b[0m`); else terminal.writeln(`\r\n\x1b[38;2;232;126;126m${event.data}\x1b[0m`); });
+    const remove = window.hedge.onSerialEvent((event: SerialEvent) => { if (event.connectionId !== connectionId) return; if (event.type === 'data') { onActivityRef.current(); terminal.write(highlightTerminalText(event.data, settingsRef.current.terminalPatterns), () => refreshTerminalPatternDecorations(terminal, settingsRef.current.terminalPatterns, event.data)); } else if (event.type === 'status') terminal.writeln(`\x1b[38;2;103;215;178m${event.data}\x1b[0m`); else terminal.writeln(`\r\n\x1b[38;2;232;126;126m${event.data}\x1b[0m`); });
     void window.hedge.connectSerial({ connectionId, path: session.serialPath, baudRate: session.serialBaudRate || 9600, dataBits: session.serialDataBits || 8, stopBits: session.serialStopBits || 1, parity: session.serialParity || 'none' }).catch(error => terminal.writeln(`\r\n\x1b[38;2;232;126;126m${error instanceof Error ? error.message : String(error)}\x1b[0m`));
     const resize = new ResizeObserver(() => fit.fit()); resize.observe(hostRef.current);
     return () => { resize.disconnect(); input.dispose(); remove(); window.hedge.disconnectSerial(connectionId); terminal.dispose(); terminalRef.current = null; };

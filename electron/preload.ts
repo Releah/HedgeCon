@@ -95,6 +95,7 @@ contextBridge.exposeInMainWorld('hedge', {
   createVncBridge: (tabId: string, host: string, port: number) => ipcRenderer.invoke('vnc:create', tabId, host, port),
   destroyVncBridge: (tabId: string) => ipcRenderer.send('vnc:destroy', tabId),
   setBrowserDarkMode: (tabId: string, enabled: boolean) => ipcRenderer.invoke('browser:dark-mode', tabId, enabled),
+  captureBrowser: (tabId: string) => ipcRenderer.invoke('browser:snapshot', tabId),
   setBrowserBounds: (tabId: string, bounds: unknown) => ipcRenderer.send('browser:bounds', tabId, bounds),
   setBrowserVisible: (tabId: string, visible: boolean) => ipcRenderer.send('browser:visible', tabId, visible),
   destroyBrowser: (tabId: string) => ipcRenderer.send('browser:destroy', tabId),

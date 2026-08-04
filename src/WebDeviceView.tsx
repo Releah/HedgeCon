@@ -18,6 +18,7 @@ export default function WebDeviceView({ tabId, session, credentials, visible, on
   const [error, setError] = useState('');
   const [certificatePrompt, setCertificatePrompt] = useState<BrowserCertificatePrompt | null>(null);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [browserSnapshot, setBrowserSnapshot] = useState('');
   const [copyMessage, setCopyMessage] = useState('');
   const [darkMode, setDarkMode] = useState(() => { try { return JSON.parse(localStorage.getItem('hedgecon-ui-settings') || '{}').browserTheme === 'dark'; } catch { return false; } });
 
@@ -40,6 +41,7 @@ export default function WebDeviceView({ tabId, session, credentials, visible, on
     return () => { remove(); removeCertificate(); resize.disconnect(); modalObserver.disconnect(); window.hedge.destroyBrowser(tabId); };
   }, [tabId, initialUrl, session.name]);
   useEffect(() => { drawerOpenRef.current = credentialsOpen; window.hedge.setBrowserVisible(tabId, visible && !credentialsOpen && !error && !document.querySelector('.overlay, .wiki-overlay-root')); }, [tabId, visible, error, credentialsOpen]);
+  useEffect(() => { if (!credentialsOpen) setBrowserSnapshot(''); }, [credentialsOpen]);
   useEffect(() => { void window.hedge.setBrowserDarkMode(tabId, darkMode).catch(() => { /* The native view may still be starting or already closing. */ }); }, [tabId, darkMode]);
 
   const navigate = (event: FormEvent) => { event.preventDefault(); const target = enteredUrl(address); setAddress(target); setError(''); void window.hedge.navigateBrowser(tabId, 'url', target).catch(reason => setError(reason instanceof Error ? reason.message : String(reason))); };
@@ -50,15 +52,22 @@ export default function WebDeviceView({ tabId, session, credentials, visible, on
       setCopyMessage(`${field === 'username' ? 'Username' : 'Password'} copied from ${credential.name}.`);
     } catch (reason) { setCopyMessage(reason instanceof Error ? reason.message : String(reason)); }
   };
+  const toggleCredentials = async () => {
+    if (credentialsOpen) { setCredentialsOpen(false); setBrowserSnapshot(''); return; }
+    setCopyMessage('');
+    try { setBrowserSnapshot(await window.hedge.captureBrowser(tabId)); } catch { setBrowserSnapshot(''); }
+    setCredentialsOpen(true);
+  };
   return <section className="device-browser">
     <header>
       <div className="browser-history"><button disabled={!canGoBack} onClick={() => void window.hedge.navigateBrowser(tabId, 'back')} title="Back">←</button><button disabled={!canGoForward} onClick={() => void window.hedge.navigateBrowser(tabId, 'forward')} title="Forward">→</button><button onClick={() => void window.hedge.navigateBrowser(tabId, 'reload')} title="Reload">↻</button></div>
       <form onSubmit={navigate}><span className={currentUrl.startsWith('https:') ? 'secure' : 'insecure'}>{currentUrl.startsWith('https:') ? '◆' : '!'}</span><input aria-label="Device web address" value={address} onChange={event => setAddress(event.target.value)} /><button type="submit">Go</button></form>
-      <button className={credentialsOpen ? 'active' : ''} onClick={() => { setCredentialsOpen(value => !value); setCopyMessage(''); }} title="Open credential drawer" aria-label="Open credential drawer">⌨</button><button onClick={() => void window.hedge.openBrowserExternal(tabId, currentUrl)} title="Open in default browser">↗</button><button onClick={onClose} title="Close browser tab">×</button>
+      <button className={`browser-credentials-button ${credentialsOpen ? 'active' : ''}`} onClick={() => void toggleCredentials()} title="Open credential drawer" aria-label="Open credential drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"/><path d="M12 12h9m-3 0v3m-3-3v3"/></svg></button><button onClick={() => void window.hedge.openBrowserExternal(tabId, currentUrl)} title="Open in default browser">↗</button><button onClick={onClose} title="Close browser tab">×</button>
     </header>
     <div className="browser-status"><strong>{title}</strong><span>{loading ? 'Loading…' : currentUrl.startsWith('http:') ? 'Insecure HTTP connection' : 'Device browser'}</span></div>
     {error && <div className="browser-error"><strong>Could not load this device page</strong><span>{error}</span><button className="secondary" onClick={() => void window.hedge.openBrowserExternal(tabId, currentUrl)}>Open in default browser</button></div>}
     <div ref={surface} className="browser-surface" />
+    {credentialsOpen && browserSnapshot && <div className="browser-credential-backdrop" style={{ backgroundImage: `url(${browserSnapshot})` }} />}
     {credentialsOpen && <div className="browser-credential-shade" onClick={() => setCredentialsOpen(false)}><aside className="browser-credential-drawer" onClick={event => event.stopPropagation()}><header><div><small>CREDENTIAL STORE</small><h3>Copy credentials</h3></div><button onClick={() => setCredentialsOpen(false)} title="Close credential drawer">×</button></header><p>Copy a value, then paste it into the device page. Passwords remain protected and are copied directly to your clipboard.</p><div className="browser-credential-list">{credentials.map(credential => <section key={credential.id}><div><strong>{credential.name}</strong><small>{credential.authMethod === 'password' ? 'Username and password' : 'Username and private key'}</small></div><label><span>{credential.username || 'No username'}</span><button disabled={!credential.username} onClick={() => void copyCredential(credential, 'username')}>Copy username</button></label>{credential.authMethod === 'password' && <label><span>{credential.hasSecret ? '••••••••••••' : 'No saved password'}</span><button disabled={!credential.hasSecret} onClick={() => void copyCredential(credential, 'password')}>Copy password</button></label>}</section>)}{!credentials.length && <div className="browser-credential-empty">No credential sets have been saved yet. Add one in Settings → Credentials.</div>}</div>{copyMessage && <button className="browser-copy-message" onClick={() => setCopyMessage('')}>{copyMessage}</button>}</aside></div>}
     {certificatePrompt && <div className="overlay"><section className="dialog host-key-dialog host-key-changed certificate-dialog"><div className="host-key-icon">!</div><small>UNTRUSTED DEVICE CERTIFICATE</small><h2>Trust this device?</h2><p>HedgeCon could not verify this device's HTTPS identity. Only continue if you have checked the certificate with a trusted source.</p><div className="fingerprint"><span>{certificatePrompt.host}</span><code>{certificatePrompt.fingerprint}</code>{(certificatePrompt.subject || certificatePrompt.issuer) && <dl><div><dt>Subject</dt><dd>{certificatePrompt.subject || 'Unavailable'}</dd></div><div><dt>Issuer</dt><dd>{certificatePrompt.issuer || 'Unavailable'}</dd></div></dl>}<small>{certificatePrompt.error}{certificatePrompt.validExpiry ? ` · Expires ${new Date(certificatePrompt.validExpiry * 1000).toLocaleDateString()}` : ''}</small></div><div className="actions"><button className="secondary" onClick={() => answerCertificate(false)}>Go back</button><button className="danger-button" onClick={() => answerCertificate(true)}>Trust for this app session</button></div></section></div>}
   </section>;

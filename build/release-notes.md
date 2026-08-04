@@ -1,4 +1,30 @@
-# HedgeCon v0.3.3-experimental.2
+# HedgeCon v0.3.3-experimental.3
+
+## Reliable terminal highlighting
+
+- Restore ANSI-based regex colouring as the primary rendering path while retaining validation, limits and ANSI-sequence protection.
+- Ensure explicit regex colours override the configured default foreground only for matching text.
+- Retain xterm decorations as a secondary repaint path for recent SSH and serial output.
+
+## Deterministic tab indicators
+
+- Show unread blue only when real SSH or serial output arrives while a tab is hidden.
+- Clear or suppress unread state immediately when a tab is visible in any split pane.
+- Prevent legacy Web, VNC and secondary-pane colours from overriding online, offline, checking or unread states.
+
+## Embedded browser fixes
+
+- Retry the initial device-page navigation once after a transient startup failure.
+- Replace the credential-drawer keyboard symbol with a clear key icon.
+- Keep a temporary capture of the live webpage visible behind the credential overlay instead of showing a white surface, then discard it when the drawer closes.
+
+This experimental maintenance release focuses on the terminal-highlighting and browser behaviours reported during testing of v0.3.3-experimental.2.
+
+---
+
+# Previous experimental release
+
+## v0.3.3-experimental.2
 
 ## Split workspace polish
 

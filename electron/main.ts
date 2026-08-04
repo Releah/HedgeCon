@@ -341,12 +341,18 @@ ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: str
   view.webContents.on('did-start-loading', () => publish('loading', true)); view.webContents.on('did-stop-loading', () => { publish('loading', false); publishNavigation(); });
   view.webContents.on('did-navigate', publishNavigation); view.webContents.on('did-navigate-in-page', publishNavigation);
   view.webContents.on('did-fail-load', (_event, code, description, failedUrl, isMainFrame) => { if (isMainFrame && code !== -3) publish('error', `${description} (${failedUrl})`); });
-  await view.webContents.loadURL(url); return true;
+  try { await view.webContents.loadURL(url); } catch (firstError) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    if (view.webContents.isDestroyed()) throw firstError;
+    await view.webContents.loadURL(url);
+  }
+  return true;
 });
 ipcMain.on('browser:bounds', (_event, tabId: string, bounds: unknown) => { const view = browserViews.get(tabId); if (!view || view.webContents.isDestroyed()) return; try { view.setBounds(browserBounds(bounds)); } catch { /* Ignore a final resize while the window is closing. */ } });
 ipcMain.on('browser:visible', (_event, tabId: string, visible: boolean) => { const view = browserViews.get(tabId); if (view && !view.webContents.isDestroyed()) view.setVisible(Boolean(visible)); });
 ipcMain.on('browser:destroy', (_event, tabId: string) => destroyBrowserView(tabId));
 ipcMain.handle('browser:dark-mode', (_event, tabId: string, enabled: boolean) => setBrowserDarkMode(tabId, Boolean(enabled)));
+ipcMain.handle('browser:snapshot', async (_event, tabId: string) => { const view = browserViews.get(tabId); if (!view || view.webContents.isDestroyed()) throw new Error('Browser tab is unavailable.'); return (await view.webContents.capturePage()).toDataURL(); });
 ipcMain.handle('browser:navigate', async (_event, tabId: string, action: string, value?: string) => { const view = browserViews.get(tabId); if (!view) throw new Error('Browser tab is unavailable.'); if (action === 'back' && view.webContents.navigationHistory.canGoBack()) view.webContents.navigationHistory.goBack(); else if (action === 'forward' && view.webContents.navigationHistory.canGoForward()) view.webContents.navigationHistory.goForward(); else if (action === 'reload') view.webContents.reload(); else if (action === 'url') await view.webContents.loadURL(browserUrl(value)); else throw new Error('Unsupported browser action.'); return true; });
 ipcMain.handle('browser:external', (_event, tabId: string, requestedUrl?: string) => { const view = browserViews.get(tabId); if (!view) throw new Error('Browser tab is unavailable.'); return shell.openExternal(browserUrl(requestedUrl || view.webContents.getURL())); });
 
