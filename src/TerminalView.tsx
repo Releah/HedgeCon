@@ -11,8 +11,9 @@ import { refreshTerminalPatternDecorations } from './terminalPatterns';
 
 const SessionNotesPanel = lazy(() => import('./SessionNotesPanel'));
 
-export default function TerminalView({ session, secret, active = true, macros = [], macroFolders = [], folders = [], onManageMacros = () => {}, onClose, onNotes = () => window.dispatchEvent(new CustomEvent('hedgecon:session-notes', { detail: session.id })) }: { session: Session; secret: string; active?: boolean; macros?: CommandMacro[]; macroFolders?: MacroFolder[]; folders?: Folder[]; onManageMacros?: () => void; onClose: () => void; onNotes?: () => void }) {
+export default function TerminalView({ session, secret, active = true, macros = [], macroFolders = [], folders = [], onManageMacros = () => {}, onActivity = () => {}, onClose, onNotes = () => window.dispatchEvent(new CustomEvent('hedgecon:session-notes', { detail: session.id })) }: { session: Session; secret: string; active?: boolean; macros?: CommandMacro[]; macroFolders?: MacroFolder[]; folders?: Folder[]; onManageMacros?: () => void; onActivity?: () => void; onClose: () => void; onNotes?: () => void }) {
   const hostRef = useRef<HTMLDivElement>(null); const terminalRef = useRef<Terminal | null>(null);
+  const onActivityRef = useRef(onActivity); useEffect(() => { onActivityRef.current = onActivity; }, [onActivity]);
   const [hostPrompt, setHostPrompt] = useState<HostKeyPrompt | null>(null);
   const [authFailed, setAuthFailed] = useState(false); const [retrySecret, setRetrySecret] = useState('');
   const [monitorOpen, setMonitorOpen] = useState(false);
@@ -47,6 +48,7 @@ export default function TerminalView({ session, secret, active = true, macros = 
     const scheduleReconnect = () => { if (authRejected || suppressReconnect.current || reconnectScheduled) return; reconnectScheduled = true; const delay = Math.min(30000, 2000 * (2 ** reconnectFailures.current)); reconnectFailures.current += 1; terminal.writeln(`\r\n\x1b[38;2;240;190;100mConnection lost. Reconnecting in ${Math.round(delay / 1000)}s...\x1b[0m`); reconnectTimer = window.setTimeout(() => setAttempt(current => ({ ...current, number: current.number + 1 })), delay); };
     const removeEvents = window.hedge.onSshEvent((event) => {
       if (event.connectionId !== connectionId) return;
+      onActivityRef.current();
       if (event.type === 'data') { const follow = terminal.buffer.active.viewportY >= terminal.buffer.active.baseY; terminal.write(event.data, () => { refreshTerminalPatternDecorations(terminal, uiSettingsRef.current.terminalPatterns, event.data); if (follow) terminal.scrollToBottom(); }); }
       else if (event.type === 'status') { reconnectFailures.current = 0; terminal.writeln(`\r\n\x1b[38;2;112;214;178m${event.data}\x1b[0m`); }
       else if (event.type === 'auth-error') { authRejected = true; terminal.writeln('\r\n\x1b[38;2;244;112;112mAuthentication rejected.\x1b[0m'); setAuthFailed(true); }

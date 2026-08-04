@@ -1,4 +1,35 @@
-# HedgeCon v0.3.2
+# HedgeCon v0.3.3-experimental.1
+
+## Live session awareness
+
+- Show live ICMP reachability on session cards and tabs, with green online, red offline and neutral checking states.
+- Turn a terminal tab indicator blue when new output arrives while that tab is not visible.
+- Split the workspace naturally when dragging the currently viewed tab: place it on the requested edge and use its adjacent tab for the other pane.
+
+## Terminal colour reliability
+
+- Validate terminal regex rules before saving them, including safeguards for expressions likely to stall terminal rendering.
+- Restore regex highlighting for typed, pasted and remotely received terminal text, and link to Regex101 from Settings for help.
+- Reset the terminal foreground and default background colours together without removing custom meanings or regex rules.
+
+## Browser credentials
+
+- Open a non-resizing credential drawer over embedded device webpages.
+- Copy saved usernames and passwords independently, with passwords decrypted only in the Electron main process directly into the operating-system clipboard.
+
+## Wiki images
+
+- Paste Snipping Tool captures and other clipboard images directly into the Wiki editor.
+- Store PNG, JPEG, GIF and WebP images beside their page in an `assets` folder and render them in Preview.
+- Include shared and session-note images in Git while keeping Private Notes images in local-only storage.
+
+This experimental release is intended for testing the new session indicators, safer terminal matching, browser credential workflow and Wiki image support before promotion to Stable. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous stable release
+
+## v0.3.2
 
 ## Session manager and Wiki fixes
 

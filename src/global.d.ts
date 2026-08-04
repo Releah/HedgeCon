@@ -17,6 +17,7 @@ declare global {
     downloadUpdate(): Promise<UpdateStatus>;
     installUpdate(): Promise<boolean>;
     openLatestRelease(): Promise<void>;
+    openRegexHelp(): Promise<void>;
     openFeedbackIssue(input: { type: 'bug' | 'feature'; title: string; description: string; steps?: string; expected?: string; actual?: string; alternatives?: string; context?: string }): Promise<boolean>;
     getSessionLogSettings(): Promise<SessionLogSettings>;
     setSessionLogSettings(input: SessionLogSettings): Promise<SessionLogSettings>;
@@ -39,6 +40,8 @@ declare global {
     listWikiFolders(): Promise<WikiFolder[]>;
     readWikiPage(path: string): Promise<string>;
     writeWikiPage(path: string, contents: string): Promise<boolean>;
+    writeWikiImage(pagePath: string, name: string, bytes: Uint8Array): Promise<{ path: string; markdownPath: string }>;
+    readWikiImage(pagePath: string, imagePath: string): Promise<string>;
     createWikiPage(section: 'general' | 'vendors' | 'private', name: string, parentPath?: string): Promise<WikiPage>;
     createWikiFolder(section: 'general' | 'vendors' | 'private', name: string, parentPath?: string): Promise<WikiFolder>;
     renameWikiFolder(folderPath: string, name: string): Promise<WikiFolder>;
@@ -69,6 +72,7 @@ declare global {
     clearAllKnownHosts(): Promise<number>;
     getSecureStorageStatus(): Promise<SecureStorageStatus>;
     listCredentialSets(): Promise<CredentialSet[]>;
+    copyCredentialField(id: string, field: 'username' | 'password'): Promise<boolean>;
     getRemoteCredential(id: string): Promise<{ username: string; password: string }>;
     saveCredentialSet(input: CredentialSetInput): Promise<CredentialSet>;
     deleteCredentialSet(id: string): Promise<boolean>;

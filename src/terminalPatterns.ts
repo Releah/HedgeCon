@@ -1,17 +1,58 @@
+import type { IDecoration, IMarker, Terminal } from '@xterm/xterm';
 import type { TerminalPattern } from './types';
-import type { IDecoration, Terminal } from '@xterm/xterm';
 
-const ansi = /(\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)))/g;
-const rgb = (hex: string) => { const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#ffffff'; return [1, 3, 5].map(offset => Number.parseInt(value.slice(offset, offset + 2), 16)); };
-export const validTerminalPattern = (pattern: string) => { if (!pattern.trim() || pattern.length > 256) return false; try { new RegExp(pattern, 'giu'); return true; } catch { return false; } };
-export function highlightTerminalText(text: string, patterns: TerminalPattern[] = []) {
-  const active = patterns.filter(rule => rule.enabled && validTerminalPattern(rule.pattern)).slice(0, 50);
-  if (!active.length) return text;
-  return active.reduce((output, rule) => output.split(ansi).map(part => { if (part.startsWith('\x1b')) return part; const [red, green, blue] = rgb(rule.colour); return part.replace(new RegExp(rule.pattern, 'giu'), match => `\x1b[38;2;${red};${green};${blue}m${match}\x1b[39m`); }).join(''), text);
+const MAX_PATTERN_LENGTH = 256;
+const MAX_RULES = 25;
+const MAX_LINES_PER_UPDATE = 120;
+const MAX_DECORATIONS_PER_LINE = 100;
+
+export function terminalPatternError(pattern: string) {
+  if (!pattern.trim()) return 'Enter a regular expression.';
+  if (pattern.length > MAX_PATTERN_LENGTH) return `Keep the expression below ${MAX_PATTERN_LENGTH} characters.`;
+  if (/\r|\n|\0/.test(pattern)) return 'Terminal patterns must match within a single line.';
+  let expression: RegExp;
+  try { expression = new RegExp(pattern, 'giu'); } catch (error) { return error instanceof SyntaxError ? error.message.replace(/^Invalid regular expression:\s*/i, '') : 'The expression could not be compiled.'; }
+  if (expression.test('')) return 'The expression must not match an empty string.';
+  const nestedQuantifier = /\((?:[^()\\]|\\.)*(?:\*|\+|\{\d+(?:,\d*)?\})(?:[^()\\]|\\.)*\)\s*(?:\*|\+|\{\d+(?:,\d*)?\})/;
+  if (nestedQuantifier.test(pattern)) return 'Avoid nested repetition such as (text+)+; it can freeze a live terminal.';
+  return null;
 }
 
-const lineDecorations = new WeakMap<Terminal, Map<number, IDecoration[]>>();
+export const validTerminalPattern = (pattern: string) => terminalPatternError(pattern) === null;
+
+type StoredDecoration = { decoration: IDecoration; marker: IMarker };
+const lineDecorations = new WeakMap<Terminal, Map<number, StoredDecoration[]>>();
+const disposeDecorations = (items: StoredDecoration[] | undefined) => items?.forEach(({ decoration, marker }) => { decoration.dispose(); marker.dispose(); });
+
 export function refreshTerminalPatternDecorations(terminal: Terminal, patterns: TerminalPattern[] = [], touchedText = '') {
-  const active = patterns.filter(rule => rule.enabled && validTerminalPattern(rule.pattern)).slice(0, 50); const cursorLine = terminal.buffer.active.baseY + terminal.buffer.active.cursorY; const affected = Math.max(2, (touchedText.match(/\n/g)?.length || 0) + Math.ceil(touchedText.length / Math.max(1, terminal.cols)) + 2); const firstLine = Math.max(0, cursorLine - Math.min(200, affected)); const stored = lineDecorations.get(terminal) || new Map<number, IDecoration[]>(); lineDecorations.set(terminal, stored);
-  for (let lineNumber = firstLine; lineNumber <= cursorLine; lineNumber += 1) { stored.get(lineNumber)?.forEach(decoration => decoration.dispose()); stored.delete(lineNumber); if (!active.length) continue; const line = terminal.buffer.active.getLine(lineNumber)?.translateToString(true) || ''; const decorations: IDecoration[] = []; for (const rule of active) { const expression = new RegExp(rule.pattern, 'giu'); for (const match of line.matchAll(expression)) { if (match.index === undefined || !match[0].length) continue; const marker = terminal.registerMarker(lineNumber - cursorLine); if (!marker) continue; const decoration = terminal.registerDecoration({ marker, x: match.index, width: Math.max(1, [...match[0]].length), foregroundColor: /^#[0-9a-f]{6}$/i.test(rule.colour) ? rule.colour : '#ffffff', layer: 'top' }); if (decoration) decorations.push(decoration); else marker.dispose(); } } if (decorations.length) stored.set(lineNumber, decorations); }
+  const active = patterns.flatMap(rule => {
+    if (!rule.enabled || terminalPatternError(rule.pattern)) return [];
+    try { return [{ rule, expression: new RegExp(rule.pattern, 'giu') }]; } catch { return []; }
+  }).slice(0, MAX_RULES);
+  const cursorLine = terminal.buffer.active.baseY + terminal.buffer.active.cursorY;
+  const affected = Math.max(2, (touchedText.match(/\n/g)?.length || 0) + Math.ceil(touchedText.length / Math.max(1, terminal.cols)) + 2);
+  const firstLine = Math.max(0, cursorLine - Math.min(MAX_LINES_PER_UPDATE, affected));
+  const stored = lineDecorations.get(terminal) || new Map<number, StoredDecoration[]>(); lineDecorations.set(terminal, stored);
+  for (let lineNumber = firstLine; lineNumber <= cursorLine; lineNumber += 1) {
+    disposeDecorations(stored.get(lineNumber)); stored.delete(lineNumber);
+    if (!active.length || terminal.cols < 1) continue;
+    const line = terminal.buffer.active.getLine(lineNumber)?.translateToString(true) || '';
+    const decorations: StoredDecoration[] = []; let matchCount = 0;
+    for (const { rule, expression } of active) {
+      expression.lastIndex = 0;
+      try {
+        for (const match of line.matchAll(expression)) {
+          if (match.index === undefined || !match[0].length || matchCount >= MAX_DECORATIONS_PER_LINE) break;
+          const x = Math.min(terminal.cols - 1, Math.max(0, Array.from(line.slice(0, match.index)).length));
+          const width = Math.min(terminal.cols - x, Math.max(1, Array.from(match[0]).length));
+          const marker = terminal.registerMarker(lineNumber - cursorLine); if (!marker) continue;
+          const decoration = terminal.registerDecoration({ marker, x, width, foregroundColor: /^#[0-9a-f]{6}$/i.test(rule.colour) ? rule.colour : '#ffffff', layer: 'top' });
+          if (decoration) { decorations.push({ decoration, marker }); matchCount += 1; } else marker.dispose();
+        }
+      } catch { /* A failed rule must never interrupt terminal rendering. */ }
+      if (matchCount >= MAX_DECORATIONS_PER_LINE) break;
+    }
+    if (decorations.length) stored.set(lineNumber, decorations);
+  }
+  if (active.length && terminal.rows > 0) terminal.refresh(0, terminal.rows - 1);
 }

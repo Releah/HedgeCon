@@ -5,6 +5,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -16,6 +17,7 @@ import type {
   CredentialSet,
   CredentialSetInput,
   Folder,
+  PingSample,
   RepositoryInput,
   RepositoryMeta,
   SecureStorageStatus,
@@ -34,7 +36,7 @@ import WebDeviceView from "./WebDeviceView";
 import ConfirmDialog from "./ConfirmDialog";
 import MacroLibrary from "./MacroLibrary";
 import SerialView from "./SerialView";
-import { validTerminalPattern } from "./terminalPatterns";
+import { terminalPatternError } from "./terminalPatterns";
 
 const InventoryEditor = lazy(() => import("./InventoryEditor"));
 const WikiWorkspace = lazy(() => import("./WikiWorkspace"));
@@ -1834,6 +1836,19 @@ function SettingsDialog({
                     }
                   />
                 </label>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    onUiSettings({
+                      ...uiSettings,
+                      terminalForeground: defaultUiSettings.terminalForeground,
+                      terminalDefault: defaultUiSettings.terminalDefault,
+                    })
+                  }
+                >
+                  Reset terminal colours to default
+                </button>
                 <div className="colour-meanings">
                   {uiSettings.terminalMeanings.map((meaning, index) => (
                     <div key={meaning.id}>
@@ -1899,8 +1914,8 @@ function SettingsDialog({
                 >
                   ＋ Add meaning
                 </button>
-                <div className="terminal-pattern-heading"><div><h3>Regex text highlighting</h3><p>Colour matching terminal text in SSH and serial sessions. Expressions are case-insensitive and global.</p></div><button className="secondary" onClick={() => onUiSettings({ ...uiSettings, terminalPatterns: [...(uiSettings.terminalPatterns || []), { id: id(), name: "New pattern", pattern: "", colour: "#ffcc66", enabled: true }] })}>＋ Add pattern</button></div>
-                <div className="terminal-patterns">{(uiSettings.terminalPatterns || []).map((rule, index) => <div key={rule.id} className={rule.pattern && !validTerminalPattern(rule.pattern) ? "invalid" : ""}><label className="pattern-enabled"><input type="checkbox" checked={rule.enabled} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: event.target.checked } : item) })} /></label><input value={rule.name} aria-label="Pattern name" placeholder="Errors" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} /><input className="pattern-expression" value={rule.pattern} aria-label={`${rule.name} regular expression`} placeholder="error|failed|denied" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, pattern: event.target.value.slice(0, 256) } : item) })} /><input type="color" value={rule.colour} aria-label={`${rule.name} colour`} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, colour: event.target.value } : item) })} /><button className="delete-link" onClick={() => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.filter(item => item.id !== rule.id) })}>Remove</button>{rule.pattern && !validTerminalPattern(rule.pattern) && <small>Enter a valid regular expression (maximum 256 characters).</small>}</div>)}</div>
+                <div className="terminal-pattern-heading"><div><h3>Regex text highlighting</h3><p>Colour matching terminal text in SSH and serial sessions. Expressions are case-insensitive, global and limited to one terminal line.</p></div><div className="terminal-pattern-actions"><button className="regex-help" onClick={() => void window.hedge.openRegexHelp()}>Regex101 help ↗</button><button className="secondary" onClick={() => onUiSettings({ ...uiSettings, terminalPatterns: [...(uiSettings.terminalPatterns || []), { id: id(), name: "New pattern", pattern: "", colour: "#ffcc66", enabled: true }] })}>＋ Add pattern</button></div></div>
+                <div className="terminal-patterns">{(uiSettings.terminalPatterns || []).map((rule, index) => { const error = rule.pattern ? terminalPatternError(rule.pattern) : null; return <div key={rule.id} className={error ? "invalid" : ""}><label className="pattern-enabled"><input type="checkbox" checked={rule.enabled} disabled={Boolean(error)} title={error || "Enable this pattern"} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: event.target.checked } : item) })} /></label><input value={rule.name} aria-label="Pattern name" placeholder="Errors" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} /><input className="pattern-expression" value={rule.pattern} aria-invalid={Boolean(error)} aria-label={`${rule.name} regular expression`} placeholder="error|failed|denied" onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, pattern: event.target.value.slice(0, 256) } : item) })} /><input type="color" value={rule.colour} aria-label={`${rule.name} colour`} onChange={event => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.map((item, itemIndex) => itemIndex === index ? { ...item, colour: event.target.value } : item) })} /><button className="delete-link" onClick={() => onUiSettings({ ...uiSettings, terminalPatterns: uiSettings.terminalPatterns.filter(item => item.id !== rule.id) })}>Remove</button>{error && <small>{error}</small>}</div>; })}</div>
               </>
             )}
             {section === "serial" && <><div className="settings-page-heading"><small>LOCAL CONSOLE</small><h3>Serial connection profiles</h3><p>Store reusable baud rate, data format, parity and stop-bit settings. Adapter ports are selected when opening Console.</p></div><SerialProfileSettings profiles={serialProfiles} onChange={onSerialProfiles} notify={notify} /></>}
@@ -2164,6 +2179,8 @@ type WorkspaceTab =
   | { id: string; session: Session; kind: "web" }
   | { id: string; session: Session; kind: "vnc" }
   | { id: string; session: Session; kind: "serial" };
+type TabReachability = "checking" | "online" | "offline" | "unavailable";
+const reachabilityTitle = (status: TabReachability) => status === "online" ? "Host responding to ICMP" : status === "offline" ? "Host not responding to ICMP" : status === "checking" ? "Checking ICMP reachability" : "ICMP unavailable for this session";
 
 export default function App() {
   const [data, setData] = useState<AppData>(blankData);
@@ -2175,6 +2192,9 @@ export default function App() {
   const [editing, setEditing] = useState<Session | null | undefined>();
   const [tabs, setTabs] = useState<WorkspaceTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [hostReachability, setHostReachability] = useState<Record<string, TabReachability>>({});
+  const [unreadTabIds, setUnreadTabIds] = useState<Set<string>>(() => new Set());
+  const visibleTabIdsRef = useRef<Set<string>>(new Set());
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [splitMode, setSplitMode] = useState<
     "single" | "horizontal" | "vertical"
@@ -2277,6 +2297,7 @@ export default function App() {
   useEffect(() => {
     if (tabs.length && activeTabId === null) setPickerOpen(true);
   }, [tabs.length, activeTabId]);
+  useEffect(() => { setUnreadTabIds(current => { const next = new Set([...current].filter(tabId => tabs.some(tab => tab.id === tabId))); return next.size === current.size ? current : next; }); }, [tabs]);
   const uiSettings: UiSettings = data.uiSettings
     ? { ...defaultUiSettings, ...data.uiSettings }
     : defaultUiSettings;
@@ -2318,6 +2339,15 @@ export default function App() {
       ),
     [data, selectedFolder, sessionSearch],
   );
+  useEffect(() => {
+    const hosts = new Set(tabs.map(tab => tab.session.host.trim()).filter(Boolean));
+    if (libraryOpen || !tabs.length) for (const session of visible) if (session.host.trim()) hosts.add(session.host.trim());
+    setHostReachability(current => Object.fromEntries([...hosts].map(host => [host, current[host] ?? "checking"])));
+    const monitorHosts = new Map<string, string>(); let disposed = false;
+    const remove = window.hedge.onPingSample((sample: PingSample) => { const host = monitorHosts.get(sample.monitorId); if (!host) return; setHostReachability(current => ({ ...current, [host]: sample.reachable ? "online" : "offline" })); });
+    for (const host of hosts) { const monitorId = `status-${crypto.randomUUID()}`; monitorHosts.set(monitorId, host); void window.hedge.startPing(host, monitorId).catch(() => { if (!disposed) setHostReachability(current => ({ ...current, [host]: "offline" })); }); }
+    return () => { disposed = true; remove(); for (const monitorId of monitorHosts.keys()) window.hedge.stopPing(monitorId); };
+  }, [tabs, visible, libraryOpen]);
   const connect = async (session: Session) => {
     if (session.credentialProfile && !session.credentialSetId) {
       sessionStorage.setItem("hedgecon-settings-section", "credentials");
@@ -2561,6 +2591,9 @@ export default function App() {
     (value, index, all): value is string =>
       Boolean(value) && all.indexOf(value) === index,
   );
+  visibleTabIdsRef.current = libraryOpen ? new Set() : new Set(paneIds);
+  const markTabActivity = (tabId: string) => { if (!visibleTabIdsRef.current.has(tabId)) setUnreadTabIds(current => current.has(tabId) ? current : new Set(current).add(tabId)); };
+  useEffect(() => { if (libraryOpen) return; setUnreadTabIds(current => { const next = new Set(current); for (const tabId of paneIds) next.delete(tabId); return next.size === current.size ? current : next; }); }, [activeTabId, secondaryTabId, additionalPaneIds, libraryOpen]);
   useEffect(() => {
     setPaneSizes(Array.from({ length: Math.max(paneIds.length, 1) }, () => 1));
   }, [paneIds.length, splitMode]);
@@ -2579,6 +2612,7 @@ export default function App() {
     setFocusedPane(Math.min(focusedPane, Math.max(unique.length - 1, 0)));
   };
   const closeTab = (tabId: string) => {
+    setUnreadTabIds(current => { if (!current.has(tabId)) return current; const next = new Set(current); next.delete(tabId); return next; });
     setTabs((current) => {
       const next = current.filter((tab) => tab.id !== tabId);
       const remainingPanes = paneIds.filter((id) => id !== tabId);
@@ -2593,6 +2627,7 @@ export default function App() {
   const closePane = (tabId: string) =>
     applyPaneIds(paneIds.filter((id) => id !== tabId));
   const selectTab = (tabId: string) => {
+    setUnreadTabIds(current => { if (!current.has(tabId)) return current; const next = new Set(current); next.delete(tabId); return next; });
     if (paneIds.length <= 1) return applyPaneIds([tabId], "single");
     const next = [...paneIds];
     const existing = next.indexOf(tabId);
@@ -2628,6 +2663,16 @@ export default function App() {
     const direction =
       edge === "left" || edge === "right" ? "vertical" : "horizontal";
     const remaining = paneIds.filter((id) => id !== tabId);
+    if (!remaining.length) {
+      const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
+      const neighbour = tabs[tabIndex + 1] ?? tabs[tabIndex - 1];
+      if (!neighbour) {
+        notify("Open a second session before splitting the workspace.");
+        setDropEdge(null);
+        return;
+      }
+      remaining.push(neighbour.id);
+    }
     const next =
       edge === "left" || edge === "top"
         ? [tabId, ...remaining]
@@ -2955,6 +3000,9 @@ export default function App() {
             <div className="session-tabs">
               {tabs.map((tab) => {
                 const paneIndex = paneIds.indexOf(tab.id);
+                const reachability = hostReachability[tab.session.host.trim()] ?? (tab.session.host.trim() ? "checking" : "unavailable");
+                const dotState = unreadTabIds.has(tab.id) ? "unread" : reachability;
+                const dotTitle = dotState === "unread" ? "New terminal output" : reachabilityTitle(reachability);
                 return (
                   <div
                     key={tab.id}
@@ -2969,7 +3017,7 @@ export default function App() {
                     className={`session-tab ${paneIndex === 0 ? "active" : ""} ${paneIndex > 0 ? "secondary-active" : ""} ${tab.kind === "web" ? "web-tab" : tab.kind === "vnc" ? "vnc-tab" : ""}`}
                     onClick={() => selectTab(tab.id)}
                   >
-                    <span className="status-dot" />
+                    <span className={`status-dot tab-status-${dotState}`} title={dotTitle} aria-label={dotTitle} />
                     <div>
                       <strong>{tab.session.name}</strong>
                       <small>
@@ -3090,6 +3138,7 @@ export default function App() {
                         <WebDeviceView
                           tabId={tab.id}
                           session={tab.session}
+                          credentials={credentials}
                           visible={visible}
                           onClose={() => closeTab(tab.id)}
                         />
@@ -3106,7 +3155,7 @@ export default function App() {
                           />
                         </Suspense>
                       ) : tab.kind === "serial" ? (
-                        <SerialView session={tab.session} active={visible} />
+                        <SerialView session={tab.session} active={visible} onActivity={() => markTabActivity(tab.id)} />
                       ) : (
                         <TerminalView
                           session={tab.session}
@@ -3115,6 +3164,7 @@ export default function App() {
                           macros={data.macros ?? []}
                           macroFolders={data.macroFolders ?? []}
                           folders={data.folders}
+                          onActivity={() => markTabActivity(tab.id)}
                           onManageMacros={() => setCommandsOpen(true)}
                           onClose={() => closeTab(tab.id)}
                         />
@@ -3195,7 +3245,7 @@ export default function App() {
                         </CardAction>
                       </div>
                     </div>
-                    <h3>{s.name}</h3>
+                    <h3><span className={`session-status-dot status-${hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable")}`} title={reachabilityTitle(hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable"))} aria-label={reachabilityTitle(hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable"))} />{s.name}</h3>
                     <p>
                       {hasService(s, "serial") && !s.host ? s.serialPath : <>{s.username ? `${s.username}@` : ""}{s.host}</>}
                     </p>
