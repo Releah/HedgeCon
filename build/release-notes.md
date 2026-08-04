@@ -1,4 +1,14 @@
-# HedgeCon v0.3.3-experimental.3
+# HedgeCon v0.3.3
+
+## Embedded browser certificate handling
+
+- Show the untrusted-certificate prompt during the initial page load without requiring the address bar to be submitted again.
+- Hide the embedded browser surface as soon as certificate verification begins so the prompt remains visible and interactive.
+
+## Macro panel stability
+
+- Keep exactly one macro side panel mounted during periodic session-reachability updates.
+- Remove the brief duplicate or “ghost” macro panel flash without changing the panel's persisted open state.
 
 ## Reliable terminal highlighting
 
@@ -18,7 +28,7 @@
 - Replace the credential-drawer keyboard symbol with a clear key icon.
 - Keep a temporary capture of the live webpage visible behind the credential overlay instead of showing a white surface, then discard it when the drawer closes.
 
-This experimental maintenance release focuses on the terminal-highlighting and browser behaviours reported during testing of v0.3.3-experimental.2.
+This stable release promotes the tested v0.3.3 feature set, including live session awareness, terminal regex reliability, browser credential improvements, Wiki image support and the final browser and macro-panel fixes. Windows binaries remain unsigned while the SignPath Foundation application is under review.
 
 ---
 

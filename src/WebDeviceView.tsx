@@ -34,13 +34,13 @@ export default function WebDeviceView({ tabId, session, credentials, visible, on
       else if (event.type === 'error') setError(String(event.data ?? 'The device page could not be loaded.'));
       else if (event.type === 'navigation' && event.data && typeof event.data === 'object') { setCurrentUrl(event.data.url); setAddress(event.data.url); setTitle(event.data.title || session.name); setCanGoBack(event.data.canGoBack); setCanGoForward(event.data.canGoForward); setError(''); }
     });
-    const removeCertificate = window.hedge.onBrowserCertificate(prompt => { if (prompt.tabId === tabId) setCertificatePrompt(prompt); });
+    const removeCertificate = window.hedge.onBrowserCertificate(prompt => { if (prompt.tabId !== tabId) return; window.hedge.setBrowserVisible(tabId, false); setCertificatePrompt(prompt); });
     const resize = new ResizeObserver(updateBounds); resize.observe(element);
     const modalObserver = new MutationObserver(() => window.hedge.setBrowserVisible(tabId, visibleRef.current && !drawerOpenRef.current && !document.querySelector('.overlay, .wiki-overlay-root') && !element.closest('.device-browser')?.querySelector('.browser-error'))); modalObserver.observe(document.body, { childList: true, subtree: true });
     void window.hedge.createBrowser(tabId, initialUrl, bounds(element), darkMode).catch(reason => setError(reason instanceof Error ? reason.message : String(reason)));
     return () => { remove(); removeCertificate(); resize.disconnect(); modalObserver.disconnect(); window.hedge.destroyBrowser(tabId); };
   }, [tabId, initialUrl, session.name]);
-  useEffect(() => { drawerOpenRef.current = credentialsOpen; window.hedge.setBrowserVisible(tabId, visible && !credentialsOpen && !error && !document.querySelector('.overlay, .wiki-overlay-root')); }, [tabId, visible, error, credentialsOpen]);
+  useEffect(() => { drawerOpenRef.current = credentialsOpen; window.hedge.setBrowserVisible(tabId, visible && !credentialsOpen && !certificatePrompt && !error && !document.querySelector('.overlay, .wiki-overlay-root')); }, [tabId, visible, error, credentialsOpen, certificatePrompt]);
   useEffect(() => { if (!credentialsOpen) setBrowserSnapshot(''); }, [credentialsOpen]);
   useEffect(() => { void window.hedge.setBrowserDarkMode(tabId, darkMode).catch(() => { /* The native view may still be starting or already closing. */ }); }, [tabId, darkMode]);
 
