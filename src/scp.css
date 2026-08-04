@@ -111,7 +111,7 @@
 
 .pane-divider {
   position: absolute;
-  z-index: 12;
+  z-index: 9;
   background: transparent;
   touch-action: none;
 }

@@ -2687,7 +2687,7 @@ export default function App() {
     container
       .querySelectorAll(".pane-divider")
       .forEach((element) => element.remove());
-    if (libraryOpen || splitMode === "single" || paneIds.length < 2) return;
+    if (libraryOpen || settingsOpen || splitMode === "single" || paneIds.length < 2) return;
     const totalUnits = paneSizes.reduce((sum, size) => sum + size, 0);
     const template = paneSizes.map((size) => `${size}fr`).join(" ");
     if (splitMode === "vertical")
@@ -2755,7 +2755,7 @@ export default function App() {
         .querySelectorAll(".pane-divider")
         .forEach((element) => element.remove());
     };
-  }, [paneIds.length, paneSizes, splitMode, libraryOpen]);
+  }, [paneIds.length, paneSizes, splitMode, libraryOpen, settingsOpen]);
   const renderFolderTree = (
     parentId: string | null = null,
     depth = 0,
@@ -3121,7 +3121,7 @@ export default function App() {
                     className={`terminal-page ${visible ? "active" : ""} ${focusedPane === paneIndex && visible ? "focused" : ""}`}
                     onMouseDown={() => setFocusedPane(paneIndex)}
                   >
-                    {visible && paneIds.length > 1 && (
+                    {visible && paneIds.length > 1 && tab.kind !== "ssh" && (
                       <button
                         className="pane-close"
                         onClick={(event) => {
@@ -3167,6 +3167,7 @@ export default function App() {
                           onActivity={() => markTabActivity(tab.id)}
                           onManageMacros={() => setCommandsOpen(true)}
                           onClose={() => closeTab(tab.id)}
+                          onClosePane={paneIds.length > 1 ? () => closePane(tab.id) : undefined}
                         />
                       )}
                   </div>

@@ -1,4 +1,24 @@
-# HedgeCon v0.3.3-experimental.1
+# HedgeCon v0.3.3-experimental.2
+
+## Split workspace polish
+
+- Hide split-pane resize dividers while Settings is open so they cannot appear above the modal.
+- Restore dividers at their existing position when Settings closes.
+- Keep each SSH pane's close control attached to the visible terminal edge while Notes, Files or Macros are open or resized.
+
+## Terminal regex rendering
+
+- Treat paired outer `^` and `$` anchors as boundaries around a highlighted terminal fragment instead of requiring the shell prompt and whole rendered line to match.
+- Repaint recent SSH and serial terminal lines immediately when regex settings change.
+- Preserve expression validation, rendering limits and protection against unsafe patterns.
+
+This experimental maintenance release refines split-terminal controls and terminal regex highlighting based on testing of v0.3.3-experimental.1.
+
+---
+
+# Previous experimental release
+
+## v0.3.3-experimental.1
 
 ## Live session awareness
 

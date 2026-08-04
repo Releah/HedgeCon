@@ -24,10 +24,18 @@ type StoredDecoration = { decoration: IDecoration; marker: IMarker };
 const lineDecorations = new WeakMap<Terminal, Map<number, StoredDecoration[]>>();
 const disposeDecorations = (items: StoredDecoration[] | undefined) => items?.forEach(({ decoration, marker }) => { decoration.dispose(); marker.dispose(); });
 
+function highlightingExpression(pattern: string) {
+  // Rules colour matching fragments within a rendered terminal line. Treat a
+  // pair of outer anchors as boundaries around that fragment, rather than the
+  // shell prompt and every other character xterm keeps on the same line.
+  const fragment = pattern.startsWith('^') && pattern.endsWith('$') && !pattern.endsWith('\\$') ? pattern.slice(1, -1) : pattern;
+  return new RegExp(fragment, 'giu');
+}
+
 export function refreshTerminalPatternDecorations(terminal: Terminal, patterns: TerminalPattern[] = [], touchedText = '') {
   const active = patterns.flatMap(rule => {
     if (!rule.enabled || terminalPatternError(rule.pattern)) return [];
-    try { return [{ rule, expression: new RegExp(rule.pattern, 'giu') }]; } catch { return []; }
+    try { return [{ rule, expression: highlightingExpression(rule.pattern) }]; } catch { return []; }
   }).slice(0, MAX_RULES);
   const cursorLine = terminal.buffer.active.baseY + terminal.buffer.active.cursorY;
   const affected = Math.max(2, (touchedText.match(/\n/g)?.length || 0) + Math.ceil(touchedText.length / Math.max(1, terminal.cols)) + 2);
