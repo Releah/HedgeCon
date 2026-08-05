@@ -1,4 +1,33 @@
-# HedgeCon v0.3.3
+# HedgeCon v0.3.4-experimental.1
+
+## SSH device identification
+
+- Identify Windows, Linux and common network-device platforms through the existing authenticated SSH connection.
+- Report vendor, product, version and confidence using bounded, read-only probes with strict output and time limits.
+- Recognise common Cisco, Juniper, Arista, Fortinet, MikroTik and HPE Aruba version signatures.
+- Keep detected information provisional until the operator explicitly applies it to the session.
+
+## Managed SSH tunnels
+
+- Open a dedicated SSH Tools side panel from an active terminal.
+- Create loopback-only local port forwards to services reachable from the SSH host.
+- Run a local SOCKS5 proxy through the active SSH connection, including IPv4, IPv6 and hostname destinations.
+- Select a fixed local port or let HedgeCon choose an available port automatically.
+- Display active client counts, stop tunnels individually and automatically close every tunnel when its SSH session ends.
+
+## Embedded browser startup
+
+- Create and position the native browser before navigating to the saved address.
+- Use the same reliable navigation route for initial page loading as the address-bar Go action.
+- Preserve the existing in-app certificate verification flow without speculative reloads.
+
+This experimental release is intended for testing device discovery, local forwarding, SOCKS proxying and the revised embedded-browser startup sequence. SSH tunnels bind only to `127.0.0.1`; they are not exposed to the local network. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous stable release
+
+## v0.3.3
 
 ## Embedded browser certificate handling
 

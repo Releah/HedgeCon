@@ -10,6 +10,7 @@ export interface Session {
   folderId: string | null; authMethod: AuthMethod; privateKeyPath?: string;
   credentialSetId?: string | null; remoteCredentialSetId?: string | null; credentialProfile?: string; webUrl?: string; rdpPort?: number; vncPort?: number; serialPath?: string; serialBaudRate?: number; serialDataBits?: 5 | 6 | 7 | 8; serialStopBits?: 1 | 1.5 | 2; serialParity?: 'none' | 'even' | 'odd' | 'mark' | 'space'; services?: ConnectionService[];
   platform?: SessionPlatform;
+  detectedIdentity?: DeviceIdentity;
   createdAt: string; updatedAt: string;
 }
 export interface CredentialSet { id: string; name: string; username: string; authMethod: AuthMethod; privateKeyPath?: string; hasSecret: boolean }
@@ -30,6 +31,8 @@ export interface BrowserEvent { tabId: string; type: 'loading' | 'navigation' | 
 export interface BrowserCertificatePrompt { tabId: string; host: string; error: string; fingerprint: string; subject: string; issuer: string; validExpiry: number }
 export interface SftpEntry { name: string; path: string; type: 'directory' | 'file' | 'link' | 'other'; size: number; modifiedAt: number; permissions: number }
 export interface SshKeyInfo { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' }
+export interface DeviceIdentity { platform: SessionPlatform; vendor: string; product: string; version: string; confidence: 'low' | 'medium' | 'high'; evidence: string }
+export interface SshTunnel { id: string; connectionId: string; type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number; connections: number }
 export interface RepositoryMeta { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; hasToken: boolean }
 export interface RepositoryInput { authorName: string; authorEmail: string; remoteUrl?: string; branch?: string; username?: string; token?: string; clearToken?: boolean }
 export interface RepositoryStatus { repository: RepositoryMeta; changedFiles: Array<{ filepath: string; head: number; workdir: number; stage: number }>; lastCommit: { oid: string; message: string; author: string; timestamp: number } | null }

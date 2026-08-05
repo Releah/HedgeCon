@@ -1,4 +1,4 @@
-import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SerialEvent, SerialPortInfo, SessionLogSettings, SftpEntry, SshEvent, SshKeyInfo, UiSettings, UpdateRelease, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
+import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, DeviceIdentity, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SerialEvent, SerialPortInfo, SessionLogSettings, SftpEntry, SshEvent, SshKeyInfo, SshTunnel, UiSettings, UpdateRelease, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -59,6 +59,10 @@ declare global {
     removePublicKey(connectionId: string, privateKeyPath: string): Promise<boolean>;
     getInstalledPublicKeys(connectionId: string): Promise<string[]>;
     connect(request: ConnectRequest): Promise<{ connectionId: string }>;
+    identifyDevice(connectionId: string): Promise<DeviceIdentity>;
+    listTunnels(connectionId: string): Promise<SshTunnel[]>;
+    startTunnel(connectionId: string, input: { type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number }): Promise<SshTunnel>;
+    stopTunnel(tunnelId: string): Promise<boolean>;
     listSerialPorts(): Promise<SerialPortInfo[]>;
     connectSerial(request: { connectionId: string; path: string; baudRate: number; dataBits: 5 | 6 | 7 | 8; stopBits: 1 | 1.5 | 2; parity: 'none' | 'even' | 'odd' | 'mark' | 'space' }): Promise<{ connectionId: string }>;
     writeSerial(connectionId: string, data: string): void;
