@@ -1,7 +1,7 @@
 {
   "name": "hedgecon",
   "productName": "HedgeCon",
-  "version": "0.3.4-experimental.2",
+  "version": "0.3.4",
   "private": true,
   "description": "A self-contained connectivity console for network operations",
   "author": "HedgeCon contributors",

@@ -2921,7 +2921,7 @@ export default function App() {
           className="settings-button inventory-button"
           onClick={() => setCommandsOpen(true)}
         >
-          ›_ <span>Commands</span>
+          ›_ <span>Macros</span>
         </button>
         <button
           className="settings-button inventory-button"

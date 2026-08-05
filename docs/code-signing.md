@@ -9,7 +9,8 @@
 - Signing approver: [@Releah](https://github.com/Releah)
 - Release source: a version tag whose value matches `package.json`
 - Build system: GitHub-hosted GitHub Actions runners
-- Signing scope: HedgeCon's Windows installer and portable executable
+- Release signing scope: HedgeCon's Windows installer
+- Manual onboarding test scope: the installer and a portable test executable; the portable artifact is not published in tagged releases
 
 Release signing requests require manual approval in SignPath. The SignPath certificate must only be used for artifacts produced by the repository's tagged release workflow. Third-party binaries bundled by Electron must not be presented as independently authored HedgeCon binaries.
 
@@ -17,8 +18,9 @@ Release signing requests require manual approval in SignPath. The SignPath certi
 
 HedgeCon does not include advertising or telemetry. It communicates with networked systems only for a configured or user-initiated operation:
 
-- SSH, SFTP, SCP, ping and TCP monitoring connect to hosts selected by the user.
+- SSH, SFTP, SCP, ping, TCP monitoring, read-only device discovery and loopback-only SSH tunnels connect to hosts selected by the user.
 - Device-browser tabs make HTTP or HTTPS requests to addresses entered by the user. Cookies are stored locally in a separate partition for each device address.
+- RDP and VNC actions connect to endpoints configured by the user; serial consoles access an adapter selected locally by the user.
 - Git features connect to a repository configured by the user.
 - Update checks connect to the public `Releah/HedgeCon` GitHub Releases feed. Automatic checks can be disabled in the application settings.
 - External links are opened only when selected by the user.
@@ -41,7 +43,7 @@ Before enabling signing:
    - `SIGNPATH_ARTIFACT_CONFIGURATION_SLUG`
 7. Add `SIGNPATH_API_TOKEN` as a GitHub Actions repository secret. Never place it in source control.
 8. Run the **Test SignPath Windows signing** workflow manually and approve its signing request.
-9. Download the resulting `hedgecon-windows-signed` artifact and verify both executables before enabling signed release publication.
+9. Download the resulting `hedgecon-windows-signed` artifact and verify both test executables before enabling signed release publication.
 
 The manual test workflow deliberately does not create or modify a GitHub Release. Integration into `.github/workflows/release.yml` should happen only after the test succeeds, because signing changes the executable hashes. Updater metadata and blockmaps must be produced from the final signed installer.
 

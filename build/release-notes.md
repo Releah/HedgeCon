@@ -1,4 +1,25 @@
-# HedgeCon v0.3.4-experimental.2
+# HedgeCon v0.3.4
+
+## Focused macro targeting
+
+- Rename the Commands navigation entry and terminal heading to Macros for consistent terminology.
+- Target macro favourites either by session folder or by automatically profiled operating system, avoiding ambiguous mixed rules.
+- Default new folder-targeted macros to All folders and offer an equivalent All known OSs option for profiled devices.
+- Preserve existing macros with predictable legacy-target migration when they are edited.
+
+## Documentation and project scope
+
+- Refresh the README around the complete desktop feature set, including discovery, tunnels, serial consoles, session logging, private notes, Wiki images and update controls.
+- Move configuration collection, history and broader observability scope to HedgeSight.
+- Document the remaining legacy-SSH, signing and platform-packaging boundaries without presenting them as completed features.
+
+This stable release promotes the tested v0.3.4 device-discovery, SSH-tunnel, browser-startup and interface refinements. HedgeCon's core desktop connectivity workflows are now feature complete, with future work focused on compatibility, reliability, signing and focused user feedback. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous experimental release
+
+## v0.3.4-experimental.2
 
 ## Passive device discovery
 

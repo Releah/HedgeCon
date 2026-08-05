@@ -16,9 +16,9 @@
 
 HedgeCon started with a simple frustration: connecting to equipment is only one part of the job. The terminal, inventory, file transfers, reachability checks, credentials and notes all tend to live in different places.
 
-The long-term goal is a single practical workspace for operating network infrastructure. Version 0.1 establishes that foundation with a capable SSH client, structured inventory, Git-backed documentation and the everyday tools needed alongside a terminal.
+HedgeCon is a single practical workspace for operating network infrastructure: live connections, shared inventory, local credentials, documentation and the everyday tools needed alongside a terminal.
 
-> **Project status:** HedgeCon is in early development. The current build is ready for testing and feedback, but it should not yet replace established production tooling. Keep independent backups of important data and device configurations.
+> **Project status:** The core desktop feature set is complete and the project is now focused on compatibility testing, reliability, security review, code signing and interface refinement. Keep independent backups of important operational data while evaluating HedgeCon in your environment.
 
 ## What is included today
 
@@ -33,6 +33,9 @@ The long-term goal is a single practical workspace for operating network infrast
 - Automatic reconnection when a live session drops.
 - A responsive xterm terminal with bounded scrollback.
 - Select-to-copy and right-click paste.
+- Optional rolling session logs with retention, per-file and total-storage limits.
+- Configurable terminal foreground/background colours and validated regex-based text highlighting.
+- Passive, read-only device profiling after connection, with operator confirmation before details are remembered.
 
 ### Tabs and split terminals
 
@@ -46,7 +49,7 @@ The long-term goal is a single practical workspace for operating network infrast
 ### Tools alongside the terminal
 
 - Global searchable command-macro library with reusable terminal button boards.
-- Folder- and platform-aware macro favourites for Linux, Windows and network-device sessions.
+- Mutually exclusive folder- or profiled-OS macro favourites, including All folders and All known OSs defaults.
 - Prompted `{{ variable }}` substitutions, rendered previews and optional immediate execution.
 - Resizable per-terminal macro panel with a remembered width.
 - Resizable Ping or SSH-port TCP monitor with response-time history, outage duration and selectable Live, 5m, 30m, 1h, 4h and Max ranges.
@@ -56,6 +59,7 @@ The long-term goal is a single practical workspace for operating network infrast
 - SSH key generation, import, discovery and fingerprint display.
 - Install and remove public keys in a remote `authorized_keys` file.
 - Open session notes beside the terminal and resize the notes panel while you work.
+- Create loopback-only local forwards and SOCKS5 proxies through an active SSH connection, with live status and automatic cleanup.
 
 ### Inventory and Git-backed knowledge
 
@@ -66,6 +70,8 @@ The long-term goal is a single practical workspace for operating network infrast
 - Markdown Wiki for general notes, per-session notes and vendor cheat sheets.
 - Organise General and Vendor notes into nested folders, drag pages between them, collapse sections and resize the Wiki tree.
 - Search page titles and Markdown content across General, Vendor and Session notes.
+- Keep private general and session notes outside Git, and paste clipboard images directly into Wiki pages.
+- Add confirmed hostname, address, make, model/OS and version details to a managed block in each session Wiki page.
 - Local Git repositories and HTTPS remotes including GitHub, Gitea and compatible servers.
 - Commit, pull, merge and guarded push from inside HedgeCon, with an editor for same-file conflicts.
 - At-a-glance repository state: current, ahead, behind, diverged, local-only or awaiting its first commit.
@@ -75,13 +81,20 @@ The long-term goal is a single practical workspace for operating network infrast
 
 - Add an optional HTTP or HTTPS management address to any saved session.
 - Open SSH, Web, RDP and VNC connections independently from the same session card.
-- Select SSH, RDP and VNC independently per session, with SSH enabled by default and any single-service or combined configuration supported.
+- Select SSH, Web, RDP and VNC independently per session, with SSH enabled by default and any single-service or combined configuration supported.
 - Launch the Windows Remote Desktop client or a preferred Linux Remmina/FreeRDP client, with an opt-in Remmina installation prompt when Linux has no compatible client.
 - Use VNC inside an isolated HedgeCon workspace tab through a token-protected loopback bridge; VNC passwords remain in memory for the active connection only.
 - Navigate device interfaces with Back, Forward, Reload and an editable address bar.
 - Keep cookies in an isolated local partition for each device address.
 - Confirm untrusted device certificates explicitly and clearly identify insecure HTTP connections.
 - Open the current page in the system browser when a device is incompatible with embedded Chromium.
+
+### Serial consoles and remote desktops
+
+- Create reusable local serial profiles for baud rate, data bits, parity and stop bits.
+- Open a detected console adapter without adding its physical port to shared inventory.
+- Enable SSH, Web, RDP and VNC independently for each saved session.
+- Use separate local credential sets for SSH and remote-desktop access.
 
 ## Installing HedgeCon
 
@@ -107,17 +120,11 @@ Windows release signing is being prepared through SignPath. **Free code signing 
 - Signing approver: [@Releah](https://github.com/Releah)
 - Source and release builds: [Releah/HedgeCon](https://github.com/Releah/HedgeCon)
 
-HedgeCon does not include advertising or telemetry. It communicates with networked systems only to perform a user-configured or user-initiated operation: SSH connections and monitoring, device-browser navigation, Git repository operations, opening external release links, and update checks against the public HedgeCon GitHub release feed. Automatic update checks can be disabled in **Settings → Application updates**. Credentials, private keys, terminal contents, session data and Wiki contents are not sent to HedgeCon or SignPath. See [Code signing and release process](docs/code-signing.md) for the complete release policy and verification procedure.
+HedgeCon does not include advertising or telemetry. It communicates with networked systems only to perform a user-configured or user-initiated operation: SSH/SFTP/SCP connections, read-only device discovery, monitoring, SSH forwarding, device-browser navigation, remote-desktop launch, Git operations, external links and update checks against the public HedgeCon GitHub release feed. Automatic update checks can be disabled in **Settings → Application updates**. Credentials, private keys, terminal contents, session data and Wiki contents are not sent to HedgeCon or SignPath. See [Code signing and release process](docs/code-signing.md) for the complete release policy and verification procedure.
 
 ### Updates
 
-Installed builds check the public `Releah/HedgeCon` GitHub Releases feed after startup. Open **Settings → Application updates** to check manually, disable automatic checks, download an available release or restart to install one. HedgeCon never silently closes active SSH sessions: installing an update requires confirmation and warns when connections are open.
-
-The portable edition reports new releases but cannot replace its own executable. Use its **Open GitHub Release** button to download the new portable build manually.
-
-### Portable Windows build
-
-`HedgeCon.exe` is the portable edition. Download it from the GitHub Release and run it directly without an installation wizard. The current portable executable is approximately 93 MiB.
+Installed builds check the public `Releah/HedgeCon` GitHub Releases feed after startup. Open **Settings → Application updates** to check manually, disable automatic checks, select Stable or Experimental updates, install a newer release or deliberately choose a compatible older release. HedgeCon never silently closes active SSH sessions: installing an update requires confirmation and warns when connections are open.
 
 ### Linux
 
@@ -173,6 +180,16 @@ While connected using an existing authentication method, select **Keys** beneath
 
 Open several SSH or Web sessions to create tabs. Use the split controls to arrange them horizontally or vertically, or drag a tab toward an edge of the workspace to snap it into a new pane. Drag the divider to change how much room each pane receives.
 
+### Device profiling and SSH tunnels
+
+After SSH authentication, HedgeCon runs bounded read-only probes over the existing connection. A first or changed result asks for confirmation before HedgeCon remembers the hostname, platform, make, model or operating system, and version. Unchanged information remains silent. Select **SSH tools** beneath the terminal to review the remembered identity.
+
+The same panel creates local forwards and SOCKS5 proxies through the active SSH connection. Listeners bind only to `127.0.0.1`, may use a chosen port or an automatically selected free port, and close automatically with the SSH session. SOCKS5 is an application proxy rather than a system-wide VPN; each application must be configured to use it.
+
+### Run macros
+
+Select **Macros** in the sidebar to organise reusable commands into nested folders. A macro can be prioritised either for selected session folders or for operating systems confirmed by automatic profiling. The two targeting modes are deliberately exclusive. Templates may use safe built-in session values and multiple prompted `{{ variables }}`; passwords, tokens, passphrases and private-key contents are never exposed to templates.
+
 ### Open a device web interface
 
 Edit a session and enter its complete management address, including `http://` or `https://` and any non-standard port or path. The session card then shows separate **SSH** and **Web** controls.
@@ -186,6 +203,10 @@ Select **Monitor** beneath a connected terminal, then choose ICMP Ping or a TCP 
 ### Transfer files
 
 Select **Files** beneath a terminal to open the remote filesystem browser. Choose SFTP or SCP, navigate the remote host, then upload or download a file. Availability depends on the SSH server and the connected account's permissions.
+
+### Open a serial console
+
+Create serial profiles in **Settings → Serial profiles**, then select **Console** beside New session. Choose a profile and a detected adapter. Profiles and physical adapter paths remain local to that computer.
 
 ## YAML inventory
 
@@ -225,6 +246,10 @@ Saving a page writes it locally; it does not publish silently. Review the change
 
 Select **Notes** beneath a live terminal to open that session's page alongside the CLI. The SSH connection and active monitors continue running while notes are edited.
 
+Confirmed device information is maintained in a table at the top of each shared session page. HedgeCon updates only the marked information block and leaves operator-written notes untouched. Fields that could not be collected are shown as `TBC`.
+
+Private Notes and private session notes are stored locally outside the Git repository. Clipboard images from tools such as Windows Snipping Tool can be pasted into the editor; shared images are stored with the Wiki while private-note images remain local.
+
 ## Data and security
 
 - Electron context isolation and renderer sandboxing are enabled.
@@ -236,23 +261,31 @@ Select **Notes** beneath a live terminal to open that session's page alongside t
 - Private keys and secrets are excluded from inventory YAML and the source repository.
 - Input, terminal scrollback, file sizes and monitoring history are bounded.
 - Git synchronisation checks remote history before pushing and requires explicit resolution of same-file conflicts.
+- Device discovery uses bounded read-only probes and requires confirmation before saving a first or changed identity.
+- SSH tunnels listen on loopback only and are destroyed when their owning SSH connection closes.
 - Packaged binaries are currently unsigned development builds.
 
 Application data is stored in the operating system's HedgeCon application-data directory, not inside the source or installation folder. Uninstalling does not automatically delete sessions, credentials, managed keys or repository settings.
 
 To return HedgeCon to a blank state, open **Settings → Reset all local data**. This removes the HedgeCon workspace, encrypted secrets, known-host fingerprints, managed SSH keys and repository settings, then restarts the application. External Wiki repositories and keys in the user's normal `.ssh` directory are not deleted.
 
-## Roadmap
+## Project direction
 
-The next stages move HedgeCon beyond terminal management and toward the wider network-operations goal:
+HedgeCon's core desktop connectivity workflows are complete. Configuration collection, versioned configuration history, diffs and broader network observability belong to the separate **HedgeSight** project rather than HedgeCon.
 
-- Collect device configurations and maintain versioned history and diffs.
-- Push configuration history to a shared Git server.
-- Add vendor-aware drivers for Cisco, Juniper, Arista and other platforms.
-- Build guided changes such as **Add VLAN**, with preview and validation before commands are applied.
-- Add device-specific paging, configuration-mode, commit and rollback handling.
-- Add native Windows OpenSSH key management and agent integration.
-- Introduce broader automated tests, signed packages and crash recovery.
+Known scope boundaries and unfinished distribution work:
+
+- HedgeCon currently uses the SSH engine's modern defaults; an opt-in legacy/alternative SSH algorithm profile has not yet been implemented.
+- SSH Tools supports local forwarding and SOCKS5, but not remote/reverse port forwarding.
+- Tagged packages currently target Windows x64 and Linux x64; macOS packaging and a container-hosted web edition are not currently shipped.
+- Windows code signing remains pending completion of the SignPath Foundation onboarding process.
+
+Further HedgeCon work is expected to concentrate on:
+
+- Compatibility and regression testing across more SSH servers, network vendors and desktop environments.
+- Completing SignPath onboarding and publishing signed Windows installers.
+- Broader automated tests, accessibility improvements and crash recovery.
+- Carefully scoped platform packaging or deployment options where they do not weaken the desktop security model.
 
 ## Development
 
@@ -276,7 +309,7 @@ Type-check and build the application:
 pnpm build
 ```
 
-Create the portable Windows executable:
+Create a portable Windows executable for local development testing:
 
 ```powershell
 pnpm package:win
@@ -296,7 +329,7 @@ pnpm package:linux
 
 Generated applications are written to `release/`. That directory is intentionally excluded from Git; publish binaries as GitHub Release assets instead of committing them to the source repository.
 
-Tagged releases are built by `.github/workflows/release.yml`. The Git tag must match the version in `package.json`—for example, package version `0.1.5` uses tag `v0.1.5`. The workflow publishes the Windows installer and portable executable, Linux x64 AppImage, blockmaps and updater metadata to GitHub Releases. No GitHub token is stored in the application.
+Tagged releases are built by `.github/workflows/release.yml`. The Git tag must match the version in `package.json`—for example, package version `0.3.4` uses tag `v0.3.4`. The workflow publishes the Windows installer, Linux x64 AppImage, blockmaps and updater metadata to GitHub Releases. The portable build command remains available for local testing but portable executables are not part of the current release pipeline. No GitHub token is stored in the application.
 
 ## Repository hygiene
 
@@ -320,10 +353,10 @@ HedgeCon is developed independently and remains free to use. If it saves you tim
 
 ## Contributing
 
-HedgeCon is at the point where real-world testing is especially valuable. Bug reports, device-specific edge cases and focused pull requests are welcome. When reporting an SSH or Git problem, remove hostnames, usernames, addresses, tokens and key material from logs and screenshots first.
+HedgeCon is feature complete for its planned desktop scope, so real-world compatibility and regression testing are especially valuable. Bug reports, device-specific edge cases and focused pull requests are welcome. When reporting an SSH or Git problem, remove hostnames, usernames, addresses, tokens and key material from logs and screenshots first. The in-app Bug Report and Feature Request form can prepare a structured GitHub submission without attaching logs, sessions, notes or credentials.
 
 Please use GitHub Issues for bugs and feature requests.
 
 ## Release notes
 
-See [HedgeCon v0.1 release notes](RELEASE_NOTES_v0.1.md).
+See the [GitHub Releases page](https://github.com/Releah/HedgeCon/releases) for current release notes. The original [HedgeCon v0.1 notes](RELEASE_NOTES_v0.1.md) remain available as project history.
