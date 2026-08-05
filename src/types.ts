@@ -31,7 +31,7 @@ export interface BrowserEvent { tabId: string; type: 'loading' | 'navigation' | 
 export interface BrowserCertificatePrompt { tabId: string; host: string; error: string; fingerprint: string; subject: string; issuer: string; validExpiry: number }
 export interface SftpEntry { name: string; path: string; type: 'directory' | 'file' | 'link' | 'other'; size: number; modifiedAt: number; permissions: number }
 export interface SshKeyInfo { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' }
-export interface DeviceIdentity { platform: SessionPlatform; vendor: string; product: string; version: string; confidence: 'low' | 'medium' | 'high'; evidence: string }
+export interface DeviceIdentity { platform: SessionPlatform; hostname: string; vendor: string; product: string; version: string; confidence: 'low' | 'medium' | 'high'; evidence: string }
 export interface SshTunnel { id: string; connectionId: string; type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number; connections: number }
 export interface RepositoryMeta { localPath: string; remoteUrl?: string; branch: string; authorName: string; authorEmail: string; username?: string; hasToken: boolean }
 export interface RepositoryInput { authorName: string; authorEmail: string; remoteUrl?: string; branch?: string; username?: string; token?: string; clearToken?: boolean }

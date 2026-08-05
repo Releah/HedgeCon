@@ -46,7 +46,7 @@ contextBridge.exposeInMainWorld('hedge', {
   renameWikiFolder: (folderPath: string, name: string) => ipcRenderer.invoke('wiki:rename-folder', folderPath, name),
   deleteWikiFolder: (folderPath: string) => ipcRenderer.invoke('wiki:delete-folder', folderPath),
   moveWikiPage: (sourcePath: string, targetFolder: string) => ipcRenderer.invoke('wiki:move-page', sourcePath, targetFolder),
-  ensureSessionWikiPage: (sessionId: string, sessionName: string, host: string) => ipcRenderer.invoke('wiki:session-page', sessionId, sessionName, host),
+  ensureSessionWikiPage: async (sessionId: string, sessionName: string, host: string, identity?: unknown) => { const data = identity ? undefined : await ipcRenderer.invoke('data:load'); const remembered = identity ?? data?.sessions?.find((item: any) => item?.id === sessionId)?.detectedIdentity; return ipcRenderer.invoke('wiki:session-page', sessionId, sessionName, host, remembered); },
   ensurePrivateSessionNote: (sessionId: string, sessionName: string, host: string) => ipcRenderer.invoke('wiki:private-session-page', sessionId, sessionName, host),
   choosePrivateKey: () => ipcRenderer.invoke('key:choose'),
   listSshKeys: () => ipcRenderer.invoke('keys:list'),

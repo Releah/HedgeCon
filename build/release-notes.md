@@ -1,4 +1,31 @@
-# HedgeCon v0.3.4-experimental.1
+# HedgeCon v0.3.4-experimental.2
+
+## Passive device discovery
+
+- Run bounded, read-only device probes automatically after an SSH connection succeeds.
+- Prompt only when a device is first identified or its detected signature changes.
+- Remember confirmed hostname, platform, make, model or operating system, and version without reconnecting the terminal.
+- Allow an incorrect result to be marked Unknown and suppress repeat prompts until the detected signature changes.
+- Keep remembered device information visible at the top of SSH Tools without a manual Detect control.
+
+## Session Wiki information
+
+- Add a managed device-information table to the top of shared session Wiki pages.
+- Show hostname, address, make, model or OS, and version, using TBC where information is unavailable.
+- Refresh only the managed information block while preserving all operator-written notes.
+
+## Interface polish
+
+- Restyle the SSH Tools panel, tunnel forms, selectors, buttons and scrollbar to match HedgeCon.
+- Apply HedgeCon's slim dark scrollbar treatment to the main session-library content.
+
+This experimental maintenance release refines the device-discovery and SSH-tunnel experience introduced in v0.3.4-experimental.1.
+
+---
+
+# Previous experimental release
+
+## v0.3.4-experimental.1
 
 ## SSH device identification
 

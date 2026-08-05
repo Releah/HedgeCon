@@ -47,7 +47,7 @@ declare global {
     renameWikiFolder(folderPath: string, name: string): Promise<WikiFolder>;
     deleteWikiFolder(folderPath: string): Promise<{ parentPath: string; movedPages: Array<{ from: string; to: string }> }>;
     moveWikiPage(sourcePath: string, targetFolder: string): Promise<WikiPage>;
-    ensureSessionWikiPage(sessionId: string, sessionName: string, host: string): Promise<WikiPage>;
+    ensureSessionWikiPage(sessionId: string, sessionName: string, host: string, identity?: DeviceIdentity): Promise<WikiPage>;
     ensurePrivateSessionNote(sessionId: string, sessionName: string, host: string): Promise<WikiPage>;
     choosePrivateKey(): Promise<string | null>;
     listSshKeys(): Promise<SshKeyInfo[]>;
