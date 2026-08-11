@@ -59,7 +59,7 @@ declare global {
     removePublicKey(connectionId: string, privateKeyPath: string): Promise<boolean>;
     getInstalledPublicKeys(connectionId: string): Promise<string[]>;
     connect(request: ConnectRequest): Promise<{ connectionId: string }>;
-    identifyDevice(connectionId: string): Promise<DeviceIdentity>;
+    identifyDevice(connectionId: string, observedText?: string): Promise<DeviceIdentity>;
     listTunnels(connectionId: string): Promise<SshTunnel[]>;
     startTunnel(connectionId: string, input: { type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number }): Promise<SshTunnel>;
     stopTunnel(tunnelId: string): Promise<boolean>;

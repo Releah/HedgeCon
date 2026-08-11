@@ -2227,6 +2227,7 @@ export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
+  const [macroPanelPinned, setMacroPanelPinned] = useState(false);
   const [wikiSessionId, setWikiSessionId] = useState<
     string | null | undefined
   >();
@@ -3165,6 +3166,8 @@ export default function App() {
                           macros={data.macros ?? []}
                           macroFolders={data.macroFolders ?? []}
                           folders={data.folders}
+                          macrosPinned={macroPanelPinned}
+                          onMacrosPinnedChange={setMacroPanelPinned}
                           onIdentity={(identity) => { const updatedAt = new Date().toISOString(); persist({ ...data, sessions: data.sessions.map(item => item.id === tab.session.id ? { ...item, platform: identity.platform, detectedIdentity: identity, updatedAt } : item) }); setTabs(current => current.map(item => item.session.id === tab.session.id ? { ...item, session: { ...item.session, platform: identity.platform, detectedIdentity: identity, updatedAt } } : item)); notify(`Saved ${identity.product} detection for ${tab.session.name}.`); }}
                           onActivity={() => markTabActivity(tab.id)}
                           onManageMacros={() => setCommandsOpen(true)}

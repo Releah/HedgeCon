@@ -611,15 +611,37 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
     .on('close', () => { stopConnectionTunnels(id); closeSessionLog(id); pendingTrust.delete(id); connections.delete(id); send(id, 'closed', 'Disconnected'); }).connect(config);
   return { connectionId: id };
 });
-ipcMain.handle('ssh:identify', async (_event, connectionId: string) => {
-  const connection = connections.get(connectionId); if (!connection) throw new Error('The SSH connection is not active.');
+type DetectedIdentity = { platform: 'network'; hostname: string; vendor: string; product: string; version: string; confidence: 'medium' | 'high'; evidence: string };
+function cleanProbeText(value: string) { return value.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '').replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, '').replace(/\r/g, '').slice(0, 32768); }
+function networkIdentity(source: string): DetectedIdentity | null {
+  const text = cleanProbeText(source); if (!text.trim()) return null;
+  const value = (...patterns: RegExp[]) => patterns.map(pattern => text.match(pattern)?.[1]?.trim()).find(Boolean) || '';
+  const hostname = value(/(?:^|\n)Hostname:\s*(\S+)/im, /(?:^|\n)Device name:\s*(\S+)/im, /(?:^|\n)sysName\s*[:=]\s*(\S+)/im);
+  const match = (pattern: RegExp, vendor: string, product: string, version: string): DetectedIdentity | null => pattern.test(text) ? { platform: 'network', hostname, vendor, product, version, confidence: 'high', evidence: text.slice(0, 2000) } : null;
+  return match(/JUNOS|Junos OS|Juniper Networks/i, 'Juniper', value(/(?:^|\n)Model:\s*(\S+)/im, /Juniper Networks, Inc\.\s+(\S+)/i) || 'Juniper network device', value(/(?:^|\n)Junos:\s*(\S+)/im, /JUNOS Base OS[^\[]*\[([^\]]+)\]/i))
+    || match(/Cisco IOS|Cisco NX-OS|Adaptive Security Appliance|Cisco Internetwork Operating System/i, 'Cisco', value(/(?:^|\n)cisco\s+(\S+).*processor/im, /(?:^|\n)Hardware:\s*(\S+)/im, /(?:^|\n)Model [Nn]umber\s*:\s*(\S+)/im) || 'Cisco network device', value(/(?:IOS|NX-OS|Version)\s+(?:Software,?\s*)?(?:Version\s*)?([\w().-]+)/i))
+    || match(/Arista|EOS version/i, 'Arista', value(/(?:^|\n)Model name:\s*(\S+)/im, /Arista\s+(\S+)/i) || 'Arista network device', value(/(?:^|\n)Software image version:\s*(\S+)/im, /EOS version\s+(\S+)/i))
+    || match(/FortiGate|FortiOS/i, 'Fortinet', value(/Version:\s*(FortiGate-\S+)/i) || 'FortiGate', value(/Version:\s*FortiGate-\S+\s+v([\d.]+)/i, /FortiOS\s+v?([\w.-]+)/i))
+    || match(/PAN-OS|Palo Alto Networks/i, 'Palo Alto Networks', value(/(?:^|\n)model:\s*(\S+)/im) || 'Palo Alto firewall', value(/(?:^|\n)sw-version:\s*(\S+)/im, /PAN-OS\s+([\w.-]+)/i))
+    || match(/ArubaOS|Aruba Instant|ProCurve|HPE Comware|HP Comware/i, /Aruba/i.test(text) ? 'Aruba' : 'HPE', value(/(?:^|\n)(?:Product|Model)\s*[:=]\s*(\S+)/im) || 'HPE/Aruba network device', value(/(?:ArubaOS|Comware|Version)\s*(?:Software,?)?\s*([\w().-]+)/i))
+    || match(/Huawei|VRP \(R\) software/i, 'Huawei', value(/(?:^|\n)HUAWEI\s+(\S+)/im) || 'Huawei network device', value(/VRP.*?Version\s+([\w().-]+)/i))
+    || match(/Dell EMC Networking OS|Dell Networking OS|OS10 Enterprise/i, 'Dell', value(/(?:^|\n)(?:System Type|Product Name)\s*:\s*(.+)/im) || 'Dell network device', value(/(?:OS Version|Software Version)\s*:\s*(\S+)/im))
+    || match(/ExtremeXOS|Extreme Networks|VOSS Software/i, 'Extreme Networks', value(/(?:^|\n)(?:System Type|Platform)\s*:\s*(.+)/im) || 'Extreme network device', value(/(?:ExtremeXOS version|VOSS Software Version)\s*[: ]\s*(\S+)/i))
+    || match(/RouterOS|MikroTik/i, 'MikroTik', value(/(?:^|\n)board-name:\s*(.+)/im, /(?:^|\n)model:\s*(.+)/im) || 'MikroTik device', value(/(?:^|\n)version:\s*(\S+)/im, /RouterOS\s+([\w.-]+)/i))
+    || match(/EdgeOS|VyOS|Ubiquiti/i, /VyOS/i.test(text) ? 'VyOS' : 'Ubiquiti', value(/(?:^|\n)HW model:\s*(.+)/im) || (/VyOS/i.test(text) ? 'VyOS router' : 'Ubiquiti device'), value(/(?:EdgeOS|VyOS)\s+(?:Version:\s*)?([\w.-]+)/i))
+    || match(/Fabric OS|FastIron|Ruckus Networks|Brocade/i, /Ruckus/i.test(text) ? 'Ruckus' : 'Brocade', value(/(?:^|\n)(?:Switch Type|System Model)\s*:\s*(.+)/im) || 'Brocade/Ruckus device', value(/(?:Fabric OS|FastIron|Version)\s*[: ]\s*(\S+)/i))
+    || match(/BIG-IP|F5 Networks/i, 'F5', value(/(?:^|\n)Platform\s*[: ]\s*(.+)/im) || 'BIG-IP', value(/(?:^|\n)Version\s+([\w.-]+)/im));
+}
+ipcMain.handle('ssh:identify', async (_event, connectionId: string, observedText?: string) => {
+  const connection = connections.get(connectionId); if (!connection) throw new Error('The SSH connection is not active.'); if (observedText !== undefined && (typeof observedText !== 'string' || observedText.length > 65536)) throw new Error('Invalid observed terminal text.');
+  const passive = networkIdentity(observedText || ''); if (passive) return { ...passive, confidence: passive.version || passive.product !== `${passive.vendor} network device` ? 'high' : 'medium' };
+  const networkCommands = ['show version', 'show version | no-more', 'show system information | no-more', 'get system status', 'show system info', 'display version', '/system resource print without-paging']; let networkOutput = '';
+  for (const command of networkCommands) { const output = await sshExec(connection.client, command, 3500).catch(() => ''); networkOutput += `\n${output}`; const detected = networkIdentity(output); if (detected) return detected; }
   const windows = await sshExec(connection.client, 'powershell -NoProfile -NonInteractive -Command "$o=Get-CimInstance Win32_OperatingSystem; Write-Output (\'HEDGECON_WINDOWS|\'+$env:COMPUTERNAME+\'|\'+$o.Caption+\'|\'+$o.Version)"', 4500).catch(() => '');
   const windowsMatch = windows.match(/HEDGECON_WINDOWS\|([^\r\n|]*)\|([^\r\n|]+)\|([^\r\n]+)/); if (windowsMatch) return { platform: 'windows', hostname: windowsMatch[1].trim(), vendor: 'Microsoft', product: windowsMatch[2].trim(), version: windowsMatch[3].trim(), confidence: 'high', evidence: windowsMatch[0].slice(0, 500) };
   const unix = await sshExec(connection.client, `sh -c 'cat /etc/os-release 2>/dev/null; printf "HEDGECON_HOSTNAME="; hostname 2>/dev/null; printf "HEDGECON_UNAME="; uname -srm 2>/dev/null'`, 4500).catch(() => '');
   if (/HEDGECON_UNAME=Linux/i.test(unix) || /(?:^|\n)(?:ID|NAME)=/m.test(unix)) { const name = unix.match(/(?:^|\n)PRETTY_NAME=[\"']?([^\r\n\"']+)/)?.[1] || unix.match(/(?:^|\n)NAME=[\"']?([^\r\n\"']+)/)?.[1] || 'Linux'; const version = unix.match(/(?:^|\n)VERSION_ID=[\"']?([^\r\n\"']+)/)?.[1] || unix.match(/HEDGECON_UNAME=Linux\s+([^\r\n]+)/)?.[1] || ''; return { platform: 'linux', hostname: unix.match(/HEDGECON_HOSTNAME=([^\r\n]+)/)?.[1]?.trim() || '', vendor: name.split(/\s+/)[0], product: name.trim(), version: version.trim(), confidence: 'high', evidence: unix.slice(0, 1000) }; }
-  const network = await sshExec(connection.client, 'show version', 6000).catch(() => ''); const text = network.replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, ' ');
-  const signatures: Array<[RegExp, string, string]> = [[/Cisco IOS|NX-OS|Cisco Adaptive Security/i, 'Cisco', 'Cisco network device'], [/JUNOS|Junos:/i, 'Juniper', 'Juniper network device'], [/Arista|EOS version/i, 'Arista', 'Arista network device'], [/FortiGate|FortiOS/i, 'Fortinet', 'FortiGate'], [/RouterOS/i, 'MikroTik', 'RouterOS'], [/ProCurve|ArubaOS|Aruba /i, 'HPE Aruba', 'Aruba network device']]; const found = signatures.find(([pattern]) => pattern.test(text)); if (found) return { platform: 'network', hostname: '', vendor: found[1], product: found[2], version: text.match(/(?:Version|version|Junos:)\s*[: ]?([\w().-]+)/)?.[1] || '', confidence: 'high', evidence: text.slice(0, 1000) };
-  return { platform: 'unspecified', hostname: '', vendor: '', product: 'Unknown SSH device', version: '', confidence: 'low', evidence: (windows + unix + text).trim().slice(0, 1000) };
+  return { platform: 'unspecified', hostname: '', vendor: '', product: 'Unknown SSH device', version: '', confidence: 'low', evidence: cleanProbeText(`${observedText || ''}\n${networkOutput}\n${windows}\n${unix}`).slice(0, 2000) };
 });
 ipcMain.handle('ssh:tunnel-list', (_event, connectionId: string) => [...sshTunnels.values()].filter(item => item.connectionId === connectionId).map(tunnelMeta));
 ipcMain.handle('ssh:tunnel-start', async (_event, connectionId: string, input: any) => {

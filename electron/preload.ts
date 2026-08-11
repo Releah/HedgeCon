@@ -58,7 +58,7 @@ contextBridge.exposeInMainWorld('hedge', {
   removePublicKey: (connectionId: string, privateKeyPath: string) => ipcRenderer.invoke('keys:remove', connectionId, privateKeyPath),
   getInstalledPublicKeys: (connectionId: string) => ipcRenderer.invoke('keys:remote-list', connectionId),
   connect: (request: unknown) => ipcRenderer.invoke('ssh:connect', request),
-  identifyDevice: (connectionId: string) => ipcRenderer.invoke('ssh:identify', connectionId),
+  identifyDevice: (connectionId: string, observedText?: string) => ipcRenderer.invoke('ssh:identify', connectionId, observedText),
   listTunnels: (connectionId: string) => ipcRenderer.invoke('ssh:tunnel-list', connectionId),
   startTunnel: (connectionId: string, input: unknown) => ipcRenderer.invoke('ssh:tunnel-start', connectionId, input),
   stopTunnel: (tunnelId: string) => ipcRenderer.invoke('ssh:tunnel-stop', tunnelId),
