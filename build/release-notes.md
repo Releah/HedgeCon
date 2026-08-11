@@ -1,4 +1,24 @@
-# HedgeCon v0.3.4
+# HedgeCon v0.3.5
+
+## Broader device profiling
+
+- Extend passive SSH identification beyond Linux and Windows with vendor-specific signatures and safe probes for Juniper, Cisco, Arista, Fortinet, Palo Alto, HPE/Aruba, Huawei, Dell, Extreme, MikroTik, Ubiquiti/VyOS, Brocade/Ruckus and F5 devices.
+- Use the device's initial terminal banner as additional discovery evidence, improving identification on restricted network-device shells.
+- Keep discovery bounded and non-intrusive while retaining the existing operator confirmation flow.
+
+## Pinned macro panel
+
+- Add a pin control to the terminal macro panel.
+- Keep macros visible while switching between active SSH sessions and when opening another session.
+- Unpin globally when the pinned panel is closed, returning terminals to their normal per-tab behaviour.
+
+This stable maintenance release improves multi-vendor device discovery and makes repeated macro execution across several sessions faster. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+
+---
+
+# Previous stable release
+
+## v0.3.4
 
 ## Focused macro targeting
 
