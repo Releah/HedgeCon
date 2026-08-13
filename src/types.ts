@@ -22,7 +22,7 @@ export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; browserThem
 export interface AppData { folders: Folder[]; sessions: Session[]; macros?: CommandMacro[]; macroFolders?: MacroFolder[]; serialProfiles?: SerialProfile[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
 export interface ConnectRequest extends Session { connectionId: string; password?: string; passphrase?: string; credentialOverride?: string }
 export interface HostKeyPrompt { connectionId: string; host: string; fingerprint: string; changed: boolean }
-export interface SshEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'auth-error' | 'closed'; data: string }
+export interface SshEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'auth-error' | 'legacy-required' | 'closed'; data: string }
 export interface SerialPortInfo { path: string; manufacturer?: string; serialNumber?: string; vendorId?: string; productId?: string }
 export interface SerialProfile { id: string; name: string; baudRate: number; dataBits: 5 | 6 | 7 | 8; stopBits: 1 | 1.5 | 2; parity: 'none' | 'even' | 'odd' | 'mark' | 'space' }
 export interface SerialEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'closed'; data: string }

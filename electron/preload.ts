@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld('hedge', {
   resize: (id: string, cols: number, rows: number) => ipcRenderer.send('ssh:resize', id, cols, rows),
   disconnect: (id: string) => ipcRenderer.send('ssh:disconnect', id),
   trustHost: (id: string, accept: boolean) => ipcRenderer.send('ssh:trust', id, accept),
+  approveLegacySsh: (host: string, port: number) => ipcRenderer.invoke('ssh:legacy-approve', host, port),
   clearKnownHost: (host: string, port: number) => ipcRenderer.invoke('host-key:clear', host, port),
   clearAllKnownHosts: () => ipcRenderer.invoke('host-key:clear-all'),
   getSecureStorageStatus: () => ipcRenderer.invoke('security:storage-status'),

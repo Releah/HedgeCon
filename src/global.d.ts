@@ -72,6 +72,7 @@ declare global {
     resize(connectionId: string, cols: number, rows: number): void;
     disconnect(connectionId: string): void;
     trustHost(connectionId: string, accept: boolean): void;
+    approveLegacySsh(host: string, port: number): Promise<boolean>;
     clearKnownHost(host: string, port: number): Promise<boolean>;
     clearAllKnownHosts(): Promise<number>;
     getSecureStorageStatus(): Promise<SecureStorageStatus>;

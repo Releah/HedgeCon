@@ -17,19 +17,19 @@ type InventorySettings = { configured: boolean; mode: 'local' | 'git'; repositor
 type UpdateSettings = { automaticChecks: boolean; branch: 'main' | 'experimental' };
 type UpdateRelease = { tag: string; version: string; name: string; publishedAt: string; prerelease: boolean };
 type SessionLogSettings = { enabled: boolean; retentionDays: number; maxFileSizeMb: number; maxTotalSizeMb: number };
-type StoredData = { folders: unknown[]; sessions: unknown[]; macros: unknown[]; macroFolders: unknown[]; serialProfiles: unknown[]; uiSettings?: unknown; credentialProfileMappings: Record<string, string>; knownHosts: Record<string, string>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings; sessionLogSettings: SessionLogSettings };
+type StoredData = { folders: unknown[]; sessions: unknown[]; macros: unknown[]; macroFolders: unknown[]; serialProfiles: unknown[]; uiSettings?: unknown; credentialProfileMappings: Record<string, string>; knownHosts: Record<string, string>; legacySshHosts: Record<string, boolean>; credentialSets: StoredCredential[]; repository?: GitRepository; inventorySettings: InventorySettings; updateSettings: UpdateSettings; sessionLogSettings: SessionLogSettings };
 type UpdateStatus = { status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'current' | 'error'; currentVersion: string; availableVersion?: string; progress?: number; releaseNotes?: string; message?: string; portable: boolean; activeConnections: number; downgrade?: boolean };
 type SecureStorageStatus = { available: boolean; secure: boolean; backend: string; message: string };
 type SshKeyInfo = { name: string; privateKeyPath: string; publicKey?: string; fingerprint?: string; source: 'managed' | 'discovered' };
 const defaultSessionLogSettings: SessionLogSettings = { enabled: false, retentionDays: 30, maxFileSizeMb: 25, maxTotalSizeMb: 500 };
-const defaults: StoredData = { folders: [], sessions: [], macros: [], macroFolders: [], serialProfiles: [], credentialProfileMappings: {}, knownHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true, branch: 'main' }, sessionLogSettings: defaultSessionLogSettings };
+const defaults: StoredData = { folders: [], sessions: [], macros: [], macroFolders: [], serialProfiles: [], credentialProfileMappings: {}, knownHosts: {}, legacySshHosts: {}, credentialSets: [], inventorySettings: { configured: false, mode: 'local' }, updateSettings: { automaticChecks: true, branch: 'main' }, sessionLogSettings: defaultSessionLogSettings };
 let stored: StoredData = defaults;
 function dataPath() { return path.join(app.getPath('userData'), 'sessions.json'); }
 function backupDataPath() { return `${dataPath()}.bak`; }
 function parseStore(source: string) {
   const parsed = JSON.parse(source) as Partial<StoredData>;
   const logSettings = parsed.sessionLogSettings as Partial<SessionLogSettings> | undefined;
-const next: StoredData = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], macros: Array.isArray(parsed.macros) ? parsed.macros : [], macroFolders: Array.isArray(parsed.macroFolders) ? parsed.macroFolders : [], serialProfiles: Array.isArray(parsed.serialProfiles) ? parsed.serialProfiles : [], credentialProfileMappings: parsed.credentialProfileMappings && typeof parsed.credentialProfileMappings === 'object' && !Array.isArray(parsed.credentialProfileMappings) ? parsed.credentialProfileMappings : {}, knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false, branch: parsed.updateSettings?.branch === 'experimental' ? 'experimental' : 'main' }, sessionLogSettings: { enabled: logSettings?.enabled === true, retentionDays: Number.isInteger(logSettings?.retentionDays) ? Math.max(1, Math.min(3650, Number(logSettings!.retentionDays))) : 30, maxFileSizeMb: Number.isInteger(logSettings?.maxFileSizeMb) ? Math.max(1, Math.min(1000, Number(logSettings!.maxFileSizeMb))) : 25, maxTotalSizeMb: Number.isInteger(logSettings?.maxTotalSizeMb) ? Math.max(10, Math.min(10000, Number(logSettings!.maxTotalSizeMb))) : 500 } };
+const next: StoredData = { folders: Array.isArray(parsed.folders) ? parsed.folders : [], sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [], macros: Array.isArray(parsed.macros) ? parsed.macros : [], macroFolders: Array.isArray(parsed.macroFolders) ? parsed.macroFolders : [], serialProfiles: Array.isArray(parsed.serialProfiles) ? parsed.serialProfiles : [], credentialProfileMappings: parsed.credentialProfileMappings && typeof parsed.credentialProfileMappings === 'object' && !Array.isArray(parsed.credentialProfileMappings) ? parsed.credentialProfileMappings : {}, knownHosts: parsed.knownHosts && typeof parsed.knownHosts === 'object' && !Array.isArray(parsed.knownHosts) ? parsed.knownHosts : {}, legacySshHosts: parsed.legacySshHosts && typeof parsed.legacySshHosts === 'object' && !Array.isArray(parsed.legacySshHosts) ? parsed.legacySshHosts : {}, credentialSets: Array.isArray(parsed.credentialSets) ? parsed.credentialSets : [], repository: parsed.repository && typeof parsed.repository === 'object' ? parsed.repository : undefined, inventorySettings: parsed.inventorySettings?.configured ? parsed.inventorySettings : { configured: false, mode: 'local' }, updateSettings: { automaticChecks: parsed.updateSettings?.automaticChecks !== false, branch: parsed.updateSettings?.branch === 'experimental' ? 'experimental' : 'main' }, sessionLogSettings: { enabled: logSettings?.enabled === true, retentionDays: Number.isInteger(logSettings?.retentionDays) ? Math.max(1, Math.min(3650, Number(logSettings!.retentionDays))) : 30, maxFileSizeMb: Number.isInteger(logSettings?.maxFileSizeMb) ? Math.max(1, Math.min(1000, Number(logSettings!.maxFileSizeMb))) : 25, maxTotalSizeMb: Number.isInteger(logSettings?.maxTotalSizeMb) ? Math.max(10, Math.min(10000, Number(logSettings!.maxTotalSizeMb))) : 500 } };
   next.uiSettings = parsed.uiSettings; return next;
 }
 function readStore() {
@@ -529,11 +529,12 @@ ipcMain.handle('keys:remote-list', async (_event, connectionId: string) => {
 });
 ipcMain.handle('host-key:clear', (_event, host: string, port: number) => {
   if (typeof host !== 'string' || !isValidHost(host) || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid known-host entry.');
-  const key = `${host}:${port}`; const existed = Boolean(stored.knownHosts[key]);
-  if (existed) { delete stored.knownHosts[key]; writeStore(); }
+  const key = `${host}:${port}`; const existed = Boolean(stored.knownHosts[key] || stored.legacySshHosts[key]);
+  if (existed) { delete stored.knownHosts[key]; delete stored.legacySshHosts[key]; writeStore(); }
   return existed;
 });
-ipcMain.handle('host-key:clear-all', () => { const count = Object.keys(stored.knownHosts).length; stored.knownHosts = {}; writeStore(); return count; });
+ipcMain.handle('host-key:clear-all', () => { const count = new Set([...Object.keys(stored.knownHosts), ...Object.keys(stored.legacySshHosts)]).size; stored.knownHosts = {}; stored.legacySshHosts = {}; writeStore(); return count; });
+ipcMain.handle('ssh:legacy-approve', (_event, host: string, port: number) => { if (typeof host !== 'string' || !isValidHost(host) || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SSH host.'); stored.legacySshHosts[`${host}:${port}`] = true; writeStore(); return true; });
 const credentialMeta = (credential: StoredCredential) => ({ id: credential.id, name: credential.name, username: credential.username, authMethod: credential.authMethod, privateKeyPath: credential.privateKeyPath, hasSecret: Boolean(credential.encryptedSecret) });
 ipcMain.handle('credentials:list', () => stored.credentialSets.map(credentialMeta));
 ipcMain.handle('credentials:copy-field', (_event, id: string, field: 'username' | 'password') => {
@@ -575,8 +576,11 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
   const secret = request.credentialOverride !== undefined ? request.credentialOverride : linkedCredential?.encryptedSecret ? safeStorage.decryptString(Buffer.from(linkedCredential.encryptedSecret, 'base64')) : authMethod === 'password' ? request.password ?? '' : request.passphrase ?? '';
   if (!['password', 'privateKey'].includes(authMethod) || typeof secret !== 'string' || secret.length > 16_384) throw new Error('Invalid SSH authentication data.');
   const hostKey = `${request.host}:${request.port}`;
+  const legacyEnabled = stored.legacySshHosts[hostKey] === true;
+  let sshDebug = '';
   const config: any = {
     host: request.host, port: request.port, username: linkedCredential?.username ?? request.username, readyTimeout: 15000,
+    debug: (message: string) => { if (sshDebug.length < 12_000 && /handshake|kex|cipher|host key|server host|hmac/i.test(message)) sshDebug += `${message}\n`; },
     hostHash: 'sha256',
     hostVerifier: (hash: string, callback: (accepted: boolean) => void) => {
       const known = stored.knownHosts[hostKey];
@@ -588,6 +592,12 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
       });
       sendToRenderer('ssh:host-key', { connectionId: id, host: hostKey, fingerprint: hash, changed: Boolean(known) });
     }
+  };
+  if (legacyEnabled) config.algorithms = {
+    kex: { prepend: ['diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] },
+    serverHostKey: { prepend: ['ssh-rsa', 'ssh-dss'] },
+    cipher: { prepend: ['aes128-cbc', 'aes192-cbc', 'aes256-cbc', '3des-cbc'] },
+    hmac: { prepend: ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96'] }
   };
   if (authMethod === 'privateKey') {
     if (typeof privateKeyPath !== 'string' || privateKeyPath.length > 4096) throw new Error('A valid private key path is required.');
@@ -607,7 +617,7 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
       stream.stderr.on('data', (data: Buffer) => { const text = data.toString(); writeSessionLog(id, text); send(id, 'data', text); });
       stream.on('close', () => { stopConnectionTunnels(id); closeSessionLog(id); send(id, 'closed', 'Connection closed'); client.end(); connections.delete(id); });
     });
-  }).on('error', (err) => { stopConnectionTunnels(id); closeSessionLog(id); const authenticationFailure = (err as any).level === 'client-authentication' || /authentication methods failed|authentication failure/i.test(err.message); send(id, authenticationFailure ? 'auth-error' : 'error', err.message); connections.delete(id); })
+  }).on('error', (err) => { stopConnectionTunnels(id); closeSessionLog(id); const authenticationFailure = (err as any).level === 'client-authentication' || /authentication methods failed|authentication failure/i.test(err.message); const algorithmFailure = !legacyEnabled && /handshake failed|no matching|key exchange|host key format|cipher|hmac/i.test(`${err.message}\n${sshDebug}`); send(id, authenticationFailure ? 'auth-error' : algorithmFailure ? 'legacy-required' : 'error', algorithmFailure ? `Modern SSH negotiation failed for ${hostKey}. This host may require obsolete key-exchange, host-key, cipher or MAC algorithms.` : err.message); connections.delete(id); })
     .on('close', () => { stopConnectionTunnels(id); closeSessionLog(id); pendingTrust.delete(id); connections.delete(id); send(id, 'closed', 'Disconnected'); }).connect(config);
   return { connectionId: id };
 });
@@ -616,16 +626,17 @@ function cleanProbeText(value: string) { return value.replace(/\x1b\][^\x07]*(?:
 function networkIdentity(source: string): DetectedIdentity | null {
   const text = cleanProbeText(source); if (!text.trim()) return null;
   const value = (...patterns: RegExp[]) => patterns.map(pattern => text.match(pattern)?.[1]?.trim()).find(Boolean) || '';
-  const hostname = value(/(?:^|\n)Hostname:\s*(\S+)/im, /(?:^|\n)Device name:\s*(\S+)/im, /(?:^|\n)sysName\s*[:=]\s*(\S+)/im);
+  const hostname = value(/(?:^|\n)HEDGECON_HOSTNAME=([^\r\n]+)/im, /(?:^|\n)Hostname\s*[:=]\s*(\S+)/im, /(?:^|\n)Device name\s*[:=]\s*(\S+)/im, /(?:^|\n)sysName\s*[:=]\s*(\S+)/im, /(?:^|\n)[\w.-]+@([\w.-]+)[\s:~/$#>]/m, /(?:^|\n)([a-z0-9][\w.-]{0,62})[>#]\s*$/im);
   const match = (pattern: RegExp, vendor: string, product: string, version: string): DetectedIdentity | null => pattern.test(text) ? { platform: 'network', hostname, vendor, product, version, confidence: 'high', evidence: text.slice(0, 2000) } : null;
-  return match(/JUNOS|Junos OS|Juniper Networks/i, 'Juniper', value(/(?:^|\n)Model:\s*(\S+)/im, /Juniper Networks, Inc\.\s+(\S+)/i) || 'Juniper network device', value(/(?:^|\n)Junos:\s*(\S+)/im, /JUNOS Base OS[^\[]*\[([^\]]+)\]/i))
+  return match(/SONiC Software Version|SONiC\.\d|sonic[_-]version|sonic-buildimage|build_version\s*:\s*["']?SONiC/i, /dell(?:emc)?/i.test(text) ? 'Dell' : 'SONiC', value(/(?:^|\n)HwSKU\s*:\s*(.+)/im, /(?:^|\n)(?:Platform|Device|onie_platform)\s*[:=]\s*["']?([^\r\n"']+)/im) || 'SONiC network operating system', value(/(?:^|\n)SONiC Software Version\s*:\s*(?:SONiC\.)?([^\s]+)/im, /(?:^|\n)build_version\s*:\s*["']?SONiC\.([^\s"']+)/im, /(?:^|\n)Version\s*:\s*(SONiC\.[^\s]+)/im))
+    || match(/JUNOS|Junos OS|Juniper Networks/i, 'Juniper', value(/(?:^|\n)Model:\s*(\S+)/im, /Juniper Networks, Inc\.\s+(\S+)/i) || 'Juniper network device', value(/(?:^|\n)Junos:\s*(\S+)/im, /JUNOS Base OS[^\[]*\[([^\]]+)\]/i))
     || match(/Cisco IOS|Cisco NX-OS|Adaptive Security Appliance|Cisco Internetwork Operating System/i, 'Cisco', value(/(?:^|\n)cisco\s+(\S+).*processor/im, /(?:^|\n)Hardware:\s*(\S+)/im, /(?:^|\n)Model [Nn]umber\s*:\s*(\S+)/im) || 'Cisco network device', value(/(?:IOS|NX-OS|Version)\s+(?:Software,?\s*)?(?:Version\s*)?([\w().-]+)/i))
     || match(/Arista|EOS version/i, 'Arista', value(/(?:^|\n)Model name:\s*(\S+)/im, /Arista\s+(\S+)/i) || 'Arista network device', value(/(?:^|\n)Software image version:\s*(\S+)/im, /EOS version\s+(\S+)/i))
     || match(/FortiGate|FortiOS/i, 'Fortinet', value(/Version:\s*(FortiGate-\S+)/i) || 'FortiGate', value(/Version:\s*FortiGate-\S+\s+v([\d.]+)/i, /FortiOS\s+v?([\w.-]+)/i))
     || match(/PAN-OS|Palo Alto Networks/i, 'Palo Alto Networks', value(/(?:^|\n)model:\s*(\S+)/im) || 'Palo Alto firewall', value(/(?:^|\n)sw-version:\s*(\S+)/im, /PAN-OS\s+([\w.-]+)/i))
     || match(/ArubaOS|Aruba Instant|ProCurve|HPE Comware|HP Comware/i, /Aruba/i.test(text) ? 'Aruba' : 'HPE', value(/(?:^|\n)(?:Product|Model)\s*[:=]\s*(\S+)/im) || 'HPE/Aruba network device', value(/(?:ArubaOS|Comware|Version)\s*(?:Software,?)?\s*([\w().-]+)/i))
     || match(/Huawei|VRP \(R\) software/i, 'Huawei', value(/(?:^|\n)HUAWEI\s+(\S+)/im) || 'Huawei network device', value(/VRP.*?Version\s+([\w().-]+)/i))
-    || match(/Dell EMC Networking OS|Dell Networking OS|OS10 Enterprise/i, 'Dell', value(/(?:^|\n)(?:System Type|Product Name)\s*:\s*(.+)/im) || 'Dell network device', value(/(?:OS Version|Software Version)\s*:\s*(\S+)/im))
+    || match(/Dell EMC Networking OS|Dell Networking OS|OS10 Enterprise|Dell Operating System|Dell Application Software|Dell Real Time Operating System/i, 'Dell', value(/(?:^|\n)(?:System Type|Product Name|Chassis Type|Hardware Model)\s*:\s*(.+)/im) || 'Dell network device', value(/(?:^|\n)(?:OS Version|Software Version|Dell Operating System Version|Dell Application Software Version|Version)\s*:\s*(\S+)/im))
     || match(/ExtremeXOS|Extreme Networks|VOSS Software/i, 'Extreme Networks', value(/(?:^|\n)(?:System Type|Platform)\s*:\s*(.+)/im) || 'Extreme network device', value(/(?:ExtremeXOS version|VOSS Software Version)\s*[: ]\s*(\S+)/i))
     || match(/RouterOS|MikroTik/i, 'MikroTik', value(/(?:^|\n)board-name:\s*(.+)/im, /(?:^|\n)model:\s*(.+)/im) || 'MikroTik device', value(/(?:^|\n)version:\s*(\S+)/im, /RouterOS\s+([\w.-]+)/i))
     || match(/EdgeOS|VyOS|Ubiquiti/i, /VyOS/i.test(text) ? 'VyOS' : 'Ubiquiti', value(/(?:^|\n)HW model:\s*(.+)/im) || (/VyOS/i.test(text) ? 'VyOS router' : 'Ubiquiti device'), value(/(?:EdgeOS|VyOS)\s+(?:Version:\s*)?([\w.-]+)/i))
@@ -634,12 +645,16 @@ function networkIdentity(source: string): DetectedIdentity | null {
 }
 ipcMain.handle('ssh:identify', async (_event, connectionId: string, observedText?: string) => {
   const connection = connections.get(connectionId); if (!connection) throw new Error('The SSH connection is not active.'); if (observedText !== undefined && (typeof observedText !== 'string' || observedText.length > 65536)) throw new Error('Invalid observed terminal text.');
-  const passive = networkIdentity(observedText || ''); if (passive) return { ...passive, confidence: passive.version || passive.product !== `${passive.vendor} network device` ? 'high' : 'medium' };
-  const networkCommands = ['show version', 'show version | no-more', 'show system information | no-more', 'get system status', 'show system info', 'display version', '/system resource print without-paging']; let networkOutput = '';
-  for (const command of networkCommands) { const output = await sshExec(connection.client, command, 3500).catch(() => ''); networkOutput += `\n${output}`; const detected = networkIdentity(output); if (detected) return detected; }
+  const completeNetworkIdentity = (identity: DetectedIdentity | null) => Boolean(identity?.hostname && identity.version && !/network device|network operating system/i.test(identity.product));
+  const passive = networkIdentity(observedText || ''); if (completeNetworkIdentity(passive)) return passive!;
+  const networkCommands = ['show version', 'show platform summary', 'show hostname', 'printf "HEDGECON_HOSTNAME="; hostname', 'show version | no-more', 'show system information | no-more', 'get system status', 'show system info', 'display version', '/system resource print without-paging']; let networkOutput = '';
+  for (const command of networkCommands) { const output = await sshExec(connection.client, command, 3500).catch(() => ''); networkOutput += `\n${output}`; const detected = networkIdentity(`${observedText || ''}\n${networkOutput}`); if (completeNetworkIdentity(detected)) return detected!; }
+  const networkDetected = networkIdentity(`${observedText || ''}\n${networkOutput}`); if (networkDetected && !['Dell', 'SONiC'].includes(networkDetected.vendor)) return { ...networkDetected, confidence: networkDetected.version || !/network device/i.test(networkDetected.product) ? 'high' : 'medium' };
   const windows = await sshExec(connection.client, 'powershell -NoProfile -NonInteractive -Command "$o=Get-CimInstance Win32_OperatingSystem; Write-Output (\'HEDGECON_WINDOWS|\'+$env:COMPUTERNAME+\'|\'+$o.Caption+\'|\'+$o.Version)"', 4500).catch(() => '');
   const windowsMatch = windows.match(/HEDGECON_WINDOWS\|([^\r\n|]*)\|([^\r\n|]+)\|([^\r\n]+)/); if (windowsMatch) return { platform: 'windows', hostname: windowsMatch[1].trim(), vendor: 'Microsoft', product: windowsMatch[2].trim(), version: windowsMatch[3].trim(), confidence: 'high', evidence: windowsMatch[0].slice(0, 500) };
-  const unix = await sshExec(connection.client, `sh -c 'cat /etc/os-release 2>/dev/null; printf "HEDGECON_HOSTNAME="; hostname 2>/dev/null; printf "HEDGECON_UNAME="; uname -srm 2>/dev/null'`, 4500).catch(() => '');
+  const unix = await sshExec(connection.client, `sh -c 'cat /etc/sonic/sonic_version.yml 2>/dev/null; cat /host/machine.conf 2>/dev/null; cat /etc/os-release 2>/dev/null; printf "HEDGECON_HOSTNAME="; hostname 2>/dev/null; printf "HEDGECON_UNAME="; uname -srm 2>/dev/null'`, 4500).catch(() => '');
+  const unixNetworkDetected = networkIdentity(`${observedText || ''}\n${networkOutput}\n${unix}`); if (unixNetworkDetected) return unixNetworkDetected;
+  if (networkDetected) return { ...networkDetected, confidence: networkDetected.version || !/network device|network operating system/i.test(networkDetected.product) ? 'high' : 'medium' };
   if (/HEDGECON_UNAME=Linux/i.test(unix) || /(?:^|\n)(?:ID|NAME)=/m.test(unix)) { const name = unix.match(/(?:^|\n)PRETTY_NAME=[\"']?([^\r\n\"']+)/)?.[1] || unix.match(/(?:^|\n)NAME=[\"']?([^\r\n\"']+)/)?.[1] || 'Linux'; const version = unix.match(/(?:^|\n)VERSION_ID=[\"']?([^\r\n\"']+)/)?.[1] || unix.match(/HEDGECON_UNAME=Linux\s+([^\r\n]+)/)?.[1] || ''; return { platform: 'linux', hostname: unix.match(/HEDGECON_HOSTNAME=([^\r\n]+)/)?.[1]?.trim() || '', vendor: name.split(/\s+/)[0], product: name.trim(), version: version.trim(), confidence: 'high', evidence: unix.slice(0, 1000) }; }
   return { platform: 'unspecified', hostname: '', vendor: '', product: 'Unknown SSH device', version: '', confidence: 'low', evidence: cleanProbeText(`${observedText || ''}\n${networkOutput}\n${windows}\n${unix}`).slice(0, 2000) };
 });

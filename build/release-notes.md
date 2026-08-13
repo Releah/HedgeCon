@@ -1,4 +1,30 @@
-# HedgeCon v0.3.5
+# HedgeCon v0.3.6
+
+## Legacy SSH compatibility
+
+- Keep modern SSH algorithms as the default and detect negotiation failures caused by obsolete device security.
+- Show an explicit HedgeCon warning before enabling legacy key exchange, host keys, ciphers or message-authentication algorithms.
+- Remember approval locally for only the selected host and port, without placing the exception in shared inventory.
+- Remove the legacy exception alongside host trust when an operator uses Forget fingerprint.
+
+## Dell and SONiC discovery
+
+- Recognise additional Dell OS9 and OS10 version, model and platform output formats.
+- Identify SONiC as a network operating system rather than its underlying Debian installation.
+- Collect SONiC version, hardware SKU, ONIE platform and hostname details through bounded, read-only probes.
+
+## Documentation
+
+- Remove the discontinued SignPath onboarding and signing references after the certificate application was declined.
+- Clearly document that current Windows packages are distributed unsigned.
+
+This stable maintenance release expands compatibility with older SSH devices and improves Dell and SONiC device profiling.
+
+---
+
+# Previous stable release
+
+## v0.3.5
 
 ## Broader device profiling
 
@@ -12,7 +38,7 @@
 - Keep macros visible while switching between active SSH sessions and when opening another session.
 - Unpin globally when the pinned panel is closed, returning terminals to their normal per-tab behaviour.
 
-This stable maintenance release improves multi-vendor device discovery and makes repeated macro execution across several sessions faster. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable maintenance release improves multi-vendor device discovery and makes repeated macro execution across several sessions faster. Windows binaries are unsigned.
 
 ---
 
@@ -31,9 +57,9 @@ This stable maintenance release improves multi-vendor device discovery and makes
 
 - Refresh the README around the complete desktop feature set, including discovery, tunnels, serial consoles, session logging, private notes, Wiki images and update controls.
 - Move configuration collection, history and broader observability scope to HedgeSight.
-- Document the remaining legacy-SSH, signing and platform-packaging boundaries without presenting them as completed features.
+- Document the remaining legacy-SSH and platform-packaging boundaries without presenting them as completed features.
 
-This stable release promotes the tested v0.3.4 device-discovery, SSH-tunnel, browser-startup and interface refinements. HedgeCon's core desktop connectivity workflows are now feature complete, with future work focused on compatibility, reliability, signing and focused user feedback. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable release promotes the tested v0.3.4 device-discovery, SSH-tunnel, browser-startup and interface refinements. HedgeCon's core desktop connectivity workflows are now feature complete, with future work focused on compatibility, reliability and focused user feedback. Windows binaries are unsigned.
 
 ---
 
@@ -89,7 +115,7 @@ This experimental maintenance release refines the device-discovery and SSH-tunne
 - Use the same reliable navigation route for initial page loading as the address-bar Go action.
 - Preserve the existing in-app certificate verification flow without speculative reloads.
 
-This experimental release is intended for testing device discovery, local forwarding, SOCKS proxying and the revised embedded-browser startup sequence. SSH tunnels bind only to `127.0.0.1`; they are not exposed to the local network. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This experimental release is intended for testing device discovery, local forwarding, SOCKS proxying and the revised embedded-browser startup sequence. SSH tunnels bind only to `127.0.0.1`; they are not exposed to the local network. Windows binaries are unsigned.
 
 ---
 
@@ -125,7 +151,7 @@ This experimental release is intended for testing device discovery, local forwar
 - Replace the credential-drawer keyboard symbol with a clear key icon.
 - Keep a temporary capture of the live webpage visible behind the credential overlay instead of showing a white surface, then discard it when the drawer closes.
 
-This stable release promotes the tested v0.3.3 feature set, including live session awareness, terminal regex reliability, browser credential improvements, Wiki image support and the final browser and macro-panel fixes. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable release promotes the tested v0.3.3 feature set, including live session awareness, terminal regex reliability, browser credential improvements, Wiki image support and the final browser and macro-panel fixes. Windows binaries are unsigned.
 
 ---
 
@@ -176,7 +202,7 @@ This experimental maintenance release refines split-terminal controls and termin
 - Store PNG, JPEG, GIF and WebP images beside their page in an `assets` folder and render them in Preview.
 - Include shared and session-note images in Git while keeping Private Notes images in local-only storage.
 
-This experimental release is intended for testing the new session indicators, safer terminal matching, browser credential workflow and Wiki image support before promotion to Stable. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This experimental release is intended for testing the new session indicators, safer terminal matching, browser credential workflow and Wiki image support before promotion to Stable. Windows binaries are unsigned.
 
 ---
 
@@ -191,7 +217,7 @@ This experimental release is intended for testing the new session indicators, sa
 - Allow pages to be dragged back to the top level by dropping them on their section heading.
 - Preserve private/shared Wiki boundaries and the separate folder-reordering workflow.
 
-This stable maintenance release contains focused interface fixes for HedgeCon v0.3.1. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable maintenance release contains focused interface fixes for HedgeCon v0.3.1. Windows binaries are unsigned.
 
 ---
 
@@ -206,7 +232,7 @@ This stable maintenance release contains focused interface fixes for HedgeCon v0
 - Restyle the serial-profile Settings link to match HedgeCon instead of the native white button appearance.
 - Match the Console sidebar button typography and dimensions to New session.
 
-This stable maintenance release contains focused interface fixes for HedgeCon v0.3.0. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable maintenance release contains focused interface fixes for HedgeCon v0.3.0. Windows binaries are unsigned.
 
 ---
 
@@ -245,7 +271,7 @@ This stable maintenance release contains focused interface fixes for HedgeCon v0
 
 - Publish the Windows installer without the additional portable executable to reduce release build time and artifact size.
 
-This stable release promotes the tested v0.3 feature set to the main update channel. Private notes and serial profiles remain local to each device. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable release promotes the tested v0.3 feature set to the main update channel. Private notes and serial profiles remain local to each device. Windows binaries are unsigned.
 
 ---
 
@@ -274,7 +300,7 @@ This stable release promotes the tested v0.3 feature set to the main update chan
 - Add an in-app Bug Report and Feature Request form beside the update indicator.
 - Prepare a structured, labelled issue for review on the official HedgeCon GitHub repository without collecting logs, sessions, notes or credentials.
 
-This is an experimental release for quality and regression testing of the new connectivity, terminal, privacy and support workflows. Private notes are local-only rather than encrypted. Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This is an experimental release for quality and regression testing of the new connectivity, terminal, privacy and support workflows. Private notes are local-only rather than encrypted. Windows binaries are unsigned.
 
 ---
 
@@ -305,7 +331,7 @@ This is an experimental release for quality and regression testing of the new co
 - Build releases behind a hidden draft and publish the release tag only after Windows and Linux artifacts are complete.
 - Update GitHub Actions to their Node.js 24-compatible runtimes.
 
-This stable release promotes the tested experimental feature set to the main update channel. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable release promotes the tested experimental feature set to the main update channel. Its Windows binaries are unsigned.
 
 ---
 
@@ -321,7 +347,7 @@ This stable release promotes the tested experimental feature set to the main upd
 - Remove the separate drag grip while retaining folder highlighting and nested-folder moves.
 - Keep GitHub releases hidden as drafts until Windows and Linux updater artifacts have both uploaded.
 
-This remains an experimental release for testing the refined macro-library interaction before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for testing the refined macro-library interaction before promotion to main. Its Windows binaries are unsigned.
 
 ---
 
@@ -338,7 +364,7 @@ This remains an experimental release for testing the refined macro-library inter
 - Add expandable Variable help to the macro editor with built-in and prompted-variable examples.
 - Keep passwords, tokens, passphrases and private-key contents unavailable to macros.
 
-This remains an experimental release for testing session-aware command templates before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for testing session-aware command templates before promotion to main. Its Windows binaries are unsigned.
 
 ---
 
@@ -354,7 +380,7 @@ This remains an experimental release for testing session-aware command templates
 - Keep macro-folder rows outside Electron's draggable window region and highlight valid drop targets.
 - Shift the terminal background-colour selector left in split layouts so it does not overlap the pane-close button.
 
-This remains an experimental release for testing the final macro-library workflow before promotion to main. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for testing the final macro-library workflow before promotion to main. Its Windows binaries are unsigned.
 
 ---
 
@@ -370,7 +396,7 @@ This remains an experimental release for testing the final macro-library workflo
 - Replace the Wiki's manually managed secondary React root with a single deterministic component lifecycle.
 - Hide embedded browser views behind the Wiki to prevent native web content remaining active over its setup screen.
 
-This remains an experimental release for validating session preservation and first-time Wiki memory behaviour. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for validating session preservation and first-time Wiki memory behaviour. Its Windows binaries are unsigned.
 
 ---
 
@@ -385,7 +411,7 @@ This remains an experimental release for validating session preservation and fir
 - Open the Windows Wiki folder picker on a real, pre-created persistent directory.
 - Use platform-appropriate folder-picker options and avoid adding Wiki locations to Windows Recent Items.
 
-This remains an experimental release for validating connection stability and Windows folder-picker behaviour. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for validating connection stability and Windows folder-picker behaviour. Its Windows binaries are unsigned.
 
 ---
 
@@ -400,7 +426,7 @@ This remains an experimental release for validating connection stability and Win
 - Coalesce simultaneous invalid-certificate requests into a single trust prompt.
 - Remember an accepted host and certificate fingerprint for the lifetime of its browser tab, then forget it when the tab closes.
 
-This remains an experimental release for testing connection stability and the macro organisation workflow. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for testing connection stability and the macro organisation workflow. Its Windows binaries are unsigned.
 
 ---
 
@@ -415,7 +441,7 @@ This remains an experimental release for testing connection stability and the ma
 - Keep update action buttons in a stable position across current, available and downloaded states.
 - Give release notes a larger reading area with clearer text, spacing and contrast.
 
-This remains an experimental release for testing the macro organisation workflow. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for testing the macro organisation workflow. Its Windows binaries are unsigned.
 
 ---
 
@@ -435,7 +461,7 @@ This remains an experimental release for testing the macro organisation workflow
 - Remember the terminal macro tree's expanded and collapsed folders per session-library folder, so related sessions share a layout.
 - Preserve macro folders and assignments through inventory imports and application updates.
 
-This remains an experimental release for testing the new macro organisation workflow. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This remains an experimental release for testing the new macro organisation workflow. Its Windows binaries are unsigned.
 
 ---
 
@@ -468,7 +494,7 @@ This remains an experimental release for testing the new macro organisation work
 - Add structured GitHub forms for bug reports and feature requests.
 - Add an optional Buy Me a Coffee link for supporting HedgeCon development.
 
-This stable release promotes the tested experimental feature set to the main update channel. Its Windows binaries remain unsigned while the SignPath Foundation application is under review.
+This stable release promotes the tested experimental feature set to the main update channel. Its Windows binaries are unsigned.
 
 ---
 
@@ -486,7 +512,7 @@ This stable release promotes the tested experimental feature set to the main upd
 - Assign a separate saved credential set to RDP and VNC sessions without placing passwords on command lines.
 - Choose a default remote-desktop resolution and fullscreen preference in Settings.
 
-This remains an experimental release. Its Windows binaries are unsigned while the SignPath Foundation application is under review.
+This remains an experimental release. Its Windows binaries are unsigned.
 
 ---
 
@@ -533,4 +559,4 @@ This experimental release adds isolated device web-interface tabs and refreshes 
 - Update the README to cover device browsing, resizable monitoring, shared credential profiles, current Git conflict handling, Wiki organisation and current security behaviour.
 - Extend the public privacy statement to disclose user-directed device-browser traffic and locally retained cookies.
 
-This remains an experimental release. Its Windows binaries are unsigned while the SignPath Foundation application is under review.
+This remains an experimental release. Its Windows binaries are unsigned.

@@ -18,7 +18,7 @@ HedgeCon started with a simple frustration: connecting to equipment is only one 
 
 HedgeCon is a single practical workspace for operating network infrastructure: live connections, shared inventory, local credentials, documentation and the everyday tools needed alongside a terminal.
 
-> **Project status:** The core desktop feature set is complete and the project is now focused on compatibility testing, reliability, security review, code signing and interface refinement. Keep independent backups of important operational data while evaluating HedgeCon in your environment.
+> **Project status:** The core desktop feature set is complete and the project is now focused on compatibility testing, reliability, security review and interface refinement. Keep independent backups of important operational data while evaluating HedgeCon in your environment.
 
 ## What is included today
 
@@ -110,17 +110,9 @@ Download `HedgeCon-Setup.exe` from the latest GitHub Release and run it. The ins
 
 The current x64 installer download is approximately 93 MiB and uses approximately 350 MiB after installation. Exact sizes may vary slightly between releases. Node.js, pnpm and Electron do not need to be installed separately.
 
-Windows may warn when opening the current build because it is not yet code-signed. Confirm that the installer came from this repository before running it.
+Windows may warn when opening the current build because it is not code-signed. Confirm that the installer came from this repository before running it.
 
-### Code signing policy
-
-Windows release signing is being prepared through SignPath. **Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).**
-
-- Committer and reviewer: [@Releah](https://github.com/Releah)
-- Signing approver: [@Releah](https://github.com/Releah)
-- Source and release builds: [Releah/HedgeCon](https://github.com/Releah/HedgeCon)
-
-HedgeCon does not include advertising or telemetry. It communicates with networked systems only to perform a user-configured or user-initiated operation: SSH/SFTP/SCP connections, read-only device discovery, monitoring, SSH forwarding, device-browser navigation, remote-desktop launch, Git operations, external links and update checks against the public HedgeCon GitHub release feed. Automatic update checks can be disabled in **Settings → Application updates**. Credentials, private keys, terminal contents, session data and Wiki contents are not sent to HedgeCon or SignPath. See [Code signing and release process](docs/code-signing.md) for the complete release policy and verification procedure.
+HedgeCon does not include advertising or telemetry. It communicates with networked systems only to perform a user-configured or user-initiated operation: SSH/SFTP/SCP connections, read-only device discovery, monitoring, SSH forwarding, device-browser navigation, remote-desktop launch, Git operations, external links and update checks against the public HedgeCon GitHub release feed. Automatic update checks can be disabled in **Settings → Application updates**. Credentials, private keys, terminal contents, session data and Wiki contents are not sent to HedgeCon.
 
 ### Updates
 
@@ -278,12 +270,11 @@ Known scope boundaries and unfinished distribution work:
 - HedgeCon currently uses the SSH engine's modern defaults; an opt-in legacy/alternative SSH algorithm profile has not yet been implemented.
 - SSH Tools supports local forwarding and SOCKS5, but not remote/reverse port forwarding.
 - Tagged packages currently target Windows x64 and Linux x64; macOS packaging and a container-hosted web edition are not currently shipped.
-- Windows code signing remains pending completion of the SignPath Foundation onboarding process.
+- Windows packages are currently distributed without a code-signing certificate.
 
 Further HedgeCon work is expected to concentrate on:
 
 - Compatibility and regression testing across more SSH servers, network vendors and desktop environments.
-- Completing SignPath onboarding and publishing signed Windows installers.
 - Broader automated tests, accessibility improvements and crash recovery.
 - Carefully scoped platform packaging or deployment options where they do not weaken the desktop security model.
 
