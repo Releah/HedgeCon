@@ -2121,7 +2121,7 @@ function SessionPicker({
 }: {
   sessions: Session[];
   onCancel: () => void;
-  onSelect: (session: Session) => void;
+  onSelect: (session: Session, service: ConnectionService) => void;
   onCreate: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -2157,17 +2157,22 @@ function SessionPicker({
         />
         <div className="picker-list">
           {matches.map((session) => (
-            <button key={session.id} onClick={() => onSelect(session)}>
+            <div className="picker-session" key={session.id}>
               <span className="server-icon">›_</span>
-              <div>
+              <div className="picker-session-details">
                 <strong>{session.name}</strong>
                 <small>
-                  {session.username || "Credential set"}@{session.host}:
-                  {session.port}
+                  {session.username || "Credential set"}@{session.host}
                 </small>
               </div>
-              <em>Connect ↗</em>
-            </button>
+              <div className="picker-service-actions" aria-label={`Connection types for ${session.name}`}>
+                {hasService(session, "ssh") && <button title={`Open SSH to ${session.name}`} onClick={() => onSelect(session, "ssh")}>SSH <span>›_</span></button>}
+                {hasService(session, "web") && <button className="web" title={`Open Web for ${session.name}`} onClick={() => onSelect(session, "web")}>Web <span>◎</span></button>}
+                {hasService(session, "rdp") && <button className="rdp" title={`Open RDP to ${session.name}`} onClick={() => onSelect(session, "rdp")}>RDP <span>▣</span></button>}
+                {hasService(session, "vnc") && <button className="vnc" title={`Open VNC to ${session.name}`} onClick={() => onSelect(session, "vnc")}>VNC <span>◉</span></button>}
+                {hasService(session, "serial") && <button className="serial" title={`Open serial connection for ${session.name}`} onClick={() => onSelect(session, "serial")}>Serial <span>⎇</span></button>}
+              </div>
+            </div>
           ))}
           {!matches.length && <p>No matching sessions.</p>}
         </div>
@@ -2240,6 +2245,8 @@ export default function App() {
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [macroPanelPinned, setMacroPanelPinned] = useState(false);
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  const [tabOverflow, setTabOverflow] = useState({ left: false, right: false });
   const [wikiSessionId, setWikiSessionId] = useState<
     string | null | undefined
   >();
@@ -2265,6 +2272,18 @@ export default function App() {
     void window.hedge.getUpdateStatus().then(setUpdateStatus);
     return unsubscribe;
   }, []);
+  useLayoutEffect(() => {
+    const strip = tabStripRef.current; if (!strip) return;
+    const update = () => setTabOverflow({ left: strip.scrollLeft > 2, right: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2 });
+    const resize = new ResizeObserver(update); resize.observe(strip); strip.addEventListener("scroll", update, { passive: true });
+    const frame = window.requestAnimationFrame(update);
+    return () => { window.cancelAnimationFrame(frame); resize.disconnect(); strip.removeEventListener("scroll", update); };
+  }, [tabs.length, tabGroups, tabGroupByTab]);
+  useLayoutEffect(() => {
+    const strip = tabStripRef.current; if (!strip || !activeTabId) return;
+    const active = [...strip.querySelectorAll<HTMLElement>(".session-tab")].find(tab => tab.dataset.tabId === activeTabId);
+    active?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  }, [activeTabId]);
   useEffect(() => {
     const sidebar = document.querySelector<HTMLElement>("main > aside");
     if (!sidebar) return;
@@ -3056,6 +3075,8 @@ export default function App() {
         {tabs.length > 0 && (
           <section className={`tab-workspace ${libraryOpen ? "workspace-hidden" : ""}`}>
             <div className="session-tabs">
+              {tabOverflow.left && <button className="tab-overflow tab-overflow-left" onClick={() => tabStripRef.current?.scrollBy({ left: -Math.max(240, tabStripRef.current.clientWidth * .7), behavior: "smooth" })} title="Earlier tabs" aria-label="Scroll to earlier tabs">‹</button>}
+              <div className="session-tabs-scroll" ref={tabStripRef} onWheel={(event) => { const strip = tabStripRef.current; if (!strip || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || !event.deltaY) return; event.preventDefault(); strip.scrollLeft += event.deltaY; }}>
               {tabs.map((tab) => {
                 const groupId = tabGroupByTab[tab.id];
                 const group = tabGroups.find(item => item.id === groupId);
@@ -3094,6 +3115,7 @@ export default function App() {
                     }}
                     onDragEnd={() => { setDragOverTabId(null); setDropEdge(null); }}
                     className={`session-tab ${group ? "grouped" : ""} ${paneIndex === 0 ? "active" : ""} ${paneIndex > 0 ? "secondary-active" : ""} ${dragOverTabId === tab.id ? "tab-reorder-target" : ""} ${tab.kind === "web" ? "web-tab" : tab.kind === "vnc" ? "vnc-tab" : ""}`}
+                    data-tab-id={tab.id}
                     style={group ? { "--tab-group-colour": group.colour } as CSSProperties : undefined}
                     onClick={() => selectTab(tab.id)}
                     onContextMenu={(event) => { event.preventDefault(); setTabContextMenu({ tabId: tab.id, x: Math.min(event.clientX, window.innerWidth - 210), y: Math.min(event.clientY, window.innerHeight - 220) }); }}
@@ -3132,6 +3154,8 @@ export default function App() {
               >
                 ＋
               </button>
+              </div>
+              {tabOverflow.right && <button className="tab-overflow tab-overflow-right" onClick={() => tabStripRef.current?.scrollBy({ left: Math.max(240, tabStripRef.current.clientWidth * .7), behavior: "smooth" })} title="Later tabs" aria-label="Scroll to later tabs">›</button>}
               <div className="split-controls">
                 {paneIds.length > 1 && (
                   <button
@@ -3231,7 +3255,7 @@ export default function App() {
                           tabId={tab.id}
                           session={tab.session}
                           credentials={credentials}
-                          visible={visible}
+                          visible={visible && !commandsOpen && !compareOpen && wikiSessionId === undefined && !settingsOpen && !feedbackOpen && !pickerOpen && !consoleOpen}
                           onClose={() => closeTab(tab.id)}
                         />
                       ) : tab.kind === "vnc" ? (
@@ -3525,10 +3549,14 @@ export default function App() {
             setPickerOpen(false);
             setActiveTabId(tabs[0]?.id ?? null);
           }}
-          onSelect={(session) => {
+          onSelect={(session, service) => {
             setPickerOpen(false);
             setActiveTabId(tabs[0]?.id ?? null);
-            openPreferredService(session);
+            if (service === "ssh") void connect(session);
+            else if (service === "web") openWebTab(session);
+            else if (service === "rdp") void openRdp(session);
+            else if (service === "vnc") openVncTab(session);
+            else openSerialTab(session);
           }}
           onCreate={() => {
             setPickerOpen(false);

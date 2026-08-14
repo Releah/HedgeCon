@@ -36,22 +36,22 @@ export default function WebDeviceView({ tabId, session, credentials, visible, on
     });
     const removeCertificate = window.hedge.onBrowserCertificate(prompt => { if (prompt.tabId !== tabId) return; window.hedge.setBrowserVisible(tabId, false); setCertificatePrompt(prompt); });
     const resize = new ResizeObserver(updateBounds); resize.observe(element);
-    const modalObserver = new MutationObserver(() => window.hedge.setBrowserVisible(tabId, visibleRef.current && !drawerOpenRef.current && !document.querySelector('.overlay, .wiki-overlay-root') && !element.closest('.device-browser')?.querySelector('.browser-error'))); modalObserver.observe(document.body, { childList: true, subtree: true });
+    const pageCovered = () => Boolean(document.querySelector('.overlay, .wiki-overlay-root, .compare-overlay-root, .macro-screen'));
+    const modalObserver = new MutationObserver(() => window.hedge.setBrowserVisible(tabId, visibleRef.current && !drawerOpenRef.current && !pageCovered() && !element.closest('.device-browser')?.querySelector('.browser-error'))); modalObserver.observe(document.body, { childList: true, subtree: true });
     let disposed = false;
     void (async () => {
       try {
         await window.hedge.createBrowser(tabId, initialUrl, bounds(element), darkMode);
         if (disposed) return;
         updateBounds();
-        window.hedge.setBrowserVisible(tabId, visibleRef.current && !drawerOpenRef.current && !document.querySelector('.overlay, .wiki-overlay-root'));
-        await window.hedge.navigateBrowser(tabId, 'url', initialUrl);
+        window.hedge.setBrowserVisible(tabId, visibleRef.current && !drawerOpenRef.current && !pageCovered());
       } catch (reason) {
         if (!disposed) setError(reason instanceof Error ? reason.message : String(reason));
       }
     })();
     return () => { disposed = true; remove(); removeCertificate(); resize.disconnect(); modalObserver.disconnect(); window.hedge.destroyBrowser(tabId); };
   }, [tabId, initialUrl, session.name]);
-  useEffect(() => { drawerOpenRef.current = credentialsOpen; window.hedge.setBrowserVisible(tabId, visible && !credentialsOpen && !certificatePrompt && !error && !document.querySelector('.overlay, .wiki-overlay-root')); }, [tabId, visible, error, credentialsOpen, certificatePrompt]);
+  useEffect(() => { drawerOpenRef.current = credentialsOpen; window.hedge.setBrowserVisible(tabId, visible && !credentialsOpen && !certificatePrompt && !error && !document.querySelector('.overlay, .wiki-overlay-root, .compare-overlay-root, .macro-screen')); }, [tabId, visible, error, credentialsOpen, certificatePrompt]);
   useEffect(() => { if (!credentialsOpen) setBrowserSnapshot(''); }, [credentialsOpen]);
   useEffect(() => { void window.hedge.setBrowserDarkMode(tabId, darkMode).catch(() => { /* The native view may still be starting or already closing. */ }); }, [tabId, darkMode]);
 

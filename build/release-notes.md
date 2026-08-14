@@ -1,4 +1,4 @@
-# HedgeCon v0.3.7-experimental.1
+# HedgeCon v0.3.7
 
 ## Configuration comparator
 
@@ -7,6 +7,8 @@
 - Highlight added, removed and changed rows while retaining configuration order and hierarchy.
 - Optionally ignore whitespace, blank lines and common volatile details such as timestamps, uptime and traffic counters.
 - Keep live configuration captures in memory only rather than restoring configuration backups or history.
+- Resize the two source panels horizontally and allocate more or less vertical space between source text and the rendered diff, with both layouts remembered locally.
+- Support guarded read-only Unix inspection commands such as `ls`, `pwd`, `cat`, `head`, `tail`, `stat`, `df` and `du` alongside network show/display/get commands.
 
 ## Tabs and session workflow
 
@@ -14,6 +16,14 @@
 - Create named, colour-coded tab groups, move tabs between groups, collapse groups and dissolve them without closing sessions.
 - Exit a split layout while keeping every connection alive as an ordinary tab.
 - Require a real ICMP echo reply before showing a session as online, avoiding temporary false-green indicators.
+- Choose SSH, Web, RDP, VNC or Serial directly from the new-tab session picker according to each device's configured services.
+- Replace the exposed native tab scrollbar with compact overflow controls, mouse-wheel navigation and automatic scrolling to the selected tab.
+
+## Embedded browser reliability
+
+- Hide native device webpages whenever Compare, Macros, Wiki, Settings or another HedgeCon workspace is shown above them.
+- Own the initial device-page navigation inside browser creation so saved URLs begin loading without clicking the address bar and pressing Enter.
+- Install certificate, navigation and error handlers before the first request and keep the native page hidden until startup is ready.
 
 ## Notes and device compatibility
 
@@ -27,7 +37,7 @@
 
 - Cache pnpm dependencies and Electron packaging downloads on Windows and Linux to shorten repeat release builds.
 
-This experimental release is intended for testing live comparison, tab groups, corrected reachability state and the expanded Cisco discovery paths. Live captures are not saved. Windows binaries are unsigned.
+This stable release promotes the tested comparator, tab organisation, device profiling, Markdown preview and connectivity refinements. Live captures are not saved. Windows binaries are unsigned.
 
 ---
 

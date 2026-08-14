@@ -342,7 +342,7 @@ ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: str
   browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false)); browserSession.setPermissionCheckHandler(() => false);
   if (!configuredBrowserPartitions.has(partition)) { configuredBrowserPartitions.add(partition); browserSession.on('will-download', (_event, item) => item.setSaveDialogOptions({ title: 'Save device download', defaultPath: path.basename(item.getFilename()) })); }
   const view = new WebContentsView({ webPreferences: { partition, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, devTools: false } });
-  browserViews.set(tabId, view); mainWindow.contentView.addChildView(view); view.setBounds(browserBounds(requestedBounds));
+  browserViews.set(tabId, view); mainWindow.contentView.addChildView(view); view.setBounds(browserBounds(requestedBounds)); view.setVisible(false);
   if (darkMode) await setBrowserDarkMode(tabId, true);
   const publish = (type: string, data?: unknown) => sendToRenderer('browser:event', { tabId, type, data });
   const publishNavigation = () => publish('navigation', { url: view.webContents.getURL(), title: view.webContents.getTitle(), canGoBack: view.webContents.navigationHistory.canGoBack(), canGoForward: view.webContents.navigationHistory.canGoForward() });
@@ -351,6 +351,7 @@ ipcMain.handle('browser:create', async (_event, tabId: string, requestedUrl: str
   view.webContents.on('did-start-loading', () => publish('loading', true)); view.webContents.on('did-stop-loading', () => { publish('loading', false); publishNavigation(); });
   view.webContents.on('did-navigate', publishNavigation); view.webContents.on('did-navigate-in-page', publishNavigation);
   view.webContents.on('did-fail-load', (_event, code, description, failedUrl, isMainFrame) => { if (isMainFrame && code !== -3) publish('error', `${description} (${failedUrl})`); });
+  await view.webContents.loadURL(url);
   return true;
 });
 ipcMain.on('browser:bounds', (_event, tabId: string, bounds: unknown) => { const view = browserViews.get(tabId); if (!view || view.webContents.isDestroyed()) return; try { view.setBounds(browserBounds(bounds)); } catch { /* Ignore a final resize while the window is closing. */ } });
@@ -674,7 +675,7 @@ ipcMain.handle('compare:connections', () => [...connections.entries()].filter(([
 ipcMain.handle('compare:capture', async (_event, connectionId: string, rawCommand: string) => {
   const connection = connections.get(connectionId); if (!connection?.stream) throw new Error('That SSH session is no longer active.');
   const command = typeof rawCommand === 'string' ? rawCommand.trim() : '';
-  if (!command || command.length > 300 || /[\r\n;&|><`$]/.test(command) || !/^(?:show|display|get|cat|head|tail|more|less)\b/i.test(command)) throw new Error('Use one read-only show, display, get, cat, head, tail, more or less command. Shell operators are not allowed.');
+  if (!command || command.length > 300 || /[\r\n;&|><`$]/.test(command) || !/^(?:show|display|get|ls|pwd|cat|head|tail|more|less|stat|df|du)\b/i.test(command)) throw new Error('Use one supported read-only inspection command. Shell operators and redirection are not allowed.');
   let output = await sshExec(connection.client, command, 12000, 2 * 1024 * 1024).catch(() => '');
   if (!output.trim()) output = await sshShellProbe(connection.client, [command], 15000, 2 * 1024 * 1024);
   if (Buffer.byteLength(output, 'utf8') > 2 * 1024 * 1024) throw new Error('The captured output is too large to compare.');
