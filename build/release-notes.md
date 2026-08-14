@@ -1,4 +1,25 @@
-# HedgeCon v0.3.7
+# HedgeCon v0.3.8
+
+## Restricted-channel Cisco compatibility
+
+- Fall back to the existing interactive terminal when a Cisco device rejects the comparator's additional SSH exec or shell channel.
+- Capture validated read-only output until the terminal becomes idle, advance recognised paging prompts and remove command echoes and device prompts before comparison.
+- Prevent overlapping read-only captures on the same terminal while keeping the executed command visible to the operator.
+
+## Cisco IOSv discovery
+
+- Reuse the active terminal channel for automatic profiling when IOSv refuses hidden discovery channels.
+- Recognise Cisco IOSv model markers, IOS versions and the hostname from standard uptime output.
+- Capture `show version` first and request `show inventory` only when more identity evidence is required.
+- Populate the confirmed session identity and managed Wiki information instead of falling through to Unknown SSH device.
+
+This stable maintenance release improves comparison and automatic profiling on Cisco devices that permit only their active interactive SSH channel. Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.7
 
 ## Configuration comparator
 
