@@ -1,4 +1,19 @@
-# HedgeCon v0.3.8
+# HedgeCon v0.3.9
+
+## Juniper device profiling
+
+- Recognise hostname fields from classic Junos, Junos OS Evolved and alternate system-information formats.
+- Parse additional Junos release, generic version, model and hardware-model output formats.
+- Continue discovery when an initial Juniper match is incomplete instead of prematurely remembering missing hostname or version details.
+- Fall back to bounded `show version`, chassis hardware and system-information commands with Juniper's `no-more` output handling through the active terminal when hidden channels are unavailable.
+
+This stable maintenance release improves automatic Juniper identity collection and the managed device-information block in session Wiki pages. Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.8
 
 ## Restricted-channel Cisco compatibility
 
