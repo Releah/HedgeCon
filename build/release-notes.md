@@ -1,4 +1,20 @@
-# HedgeCon v0.3.9
+# HedgeCon v0.3.10
+
+## Operator-controlled device profiling
+
+- Keep automatic profiling genuinely passive by inspecting only the banner and terminal output a device naturally sends.
+- Never type discovery commands into a terminal automatically; incomplete passive results now stop silently.
+- Add an explicit Detect device action to SSH Tools for sessions without a confirmed profile.
+- Add Refresh profile for previously identified devices and clearly explain that bounded read-only commands may appear in restricted terminals.
+- Retain the existing review and confirmation dialog before detected device information is remembered.
+
+This stable maintenance release makes active device profiling an explicit operator action while preserving silent, non-intrusive passive discovery. Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.9
 
 ## Juniper device profiling
 

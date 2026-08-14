@@ -647,10 +647,11 @@ function networkIdentity(source: string): DetectedIdentity | null {
     || match(/Fabric OS|FastIron|Ruckus Networks|Brocade/i, /Ruckus/i.test(text) ? 'Ruckus' : 'Brocade', value(/(?:^|\n)(?:Switch Type|System Model)\s*:\s*(.+)/im) || 'Brocade/Ruckus device', value(/(?:Fabric OS|FastIron|Version)\s*[: ]\s*(\S+)/i))
     || match(/BIG-IP|F5 Networks/i, 'F5', value(/(?:^|\n)Platform\s*[: ]\s*(.+)/im) || 'BIG-IP', value(/(?:^|\n)Version\s+([\w.-]+)/im));
 }
-ipcMain.handle('ssh:identify', async (_event, connectionId: string, observedText?: string) => {
+ipcMain.handle('ssh:identify', async (_event, connectionId: string, observedText?: string, runProbes?: boolean) => {
   const connection = connections.get(connectionId); if (!connection) throw new Error('The SSH connection is not active.'); if (observedText !== undefined && (typeof observedText !== 'string' || observedText.length > 65536)) throw new Error('Invalid observed terminal text.');
   const completeNetworkIdentity = (identity: DetectedIdentity | null) => Boolean(identity?.hostname && identity.version && !/network device|network operating system/i.test(identity.product));
   const passive = networkIdentity(observedText || ''); if (completeNetworkIdentity(passive)) return passive!;
+  if (runProbes !== true) return { platform: 'unspecified', hostname: '', vendor: '', product: 'Unknown SSH device', version: '', confidence: 'low', evidence: 'passive-discovery-incomplete' };
   const networkCommands = ['show version', 'show platform summary', 'show hostname', 'printf "HEDGECON_HOSTNAME="; hostname', 'show version | no-more', 'show system information | no-more', 'get system status', 'show system info', 'display version', '/system resource print without-paging']; let networkOutput = '';
   let emptyExecProbes = 0;
   for (const command of networkCommands) { const output = await sshExec(connection.client, command, 3500).catch(() => ''); networkOutput += `\n${output}`; if (!output.trim()) emptyExecProbes += 1; else emptyExecProbes = 0; const detected = networkIdentity(`${observedText || ''}\n${networkOutput}`); if (completeNetworkIdentity(detected)) return detected!; if (emptyExecProbes >= 2) break; }

@@ -59,7 +59,7 @@ declare global {
     removePublicKey(connectionId: string, privateKeyPath: string): Promise<boolean>;
     getInstalledPublicKeys(connectionId: string): Promise<string[]>;
     connect(request: ConnectRequest): Promise<{ connectionId: string }>;
-    identifyDevice(connectionId: string, observedText?: string): Promise<DeviceIdentity>;
+    identifyDevice(connectionId: string, observedText?: string, runProbes?: boolean): Promise<DeviceIdentity>;
     openCompareText(): Promise<{ name: string; contents: string } | null>;
     listCompareConnections(): Promise<Array<{ id: string; name: string; host: string; platform: string }>>;
     captureCompareText(connectionId: string, command: string): Promise<string>;
