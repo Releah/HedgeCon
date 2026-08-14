@@ -60,6 +60,9 @@ declare global {
     getInstalledPublicKeys(connectionId: string): Promise<string[]>;
     connect(request: ConnectRequest): Promise<{ connectionId: string }>;
     identifyDevice(connectionId: string, observedText?: string): Promise<DeviceIdentity>;
+    openCompareText(): Promise<{ name: string; contents: string } | null>;
+    listCompareConnections(): Promise<Array<{ id: string; name: string; host: string; platform: string }>>;
+    captureCompareText(connectionId: string, command: string): Promise<string>;
     listTunnels(connectionId: string): Promise<SshTunnel[]>;
     startTunnel(connectionId: string, input: { type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number }): Promise<SshTunnel>;
     stopTunnel(tunnelId: string): Promise<boolean>;

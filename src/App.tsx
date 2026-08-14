@@ -1,4 +1,5 @@
 import {
+  Fragment,
   FormEvent,
   lazy,
   Suspense,
@@ -40,6 +41,7 @@ import { terminalPatternError } from "./terminalPatterns";
 
 const InventoryEditor = lazy(() => import("./InventoryEditor"));
 const WikiWorkspace = lazy(() => import("./WikiWorkspace"));
+const ConfigComparator = lazy(() => import("./ConfigComparator"));
 const FirstRunSetup = lazy(() => import("./FirstRunSetup"));
 const VncView = lazy(() => import("./VncView"));
 
@@ -2179,6 +2181,8 @@ type WorkspaceTab =
   | { id: string; session: Session; kind: "web" }
   | { id: string; session: Session; kind: "vnc" }
   | { id: string; session: Session; kind: "serial" };
+type WorkspaceTabGroup = { id: string; name: string; colour: string; collapsed: boolean };
+const tabGroupColours = ["#69cfae", "#69aee8", "#c38bea", "#e2aa62", "#e37d82", "#a7be68"];
 type TabReachability = "checking" | "online" | "offline" | "unavailable";
 const reachabilityTitle = (status: TabReachability) => status === "online" ? "Host responding to ICMP" : status === "offline" ? "Host not responding to ICMP" : status === "checking" ? "Checking ICMP reachability" : "ICMP unavailable for this session";
 
@@ -2205,6 +2209,13 @@ export default function App() {
   const [dropEdge, setDropEdge] = useState<
     "left" | "right" | "top" | "bottom" | null
   >(null);
+  const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+  const [tabGroups, setTabGroups] = useState<WorkspaceTabGroup[]>([]);
+  const [tabGroupByTab, setTabGroupByTab] = useState<Record<string, string>>({});
+  const [tabContextMenu, setTabContextMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
+  const [groupDialogTabId, setGroupDialogTabId] = useState<string | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [groupColour, setGroupColour] = useState(tabGroupColours[0]);
   const [paneSizes, setPaneSizes] = useState<number[]>([1]);
   const [pendingSession, setPendingSession] = useState<Session | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
@@ -2227,6 +2238,7 @@ export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [macroPanelPinned, setMacroPanelPinned] = useState(false);
   const [wikiSessionId, setWikiSessionId] = useState<
     string | null | undefined
@@ -2298,6 +2310,8 @@ export default function App() {
   useEffect(() => {
     if (tabs.length && activeTabId === null) setPickerOpen(true);
   }, [tabs.length, activeTabId]);
+  useEffect(() => { if (!tabContextMenu) return; const close = () => setTabContextMenu(null); window.addEventListener("pointerdown", close); window.addEventListener("blur", close); return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("blur", close); }; }, [tabContextMenu]);
+  useEffect(() => { const used = new Set(Object.values(tabGroupByTab)); setTabGroups(current => current.some(group => !used.has(group.id)) ? current.filter(group => used.has(group.id)) : current); }, [tabGroupByTab]);
   useEffect(() => { setUnreadTabIds(current => { const next = new Set([...current].filter(tabId => tabs.some(tab => tab.id === tabId))); return next.size === current.size ? current : next; }); }, [tabs]);
   const uiSettings: UiSettings = data.uiSettings
     ? { ...defaultUiSettings, ...data.uiSettings }
@@ -2614,6 +2628,7 @@ export default function App() {
   };
   const closeTab = (tabId: string) => {
     setUnreadTabIds(current => { if (!current.has(tabId)) return current; const next = new Set(current); next.delete(tabId); return next; });
+    setTabGroupByTab(current => { if (!current[tabId]) return current; const next = { ...current }; delete next[tabId]; return next; });
     setTabs((current) => {
       const next = current.filter((tab) => tab.id !== tabId);
       const remainingPanes = paneIds.filter((id) => id !== tabId);
@@ -2638,6 +2653,42 @@ export default function App() {
     }
     next[Math.min(focusedPane, next.length - 1)] = tabId;
     applyPaneIds(next);
+  };
+  const reorderTab = (draggedId: string, targetId: string) => {
+    if (!draggedId || draggedId === targetId) return;
+    setTabs((current) => {
+      const from = current.findIndex((tab) => tab.id === draggedId);
+      const target = current.findIndex((tab) => tab.id === targetId);
+      if (from < 0 || target < 0) return current;
+      const next = [...current];
+      const [dragged] = next.splice(from, 1);
+      next.splice(target, 0, dragged);
+      return next;
+    });
+    setDragOverTabId(null);
+  };
+  const assignTabToGroup = (tabId: string, groupId: string | null) => {
+    setTabGroupByTab(current => { const next = { ...current }; if (groupId) next[tabId] = groupId; else delete next[tabId]; return next; });
+    if (groupId) setTabs(current => { const moving = current.find(tab => tab.id === tabId); if (!moving) return current; const without = current.filter(tab => tab.id !== tabId); const lastMember = without.reduce((last, tab, index) => tabGroupByTab[tab.id] === groupId ? index : last, -1); without.splice(lastMember + 1, 0, moving); return without; });
+    setTabContextMenu(null);
+  };
+  const createTabGroup = (event: FormEvent) => {
+    event.preventDefault();
+    if (!groupDialogTabId || !groupName.trim()) return;
+    const group: WorkspaceTabGroup = { id: id(), name: groupName.trim().slice(0, 60), colour: groupColour, collapsed: false };
+    setTabGroups(current => [...current, group]);
+    setTabGroupByTab(current => ({ ...current, [groupDialogTabId]: group.id }));
+    setGroupDialogTabId(null); setGroupName("");
+  };
+  const dissolveTabGroup = (groupId: string) => {
+    setTabGroups(current => current.filter(group => group.id !== groupId));
+    setTabGroupByTab(current => Object.fromEntries(Object.entries(current).filter(([, value]) => value !== groupId)));
+  };
+  const exitSplitView = () => {
+    if (paneIds.length <= 1) return;
+    const focused = paneIds[Math.min(focusedPane, paneIds.length - 1)] ?? paneIds[0];
+    applyPaneIds([focused], "single");
+    setFocusedPane(0);
   };
   const setSplit = (mode: "horizontal" | "vertical") => {
     if (splitMode === mode && paneIds.length > 1)
@@ -2920,6 +2971,12 @@ export default function App() {
         </nav>
         <button
           className="settings-button inventory-button"
+          onClick={() => setCompareOpen(true)}
+        >
+          ⇄ <span>Compare</span>
+        </button>
+        <button
+          className="settings-button inventory-button"
           onClick={() => setCommandsOpen(true)}
         >
           ›_ <span>Macros</span>
@@ -3000,14 +3057,20 @@ export default function App() {
           <section className={`tab-workspace ${libraryOpen ? "workspace-hidden" : ""}`}>
             <div className="session-tabs">
               {tabs.map((tab) => {
+                const groupId = tabGroupByTab[tab.id];
+                const group = tabGroups.find(item => item.id === groupId);
+                const firstInGroup = Boolean(group && tabs.find(item => tabGroupByTab[item.id] === group.id)?.id === tab.id);
+                if (group?.collapsed && !firstInGroup) return null;
                 const paneIndex = paneIds.indexOf(tab.id);
                 const reachability = hostReachability[tab.session.host.trim()] ?? (tab.session.host.trim() ? "checking" : "unavailable");
                 const tabIsVisible = !libraryOpen && paneIds.includes(tab.id);
                 const dotState = !tabIsVisible && unreadTabIds.has(tab.id) ? "unread" : reachability;
                 const dotTitle = dotState === "unread" ? "New terminal output" : reachabilityTitle(reachability);
                 return (
+                  <Fragment key={tab.id}>
+                  {firstInGroup && group && <div className="tab-group-header" style={{ "--tab-group-colour": group.colour } as CSSProperties}><button onClick={() => setTabGroups(current => current.map(item => item.id === group.id ? { ...item, collapsed: !item.collapsed } : item))} title={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`}><span>{group.collapsed ? "▸" : "▾"}</span><strong>{group.name}</strong><small>{tabs.filter(item => tabGroupByTab[item.id] === group.id).length}</small></button><button className="tab-group-remove" onClick={() => dissolveTabGroup(group.id)} title={`Dissolve ${group.name} without closing its tabs`} aria-label={`Dissolve ${group.name}`}>×</button></div>}
+                  {!group?.collapsed && (
                   <div
-                    key={tab.id}
                     draggable
                     onDragStart={(event) => {
                       event.dataTransfer.effectAllowed = "move";
@@ -3016,8 +3079,24 @@ export default function App() {
                         tab.id,
                       );
                     }}
-                    className={`session-tab ${paneIndex === 0 ? "active" : ""} ${paneIndex > 0 ? "secondary-active" : ""} ${tab.kind === "web" ? "web-tab" : tab.kind === "vnc" ? "vnc-tab" : ""}`}
+                    onDragOver={(event) => {
+                      if (!event.dataTransfer.types.includes("application/x-hedgecon-tab")) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      event.dataTransfer.dropEffect = "move";
+                      setDragOverTabId(tab.id);
+                    }}
+                    onDragLeave={() => setDragOverTabId((current) => current === tab.id ? null : current)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      reorderTab(event.dataTransfer.getData("application/x-hedgecon-tab"), tab.id);
+                    }}
+                    onDragEnd={() => { setDragOverTabId(null); setDropEdge(null); }}
+                    className={`session-tab ${group ? "grouped" : ""} ${paneIndex === 0 ? "active" : ""} ${paneIndex > 0 ? "secondary-active" : ""} ${dragOverTabId === tab.id ? "tab-reorder-target" : ""} ${tab.kind === "web" ? "web-tab" : tab.kind === "vnc" ? "vnc-tab" : ""}`}
+                    style={group ? { "--tab-group-colour": group.colour } as CSSProperties : undefined}
                     onClick={() => selectTab(tab.id)}
+                    onContextMenu={(event) => { event.preventDefault(); setTabContextMenu({ tabId: tab.id, x: Math.min(event.clientX, window.innerWidth - 210), y: Math.min(event.clientY, window.innerHeight - 220) }); }}
                   >
                     <span className={`status-dot tab-status-${dotState}`} title={dotTitle} aria-label={dotTitle} />
                     <div>
@@ -3042,6 +3121,8 @@ export default function App() {
                       ×
                     </button>
                   </div>
+                  )}
+                  </Fragment>
                 );
               })}
               <button
@@ -3052,6 +3133,15 @@ export default function App() {
                 ＋
               </button>
               <div className="split-controls">
+                {paneIds.length > 1 && (
+                  <button
+                    onClick={exitSplitView}
+                    title="Exit split view and keep every session open as a tab"
+                    aria-label="Exit split view"
+                  >
+                    &#9633;
+                  </button>
+                )}
                 <button
                   className={splitMode === "vertical" ? "active" : ""}
                   onClick={() => setSplit("vertical")}
@@ -3367,6 +3457,7 @@ export default function App() {
           onClose={() => setCommandsOpen(false)}
         />
       )}
+      {compareOpen && <div className="compare-overlay-root"><Suspense fallback={<div className="loading">Loading comparator...</div>}><ConfigComparator onClose={() => setCompareOpen(false)} /></Suspense></div>}
       {wikiSessionId !== undefined && (
         <div className="wiki-overlay-root">
           <Suspense fallback={<div className="loading">Loading Wiki...</div>}>
@@ -3475,6 +3566,16 @@ export default function App() {
           onCancel={() => setFolderToDelete(null)}
           onConfirm={() => deleteFolder(folderToDelete)}
         />
+      )}
+      {tabContextMenu && (
+        <div className="folder-context-menu tab-context-menu" role="menu" style={{ left: tabContextMenu.x, top: tabContextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
+          <button type="button" className="create-folder-action" onClick={() => { setGroupDialogTabId(tabContextMenu.tabId); setGroupName(""); setGroupColour(tabGroupColours[tabGroups.length % tabGroupColours.length]); setTabContextMenu(null); }}><span>＋</span>Create new group</button>
+          {tabGroups.filter(group => group.id !== tabGroupByTab[tabContextMenu.tabId]).map(group => <button type="button" className="tab-group-menu-item" key={group.id} onClick={() => assignTabToGroup(tabContextMenu.tabId, group.id)}><i style={{ background: group.colour }} />Move to {group.name}</button>)}
+          {tabGroupByTab[tabContextMenu.tabId] && <button type="button" className="rename-folder-action" onClick={() => assignTabToGroup(tabContextMenu.tabId, null)}><span>↗</span>Remove from group</button>}
+        </div>
+      )}
+      {groupDialogTabId && (
+        <div className="overlay"><form className="dialog tab-group-dialog" onSubmit={createTabGroup}><div className="dialog-title"><div><small>TAB GROUP</small><h2>Create a tab group</h2></div><button type="button" className="icon-button" onClick={() => setGroupDialogTabId(null)}>×</button></div><label>Group name<input autoFocus required maxLength={60} value={groupName} onChange={event => setGroupName(event.target.value)} placeholder="e.g. Core switches" /></label><fieldset><legend>Group colour</legend><div className="tab-group-colours">{tabGroupColours.map(colour => <button key={colour} type="button" className={groupColour === colour ? "active" : ""} style={{ "--choice-colour": colour } as CSSProperties} onClick={() => setGroupColour(colour)} aria-label={`Use ${colour}`} />)}</div></fieldset><div className="actions"><button type="button" className="secondary" onClick={() => setGroupDialogTabId(null)}>Cancel</button><button className="primary">Create group</button></div></form></div>
       )}
       {folderContextMenu && (
         <div

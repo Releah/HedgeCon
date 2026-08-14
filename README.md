@@ -45,6 +45,7 @@ HedgeCon is a single practical workspace for operating network infrastructure: l
 - Add more than two sessions to a split layout.
 - Resize panes by dragging their dividers.
 - Close an individual pane and let the remaining sessions reclaim the space.
+- Reorder tabs, collect them into named colour-coded groups, collapse groups and return split panes to normal tabs without reconnecting them.
 
 ### Tools alongside the terminal
 
@@ -60,6 +61,14 @@ HedgeCon is a single practical workspace for operating network infrastructure: l
 - Install and remove public keys in a remote `authorized_keys` file.
 - Open session notes beside the terminal and resize the notes panel while you work.
 - Create loopback-only local forwards and SOCKS5 proxies through an active SSH connection, with live status and automatic cleanup.
+
+### Configuration comparison
+
+- Compare two pasted configurations or local text/configuration files side by side.
+- Capture the same guarded, read-only command from two already-active SSH sessions and compare the results without reconnecting them.
+- Highlight changed, added and removed rows while preserving configuration order and hierarchy.
+- Optionally ignore blank lines, whitespace differences and common volatile output such as timestamps, uptime and traffic counters.
+- Keep live captures in memory only; HedgeCon does not add configuration collection or versioned configuration history to the Wiki or Git repository.
 
 ### Inventory and Git-backed knowledge
 
@@ -263,11 +272,11 @@ To return HedgeCon to a blank state, open **Settings → Reset all local data**.
 
 ## Project direction
 
-HedgeCon's core desktop connectivity workflows are complete. Configuration collection, versioned configuration history, diffs and broader network observability belong to the separate **HedgeSight** project rather than HedgeCon.
+HedgeCon's core desktop connectivity workflows are complete. It includes an operator-initiated, memory-only comparator for files, pasted text and live read-only SSH output. Scheduled configuration collection, versioned configuration history and broader network observability belong to the separate **HedgeSight** project rather than HedgeCon.
 
 Known scope boundaries and unfinished distribution work:
 
-- HedgeCon currently uses the SSH engine's modern defaults; an opt-in legacy/alternative SSH algorithm profile has not yet been implemented.
+- HedgeCon uses modern SSH algorithms by default and offers a per-host, explicitly warned legacy compatibility exception only when negotiation proves it is required.
 - SSH Tools supports local forwarding and SOCKS5, but not remote/reverse port forwarding.
 - Tagged packages currently target Windows x64 and Linux x64; macOS packaging and a container-hosted web edition are not currently shipped.
 - Windows packages are currently distributed without a code-signing certificate.

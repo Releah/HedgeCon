@@ -1,4 +1,39 @@
-# HedgeCon v0.3.6
+# HedgeCon v0.3.7-experimental.1
+
+## Configuration comparator
+
+- Add a dedicated Compare workspace above Macros for pasted text and local configuration files.
+- Capture the same guarded, read-only command from two active SSH sessions without reconnecting or disturbing their terminal tabs.
+- Highlight added, removed and changed rows while retaining configuration order and hierarchy.
+- Optionally ignore whitespace, blank lines and common volatile details such as timestamps, uptime and traffic counters.
+- Keep live configuration captures in memory only rather than restoring configuration backups or history.
+
+## Tabs and session workflow
+
+- Reorder session tabs by dragging them along the tab bar.
+- Create named, colour-coded tab groups, move tabs between groups, collapse groups and dissolve them without closing sessions.
+- Exit a split layout while keeping every connection alive as an ordinary tab.
+- Require a real ICMP echo reply before showing a session as online, avoiding temporary false-green indicators.
+
+## Notes and device compatibility
+
+- Open terminal-side session notes in rendered Markdown preview and switch explicitly into editing when needed.
+- Seed a practical Markdown guide for existing and new Wiki workspaces without overwriting user pages.
+- Improve Cisco IOS, IOS XE, IOS XR, NX-OS and ASA identification and prevent echoed probe commands from being mistaken for Windows output.
+- Fall back to an isolated read-only shell probe on network devices that reject SSH exec channels.
+- Avoid incorrectly offering legacy SSH compatibility after sleep or hibernation unless negotiation reports a specific algorithm mismatch.
+
+## Release pipeline
+
+- Cache pnpm dependencies and Electron packaging downloads on Windows and Linux to shorten repeat release builds.
+
+This experimental release is intended for testing live comparison, tab groups, corrected reachability state and the expanded Cisco discovery paths. Live captures are not saved. Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.6
 
 ## Legacy SSH compatibility
 

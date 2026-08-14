@@ -56,19 +56,28 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
-      - name: Install pnpm
+      - name: Set up pnpm and dependency cache
         uses: pnpm/action-setup@v6
         with:
           version: 11.9.0
+          cache: true
 
-      - name: Install Node.js
-        uses: actions/setup-node@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: pnpm
+
+      - name: Restore Electron packaging cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: windows-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: windows-electron-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build and upload Windows release
         run: pnpm release:win
@@ -82,19 +91,28 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
-      - name: Install pnpm
+      - name: Set up pnpm and dependency cache
         uses: pnpm/action-setup@v6
         with:
           version: 11.9.0
+          cache: true
 
-      - name: Install Node.js
-        uses: actions/setup-node@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: pnpm
+
+      - name: Restore Electron packaging cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: linux-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: linux-electron-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build and upload Linux AppImage
         run: pnpm release:linux
