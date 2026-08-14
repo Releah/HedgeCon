@@ -1,4 +1,19 @@
-# HedgeCon v0.3.10
+# HedgeCon v0.3.11
+
+## Reliable profile refresh
+
+- Restyle device-detection progress and result messages to match the HedgeCon SSH Tools panel.
+- Prevent stale passive-detection results from repeatedly reopening the device confirmation dialog.
+- Record profile decisions immediately so accepted or rejected details are not prompted for again.
+- Refresh the managed device-information table in shared session notes as soon as a profile is accepted.
+
+This stable maintenance release makes manual device re-profiling predictable and keeps session documentation in sync. Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.10
 
 ## Operator-controlled device profiling
 

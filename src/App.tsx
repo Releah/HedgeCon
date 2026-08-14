@@ -3282,7 +3282,7 @@ export default function App() {
                           folders={data.folders}
                           macrosPinned={macroPanelPinned}
                           onMacrosPinnedChange={setMacroPanelPinned}
-                          onIdentity={(identity) => { const updatedAt = new Date().toISOString(); persist({ ...data, sessions: data.sessions.map(item => item.id === tab.session.id ? { ...item, platform: identity.platform, detectedIdentity: identity, updatedAt } : item) }); setTabs(current => current.map(item => item.session.id === tab.session.id ? { ...item, session: { ...item.session, platform: identity.platform, detectedIdentity: identity, updatedAt } } : item)); notify(`Saved ${identity.product} detection for ${tab.session.name}.`); }}
+                          onIdentity={(identity) => { const updatedAt = new Date().toISOString(); persist({ ...data, sessions: data.sessions.map(item => item.id === tab.session.id ? { ...item, platform: identity.platform, detectedIdentity: identity, updatedAt } : item) }); setTabs(current => current.map(item => item.session.id === tab.session.id ? { ...item, session: { ...item.session, platform: identity.platform, detectedIdentity: identity, updatedAt } } : item)); void window.hedge.ensureSessionWikiPage(tab.session.id, tab.session.name, tab.session.host, identity).catch(() => { /* A missing Wiki repository must not prevent saving the local profile. */ }); notify(`Saved ${identity.product} detection for ${tab.session.name}.`); }}
                           onActivity={() => markTabActivity(tab.id)}
                           onManageMacros={() => setCommandsOpen(true)}
                           onClose={() => closeTab(tab.id)}
