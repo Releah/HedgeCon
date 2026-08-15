@@ -1,4 +1,21 @@
-# HedgeCon v0.3.11
+# HedgeCon v0.3.12-experimental.1
+
+## Non-blocking device-profile notifications
+
+- Replace the central device-discovery dialog with a notification inside the relevant terminal.
+- Keep the terminal interactive while detected hostname, vendor, model and version details await review.
+- Collapse unattended notifications into a compact indicator after ten seconds and expand them again on click.
+- Allow detected details to be remembered or dismissed without interrupting the active session.
+- Remember dismissed identity suggestions locally so the same details do not repeatedly appear after reconnecting; changed details can still notify again.
+- Keep manual Refresh profile results available for explicit review.
+
+This experimental release is intended for testing the quieter device-profiling workflow before promotion to Stable. Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.11
 
 ## Reliable profile refresh
 
