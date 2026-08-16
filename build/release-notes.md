@@ -1,4 +1,22 @@
-# HedgeCon v0.3.12-experimental.1
+# HedgeCon v0.3.12-experimental.2
+
+## Flexible session-library views
+
+- Add a bounded card-size slider that changes how many session cards fit while preserving their connection information and actions.
+- Add a compact table view for scanning session status, address, services and available connection types.
+- Add a detailed table view containing detected hostname, vendor, model or operating system, and version information.
+- Keep edit, clone, fingerprint and delete actions available from table rows.
+- Preserve double-click connection and drag-to-folder behavior in table views.
+- Remember the selected view and card size locally between HedgeCon launches.
+- Use horizontal table scrolling on narrower windows instead of hiding profiled device details.
+
+This experimental release is intended for testing the more flexible session manager before promotion to Stable. Windows binaries are unsigned.
+
+---
+
+# Previous experimental release
+
+## v0.3.12-experimental.1
 
 ## Non-blocking device-profile notifications
 

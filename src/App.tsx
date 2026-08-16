@@ -2189,6 +2189,7 @@ type WorkspaceTab =
 type WorkspaceTabGroup = { id: string; name: string; colour: string; collapsed: boolean };
 const tabGroupColours = ["#69cfae", "#69aee8", "#c38bea", "#e2aa62", "#e37d82", "#a7be68"];
 type TabReachability = "checking" | "online" | "offline" | "unavailable";
+type SessionLibraryView = "cards" | "table" | "details";
 const reachabilityTitle = (status: TabReachability) => status === "online" ? "Host responding to ICMP" : status === "offline" ? "Host not responding to ICMP" : status === "checking" ? "Checking ICMP reachability" : "ICMP unavailable for this session";
 
 export default function App() {
@@ -2198,6 +2199,14 @@ export default function App() {
     string | "all" | "unfiled"
   >("all");
   const [sessionSearch, setSessionSearch] = useState("");
+  const [sessionLibraryView, setSessionLibraryView] = useState<SessionLibraryView>(() => {
+    const saved = localStorage.getItem("hedgecon-session-library-view");
+    return saved === "table" || saved === "details" ? saved : "cards";
+  });
+  const [sessionCardSize, setSessionCardSize] = useState(() => {
+    const saved = Number(localStorage.getItem("hedgecon-session-card-size"));
+    return Number.isFinite(saved) && saved >= 220 && saved <= 360 ? saved : 270;
+  });
   const [editing, setEditing] = useState<Session | null | undefined>();
   const [tabs, setTabs] = useState<WorkspaceTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -2272,6 +2281,8 @@ export default function App() {
     void window.hedge.getUpdateStatus().then(setUpdateStatus);
     return unsubscribe;
   }, []);
+  useEffect(() => { localStorage.setItem("hedgecon-session-library-view", sessionLibraryView); }, [sessionLibraryView]);
+  useEffect(() => { localStorage.setItem("hedgecon-session-card-size", String(sessionCardSize)); }, [sessionCardSize]);
   useLayoutEffect(() => {
     const strip = tabStripRef.current; if (!strip) return;
     const update = () => setTabOverflow({ left: strip.scrollLeft > 2, right: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2 });
@@ -3318,8 +3329,17 @@ export default function App() {
                 </button>
               </div>
             )}
+            <div className="session-library-controls">
+              <div className="session-view-switch" role="group" aria-label="Session library view">
+                <button className={sessionLibraryView === "cards" ? "active" : ""} onClick={() => setSessionLibraryView("cards")} title="Card view">▦ <span>Cards</span></button>
+                <button className={sessionLibraryView === "table" ? "active" : ""} onClick={() => setSessionLibraryView("table")} title="Compact table view">☷ <span>Table</span></button>
+                <button className={sessionLibraryView === "details" ? "active" : ""} onClick={() => setSessionLibraryView("details")} title="Detailed table with detected device information">≣ <span>Details</span></button>
+              </div>
+              {sessionLibraryView === "cards" && <label className="session-size-control"><span>Card size</span><small>Smaller</small><input type="range" min="220" max="360" step="10" value={sessionCardSize} onChange={event => setSessionCardSize(Number(event.target.value))} /><small>Larger</small></label>}
+              <span className="session-result-count">{visible.length} session{visible.length === 1 ? "" : "s"}</span>
+            </div>
             {visible.length ? (
-              <div className="session-grid">
+              sessionLibraryView === "cards" ? <div className="session-grid" style={{ "--session-card-min": `${sessionCardSize}px`, "--session-card-pad": `${Math.round(14 + ((sessionCardSize - 220) / 140) * 8)}px` } as CSSProperties}>
                 {visible.map((s) => (
                   <article
                     key={s.id}
@@ -3433,7 +3453,7 @@ export default function App() {
                     </div>
                   </article>
                 ))}
-              </div>
+              </div> : <div className={`session-table-wrap ${sessionLibraryView === "details" ? "detailed" : "compact"}`}><table className="session-table"><thead><tr><th>Status</th><th>Session</th><th>Address</th><th>Services</th>{sessionLibraryView === "details" && <><th>Detected hostname</th><th>Make</th><th>Model / OS</th><th>Version</th></>}<th>Connect</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{visible.map(s => { const reachability = hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable"); const identity = s.detectedIdentity; return <tr key={s.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/session-id", s.id); }} onDoubleClick={() => openPreferredService(s)}><td><span className={`session-status-dot status-${reachability}`} title={reachabilityTitle(reachability)} aria-label={reachabilityTitle(reachability)} /></td><td><strong>{s.name}</strong>{sessionLibraryView === "details" && <small>{s.username || "No username"}</small>}</td><td><code>{hasService(s, "serial") && !s.host ? s.serialPath || "—" : s.host || "—"}</code></td><td><span className="table-services">{sessionServices(s).map(service => service.toUpperCase()).join(" · ")}</span></td>{sessionLibraryView === "details" && <><td>{identity?.hostname || "TBC"}</td><td>{identity?.vendor || "TBC"}</td><td>{identity?.product || "TBC"}</td><td>{identity?.version || "TBC"}</td></>}<td><div className="table-connect-actions">{hasService(s, "ssh") && <button onClick={() => void connect(s)} title={`Open SSH to ${s.name}`}>SSH</button>}{hasService(s, "web") && <button onClick={() => openWebTab(s)} title={`Open web session for ${s.name}`}>Web</button>}{hasService(s, "rdp") && <button onClick={() => void openRdp(s)} title={`Open RDP to ${s.name}`}>RDP</button>}{hasService(s, "vnc") && <button onClick={() => openVncTab(s)} title={`Open VNC to ${s.name}`}>VNC</button>}{hasService(s, "serial") && <button onClick={() => openSerialTab(s)} title={`Open serial session for ${s.name}`}>Serial</button>}</div></td><td><div className="table-row-actions"><CardAction label="Edit session" onClick={() => setEditing(s)}><EditIcon /></CardAction><CardAction label="Clone session" onClick={() => setEditing({ ...s, id: "", name: `${s.name} copy` })}><CloneIcon /></CardAction>{hasService(s, "ssh") && <CardAction label="Forget fingerprint" onClick={() => void forgetHostKey(s)}><ForgetFingerprintIcon /></CardAction>}<CardAction label="Delete session" danger onClick={() => remove(s)}><DeleteIcon /></CardAction></div></td></tr>; })}</tbody></table></div>
             ) : (
               <div className="empty">
                 <div>›_</div>
