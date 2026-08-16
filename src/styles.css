@@ -22,7 +22,19 @@
 .session-tab .status-dot.tab-status-unread { background: #69aee8; box-shadow: 0 0 9px #69aee8; }
 .session-tab .status-dot.tab-status-checking,.session-tab .status-dot.tab-status-unavailable { background: #687b8d; box-shadow: 0 0 6px #687b8d88; }
 .session-card h3 { display: flex; align-items: center; gap: 8px; }
-.session-table-wrap.detailed .session-table { min-width: 1100px; }
+.session-table-wrap .session-table { width: 100%; table-layout: fixed; }
+.session-table-wrap.detailed .session-table { min-width: 0; }
+.session-table-wrap .session-table th:first-child,.session-table-wrap .session-table td:first-child { width: 48px; text-align: center; }
+.session-table-wrap .session-table th:last-child,.session-table-wrap .session-table td:last-child { width: 118px; }
+.session-table-wrap.compact .session-table th:nth-last-child(2),.session-table-wrap.compact .session-table td:nth-last-child(2) { width: 190px; }
+.session-table-wrap.detailed .session-table th:nth-last-child(2),.session-table-wrap.detailed .session-table td:nth-last-child(2) { width: 165px; }
+.session-table-wrap .session-table th,.session-table-wrap .session-table td { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.session-table-wrap.detailed .session-table td { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.session-table-wrap .table-connect-actions { flex-wrap: wrap; }
+.session-table-wrap .table-connect-actions button[title^="Open web"] { border-color: #344c66; background: #14202d; color: #82bce8; }
+.session-table-wrap .table-connect-actions button[title^="Open RDP"] { border-color: #5a466f; background: #21182c; color: #c4a4e2; }
+.session-table-wrap .table-connect-actions button[title^="Open VNC"] { border-color: #65533b; background: #292116; color: #dfbf83; }
+.session-table-wrap .table-connect-actions button[title^="Open serial"] { border-color: #3e586b; background: #14232d; color: #91bfdc; }
 .table-row-actions { position: relative; }
 .session-status-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: #687b8d; box-shadow: 0 0 6px #687b8d88; }
 .session-status-dot.status-online { background: #70d6b2; box-shadow: 0 0 8px #70d6b2; }

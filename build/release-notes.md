@@ -1,4 +1,23 @@
-# HedgeCon v0.3.12-experimental.2
+# HedgeCon v0.3.12-experimental.3
+
+## Automatic multi-vendor profiling
+
+- Let automatic profiling progress from passive terminal evidence to bounded, read-only background SSH exec probes before requiring manual intervention.
+- Keep background probes separate from the visible terminal while allowing useful partial identities to be reviewed.
+- Add broader SmartFabric OS10, OS9/FTOS, N-Series, PowerConnect and Dell Enterprise SONiC detection.
+- Expand Cisco IOS, IOS-XE, IOS-XR, NX-OS/Nexus, ASA, Firepower, Secure Firewall and IOSv parsing.
+- Improve hostname, chassis, model, PID, software-version and hardware-field extraction across Dell and Cisco output formats.
+- Detect Junos root-shell prompts and use `cli -c` for background discovery.
+- Enter `cli` before bounded manual Junos commands when a root account is still at the underlying shell.
+- Make compact and detailed session tables fit the available page width and align Web, RDP, VNC and Serial button colours with session cards.
+
+Background discovery commands do not appear in HedgeCon's visible terminal, but managed devices may record them in their audit logs. This experimental release is intended for multi-vendor profiling and session-table testing. Windows binaries are unsigned.
+
+---
+
+# Previous experimental release
+
+## v0.3.12-experimental.2
 
 ## Flexible session-library views
 

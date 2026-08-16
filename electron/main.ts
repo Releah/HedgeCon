@@ -630,17 +630,17 @@ function cleanProbeText(value: string) { return value.replace(/\x1b\][^\x07]*(?:
 function networkIdentity(source: string): DetectedIdentity | null {
   const text = cleanProbeText(source); if (!text.trim()) return null;
   const value = (...patterns: RegExp[]) => patterns.map(pattern => text.match(pattern)?.[1]?.trim()).find(Boolean) || '';
-  const hostname = value(/(?:^|\n)HEDGECON_HOSTNAME=([^\r\n]+)/im, /(?:^|\n)Hostname\s*[:=]\s*([\w.-]+)/im, /(?:^|\n)System (?:name|hostname)\s*[:=]\s*([\w.-]+)/im, /(?:^|\n)Device name\s*[:=]\s*(\S+)/im, /(?:^|\n)sysName\s*[:=]\s*(\S+)/im, /(?:^|\n)([a-z0-9][\w.-]{0,62})\s+uptime is\b/im, /(?:^|\n)[\w.-]+@([\w.-]+)[\s:~/$#>]/m, /(?:^|\n)([a-z0-9][\w.-]{0,62})[>#]\s*$/im);
+  const hostname = value(/(?:^|\n)HEDGECON_HOSTNAME=([^\r\n]+)/im, /(?:^|\n)(?:Host ?name|Switch Hostname|Current Hostname)\s*[:=]\s*([\w.-]+)/im, /(?:^|\n)System (?:name|hostname)\s*[:=]\s*([\w.-]+)/im, /(?:^|\n)Device name\s*[:=]\s*(\S+)/im, /(?:^|\n)sysName\s*[:=]\s*(\S+)/im, /(?:^|\n)hostname\s+([a-z0-9][\w.-]{0,62})\s*$/im, /(?:^|\n)([a-z0-9][\w.-]{0,62})\s+uptime is\b/im, /(?:^|\n)[\w.-]+@([\w.-]+)[\s:~/$#>]/m, /(?:^|\n)([a-z0-9][\w.-]{0,62})(?:\([^\r\n)]*\))?[>#]\s*$/im);
   const match = (pattern: RegExp, vendor: string, product: string, version: string): DetectedIdentity | null => pattern.test(text) ? { platform: 'network', hostname, vendor, product, version, confidence: 'high', evidence: text.slice(0, 2000) } : null;
-  return match(/SONiC Software Version|SONiC\.\d|sonic[_-]version|sonic-buildimage|build_version\s*:\s*["']?SONiC/i, /dell(?:emc)?/i.test(text) ? 'Dell' : 'SONiC', value(/(?:^|\n)HwSKU\s*:\s*(.+)/im, /(?:^|\n)(?:Platform|Device|onie_platform)\s*[:=]\s*["']?([^\r\n"']+)/im) || 'SONiC network operating system', value(/(?:^|\n)SONiC Software Version\s*:\s*(?:SONiC\.)?([^\s]+)/im, /(?:^|\n)build_version\s*:\s*["']?SONiC\.([^\s"']+)/im, /(?:^|\n)Version\s*:\s*(SONiC\.[^\s]+)/im))
+  return match(/SONiC Software Version|SONiC\.\d|sonic[_-]version|sonic-buildimage|build_version\s*:\s*["']?SONiC|Enterprise SONiC/i, /dell(?:emc)?|enterprise sonic/i.test(text) ? 'Dell' : 'SONiC', value(/(?:^|\n)HwSKU\s*:\s*(.+)/im, /(?:^|\n)(?:Platform|Device|onie_platform|Product Name)\s*[:=]\s*["']?([^\r\n"']+)/im) || 'SONiC network operating system', value(/(?:^|\n)SONiC Software Version\s*:\s*(?:SONiC\.)?([^\s]+)/im, /(?:^|\n)build_version\s*:\s*["']?SONiC\.([^\s"']+)/im, /(?:^|\n)Enterprise SONiC(?: Distribution by Dell Technologies)?\s*[:=]\s*(?:SONiC\.)?([^\s]+)/im))
     || match(/JUNOS|Junos OS|Juniper Networks/i, 'Juniper', value(/(?:^|\n)Model\s*[:=]\s*(\S+)/im, /(?:^|\n)Hardware model\s*[:=]\s*(\S+)/im, /Juniper Networks, Inc\.\s+(\S+)/i) || 'Juniper network device', value(/(?:^|\n)Junos(?: OS(?: Evolved)?)?\s*[:=]\s*(?:version\s*)?\[?([^\]\s,]+)/im, /Junos OS(?: Evolved)?[^\r\n]*?[Vv]ersion\s+([\w.-]+)/i, /JUNOS (?:Base OS|Software Release)[^\[]*\[([^\]]+)\]/i, /(?:^|\n)Version\s*[:=]\s*(\d[\w.-]+)/im))
-    || match(/Cisco IOS|Cisco IOS XE|Cisco IOS XR|Cisco NX-OS|Cisco Nexus Operating System|NXOS:\s*version|Adaptive Security Appliance|Cisco Internetwork Operating System/i, 'Cisco', value(/(?:^|\n)cisco\s+(\S+).*processor/im, /Cisco\s+(IOSv)\b/i, /\b(IOSv) Software\b/i, /(?:^|\n)Hardware:\s*(\S+)/im, /(?:^|\n)Model [Nn](?:umber|ame)\s*:\s*(\S+)/im, /(?:^|\n)Chassis\s*:\s*(\S+)/im) || 'Cisco network device', value(/Cisco IOS(?: XE| XR)? Software[^\r\n]*?Version\s+([\w().-]+)/i, /Cisco IOS Software[^\r\n]*?Version\s+([\w().-]+)/i, /NXOS:\s*version\s+([\w().-]+)/i, /Cisco NX-OS[^\r\n]*?(?:Version|system:)\s*([\w().-]+)/i, /Adaptive Security Appliance Software Version\s+([\w().-]+)/i))
+    || match(/Cisco IOS|Cisco IOS XE|Cisco IOS XR|Cisco NX-OS|Cisco Nexus Operating System|NXOS:\s*version|Adaptive Security Appliance|Cisco Internetwork Operating System|Cisco Firepower Threat Defense|Cisco Secure Firewall/i, 'Cisco', value(/(?:^|\n)cisco\s+((?:WS-)?[A-Z0-9][\w.-]+).*processor/im, /Cisco\s+(IOSv\w*)\b/i, /\b(IOSv\w*) Software\b/i, /(?:^|\n)Hardware:\s*([^,\r\n]+)/im, /(?:^|\n)(?:Model [Nn](?:umber|ame)|System Model ID|PID)\s*[:=]\s*([\w.-]+)/im, /(?:^|\n)(?:Chassis|cisco Nexus\S*)\s*[: ]+([\w.-]+)/im, /(?:^|\n)cisco\s+(Nexus\S*\s+[\w.-]+)\s+chassis/im) || 'Cisco network device', value(/Cisco IOS(?: XE| XR)? Software[^\r\n]*?Version\s+([\w().:-]+)/i, /Cisco IOS XE Software,?\s*Version\s+([\w().:-]+)/i, /Cisco IOS XR Software,?\s*Version\s+([\w().:-]+)/i, /NXOS:\s*version\s+([\w().:-]+)/i, /Cisco NX-OS[^\r\n]*?(?:Version|system:)\s*([\w().:-]+)/i, /Adaptive Security Appliance Software Version\s+([\w().:-]+)/i, /Firepower Threat Defense[^\r\n]*?(?:Version|\bv)\s*([\w().:-]+)/i))
     || match(/Arista|EOS version/i, 'Arista', value(/(?:^|\n)Model name:\s*(\S+)/im, /Arista\s+(\S+)/i) || 'Arista network device', value(/(?:^|\n)Software image version:\s*(\S+)/im, /EOS version\s+(\S+)/i))
     || match(/FortiGate|FortiOS/i, 'Fortinet', value(/Version:\s*(FortiGate-\S+)/i) || 'FortiGate', value(/Version:\s*FortiGate-\S+\s+v([\d.]+)/i, /FortiOS\s+v?([\w.-]+)/i))
     || match(/PAN-OS|Palo Alto Networks/i, 'Palo Alto Networks', value(/(?:^|\n)model:\s*(\S+)/im) || 'Palo Alto firewall', value(/(?:^|\n)sw-version:\s*(\S+)/im, /PAN-OS\s+([\w.-]+)/i))
     || match(/ArubaOS|Aruba Instant|ProCurve|HPE Comware|HP Comware/i, /Aruba/i.test(text) ? 'Aruba' : 'HPE', value(/(?:^|\n)(?:Product|Model)\s*[:=]\s*(\S+)/im) || 'HPE/Aruba network device', value(/(?:ArubaOS|Comware|Version)\s*(?:Software,?)?\s*([\w().-]+)/i))
     || match(/Huawei|VRP \(R\) software/i, 'Huawei', value(/(?:^|\n)HUAWEI\s+(\S+)/im) || 'Huawei network device', value(/VRP.*?Version\s+([\w().-]+)/i))
-    || match(/Dell EMC Networking OS|Dell Networking OS|OS10 Enterprise|Dell Operating System|Dell Application Software|Dell Real Time Operating System/i, 'Dell', value(/(?:^|\n)(?:System Type|Product Name|Chassis Type|Hardware Model)\s*:\s*(.+)/im) || 'Dell network device', value(/(?:^|\n)(?:OS Version|Software Version|Dell Operating System Version|Dell Application Software Version|Version)\s*:\s*(\S+)/im))
+    || match(/Dell(?: EMC)? Networking|SmartFabric OS10|OS10 Enterprise|Enterprise Edition.*OS10|Dell Operating System|Dell Application Software|Dell Real Time Operating System|PowerConnect|FTOS/i, 'Dell', value(/(?:^|\n)(?:System Type|Product Name|Chassis Type|Chassis|Hardware Model|Machine Type|Machine Description|System Model ID|Platform|HwSKU)\s*[:=]\s*(.+)/im, /(?:^|\n)Dell EMC Networking\s+([A-Z]\d[\w.-]+)/im, /(?:^|\n)(PowerConnect\s+\S+)/im) || 'Dell network device', value(/(?:^|\n)(?:OS10 Version|OS Version|Software Version|Dell Operating System Version|Dell Application Software Version|Build Version|Version)\s*:\s*(\S+)/im, /SmartFabric OS10[^\r\n]*?[Vv]ersion\s*[: ]\s*(\S+)/im, /FTOS[^\r\n]*?[Vv]ersion\s*[: ]\s*(\S+)/im))
     || match(/ExtremeXOS|Extreme Networks|VOSS Software/i, 'Extreme Networks', value(/(?:^|\n)(?:System Type|Platform)\s*:\s*(.+)/im) || 'Extreme network device', value(/(?:ExtremeXOS version|VOSS Software Version)\s*[: ]\s*(\S+)/i))
     || match(/RouterOS|MikroTik/i, 'MikroTik', value(/(?:^|\n)board-name:\s*(.+)/im, /(?:^|\n)model:\s*(.+)/im) || 'MikroTik device', value(/(?:^|\n)version:\s*(\S+)/im, /RouterOS\s+([\w.-]+)/i))
     || match(/EdgeOS|VyOS|Ubiquiti/i, /VyOS/i.test(text) ? 'VyOS' : 'Ubiquiti', value(/(?:^|\n)HW model:\s*(.+)/im) || (/VyOS/i.test(text) ? 'VyOS router' : 'Ubiquiti device'), value(/(?:EdgeOS|VyOS)\s+(?:Version:\s*)?([\w.-]+)/i))
@@ -651,12 +651,62 @@ ipcMain.handle('ssh:identify', async (_event, connectionId: string, observedText
   const connection = connections.get(connectionId); if (!connection) throw new Error('The SSH connection is not active.'); if (observedText !== undefined && (typeof observedText !== 'string' || observedText.length > 65536)) throw new Error('Invalid observed terminal text.');
   const completeNetworkIdentity = (identity: DetectedIdentity | null) => Boolean(identity?.hostname && identity.version && !/network device|network operating system/i.test(identity.product));
   const passive = networkIdentity(observedText || ''); if (completeNetworkIdentity(passive)) return passive!;
-  if (runProbes !== true) return { platform: 'unspecified', hostname: '', vendor: '', product: 'Unknown SSH device', version: '', confidence: 'low', evidence: 'passive-discovery-incomplete' };
-  const networkCommands = ['show version', 'show platform summary', 'show hostname', 'printf "HEDGECON_HOSTNAME="; hostname', 'show version | no-more', 'show system information | no-more', 'get system status', 'show system info', 'display version', '/system resource print without-paging']; let networkOutput = '';
-  let emptyExecProbes = 0;
-  for (const command of networkCommands) { const output = await sshExec(connection.client, command, 3500).catch(() => ''); networkOutput += `\n${output}`; if (!output.trim()) emptyExecProbes += 1; else emptyExecProbes = 0; const detected = networkIdentity(`${observedText || ''}\n${networkOutput}`); if (completeNetworkIdentity(detected)) return detected!; if (emptyExecProbes >= 2) break; }
+  let networkOutput = `\n${await sshExec(connection.client, 'show version', 3500).catch(() => '')}`;
+  let backgroundDetected = networkIdentity(`${observedText || ''}\n${networkOutput}`);
+  const backgroundEvidence = `${observedText || ''}\n${networkOutput}`;
+  const junosRootPrompt = /(?:^|\n)root@[\w.-]+(?::[^\r\n]*)?[#%]\s*$/im.test(backgroundEvidence);
+  const backgroundCommands = backgroundDetected?.vendor === 'Juniper' || /JUNOS|Juniper/i.test(backgroundEvidence)
+    ? junosRootPrompt
+      ? [`cli -c 'show version | no-more'`, `cli -c 'show chassis hardware | no-more'`, `cli -c 'show system information | no-more'`]
+      : ['show version | no-more', 'show chassis hardware | no-more', 'show system information | no-more']
+    : backgroundDetected?.vendor === 'Dell' || /Dell|SmartFabric OS10|OS10 Enterprise|FTOS/i.test(backgroundEvidence)
+      ? ['show system', 'show inventory']
+      : backgroundDetected?.vendor === 'Cisco' || /Cisco|NXOS|Adaptive Security Appliance|Firepower/i.test(backgroundEvidence)
+        ? ['show inventory', 'show platform', 'show running-config | include ^hostname']
+        : ['show inventory', 'show hostname'];
+  for (const command of backgroundCommands) {
+    networkOutput += `\n${await sshExec(connection.client, command, 3500).catch(() => '')}`;
+    backgroundDetected = networkIdentity(`${observedText || ''}\n${networkOutput}`);
+    if (completeNetworkIdentity(backgroundDetected)) return backgroundDetected!;
+  }
   const execDetected = networkIdentity(`${observedText || ''}\n${networkOutput}`);
-  if (!completeNetworkIdentity(execDetected)) { let shellOutput = ''; try { shellOutput = await sshShellProbe(connection.client, ['terminal length 0', 'terminal width 511', 'show version', 'show inventory', 'show platform', 'show hostname'], 9000); } catch { /* Some network devices permit only their existing interactive channel. */ } let shellDetected = networkIdentity(`${observedText || ''}\n${networkOutput}\n${shellOutput}`); if (!completeNetworkIdentity(shellDetected) && connection.stream) { const interactiveCommands = shellDetected?.vendor === 'Juniper' || /JUNOS|Juniper/i.test(`${observedText || ''}\n${shellOutput}`) ? ['show version | no-more', 'show chassis hardware | no-more', 'show system information | no-more'] : ['show version', 'show inventory']; for (const command of interactiveCommands) { const output = await sshInteractiveCapture(connectionId, connection.stream, command, 14000, 65536, false).catch(() => ''); shellOutput += `\n${output}`; shellDetected = networkIdentity(`${observedText || ''}\n${networkOutput}\n${shellOutput}`); if (completeNetworkIdentity(shellDetected)) return shellDetected!; } } networkOutput += `\n${shellOutput}`; if (shellDetected) return { ...shellDetected, confidence: shellDetected.version || !/network device/i.test(shellDetected.product) ? 'high' : 'medium' }; }
+  if (runProbes !== true) {
+    if (execDetected) return { ...execDetected, confidence: execDetected.version || !/network device|network operating system/i.test(execDetected.product) ? 'high' : 'medium' };
+    const windows = await sshExec(connection.client, 'powershell -NoProfile -NonInteractive -Command "$o=Get-CimInstance Win32_OperatingSystem; Write-Output (\'HEDGECON_WINDOWS|\'+$env:COMPUTERNAME+\'|\'+$o.Caption+\'|\'+$o.Version)"', 4500).catch(() => '');
+    const windowsMatch = windows.match(/(?:^|\n)HEDGECON_WINDOWS\|([a-z0-9][\w.-]{0,62})\|(Microsoft Windows[^\r\n|]+)\|(\d[\d.]+)/im); if (windowsMatch) return { platform: 'windows', hostname: windowsMatch[1].trim(), vendor: 'Microsoft', product: windowsMatch[2].trim(), version: windowsMatch[3].trim(), confidence: 'high', evidence: windowsMatch[0].slice(0, 500) };
+    const unix = await sshExec(connection.client, `sh -c 'cat /etc/sonic/sonic_version.yml 2>/dev/null; cat /host/machine.conf 2>/dev/null; cat /etc/os-release 2>/dev/null; printf "HEDGECON_HOSTNAME="; hostname 2>/dev/null; printf "HEDGECON_UNAME="; uname -srm 2>/dev/null'`, 4500).catch(() => '');
+    const unixNetworkDetected = networkIdentity(`${observedText || ''}\n${networkOutput}\n${unix}`); if (unixNetworkDetected) return unixNetworkDetected;
+    if (/HEDGECON_UNAME=Linux/i.test(unix) || /(?:^|\n)(?:ID|NAME)=/m.test(unix)) { const name = unix.match(/(?:^|\n)PRETTY_NAME=[\"']?([^\r\n\"']+)/)?.[1] || unix.match(/(?:^|\n)NAME=[\"']?([^\r\n\"']+)/)?.[1] || 'Linux'; const version = unix.match(/(?:^|\n)VERSION_ID=[\"']?([^\r\n\"']+)/)?.[1] || unix.match(/HEDGECON_UNAME=Linux\s+([^\r\n]+)/)?.[1] || ''; return { platform: 'linux', hostname: unix.match(/HEDGECON_HOSTNAME=([^\r\n]+)/)?.[1]?.trim() || '', vendor: name.split(/\s+/)[0], product: name.trim(), version: version.trim(), confidence: 'high', evidence: unix.slice(0, 1000) }; }
+    return { platform: 'unspecified', hostname: '', vendor: '', product: 'Unknown SSH device', version: '', confidence: 'low', evidence: cleanProbeText(`${observedText || ''}\n${networkOutput}\n${windows}\n${unix}`).slice(0, 2000) };
+  }
+  if (!completeNetworkIdentity(execDetected)) {
+    let shellOutput = '';
+    const knownJunosShell = passive?.vendor === 'Juniper' && /(?:^|\n)root@[\w.-]+(?::[^\r\n]*)?[#%]\s*$/im.test(observedText || '');
+    const shellCommands = knownJunosShell
+      ? [`cli -c 'show version | no-more'`, `cli -c 'show chassis hardware | no-more'`, `cli -c 'show system information | no-more'`]
+      : ['terminal length 0', 'terminal width 511', 'terminal pager 0', 'show version', 'show inventory', 'show platform', 'show hostname'];
+    try { shellOutput = await sshShellProbe(connection.client, shellCommands, 11000); } catch { /* Some network devices permit only their existing interactive channel. */ }
+    let shellDetected = networkIdentity(`${observedText || ''}\n${networkOutput}\n${shellOutput}`);
+    if (!completeNetworkIdentity(shellDetected) && connection.stream) {
+      const probeEvidence = `${observedText || ''}\n${networkOutput}\n${shellOutput}`;
+      const junosDevice = shellDetected?.vendor === 'Juniper' || /JUNOS|Juniper/i.test(probeEvidence);
+      const junosRootShell = junosDevice && /(?:^|\n)root@[\w.-]+(?::[^\r\n]*)?[#%]\s*$/im.test(probeEvidence);
+      const interactiveCommands = junosDevice
+        ? [...(junosRootShell ? ['cli'] : []), 'show version | no-more', 'show chassis hardware | no-more', 'show system information | no-more']
+        : shellDetected?.vendor === 'Dell' || /Dell|SmartFabric OS10|OS10 Enterprise|FTOS/i.test(probeEvidence)
+          ? ['show version', 'show system', 'show inventory']
+          : shellDetected?.vendor === 'Cisco' || /Cisco|NXOS|Adaptive Security Appliance|Firepower/i.test(probeEvidence)
+            ? ['show version', 'show inventory', 'show platform', 'show running-config | include ^hostname']
+            : ['show version', 'show inventory'];
+      for (const command of interactiveCommands) {
+        const output = await sshInteractiveCapture(connectionId, connection.stream, command, 14000, 65536, false).catch(() => ''); shellOutput += `\n${output}`;
+        shellDetected = networkIdentity(`${observedText || ''}\n${networkOutput}\n${shellOutput}`);
+        if (completeNetworkIdentity(shellDetected)) return shellDetected!;
+      }
+    }
+    networkOutput += `\n${shellOutput}`;
+    if (shellDetected) return { ...shellDetected, confidence: shellDetected.version || !/network device/i.test(shellDetected.product) ? 'high' : 'medium' };
+  }
   const networkDetected = networkIdentity(`${observedText || ''}\n${networkOutput}`); if (networkDetected && !['Dell', 'SONiC'].includes(networkDetected.vendor)) return { ...networkDetected, confidence: networkDetected.version || !/network device/i.test(networkDetected.product) ? 'high' : 'medium' };
   const windows = await sshExec(connection.client, 'powershell -NoProfile -NonInteractive -Command "$o=Get-CimInstance Win32_OperatingSystem; Write-Output (\'HEDGECON_WINDOWS|\'+$env:COMPUTERNAME+\'|\'+$o.Caption+\'|\'+$o.Version)"', 4500).catch(() => '');
   const windowsMatch = windows.match(/(?:^|\n)HEDGECON_WINDOWS\|([a-z0-9][\w.-]{0,62})\|(Microsoft Windows[^\r\n|]+)\|(\d[\d.]+)/im); if (windowsMatch) return { platform: 'windows', hostname: windowsMatch[1].trim(), vendor: 'Microsoft', product: windowsMatch[2].trim(), version: windowsMatch[3].trim(), confidence: 'high', evidence: windowsMatch[0].slice(0, 500) };
