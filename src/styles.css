@@ -35,6 +35,7 @@
 .session-table-wrap .table-connect-actions button[title^="Open RDP"] { border-color: #5a466f; background: #21182c; color: #c4a4e2; }
 .session-table-wrap .table-connect-actions button[title^="Open VNC"] { border-color: #65533b; background: #292116; color: #dfbf83; }
 .session-table-wrap .table-connect-actions button[title^="Open serial"] { border-color: #3e586b; background: #14232d; color: #91bfdc; }
+.session-sort-heading{display:flex;width:100%;align-items:center;justify-content:space-between;gap:7px;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-align:left;text-transform:inherit}.session-sort-heading span{color:#435766;font-size:8px}.session-sort-heading:hover,.session-sort-heading.active{color:#75d7b5}.session-sort-heading.active span{color:#75d7b5}
 .table-row-actions { position: relative; }
 .session-status-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: #687b8d; box-shadow: 0 0 6px #687b8d88; }
 .session-status-dot.status-online { background: #70d6b2; box-shadow: 0 0 8px #70d6b2; }

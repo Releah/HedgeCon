@@ -1,4 +1,21 @@
-# HedgeCon v0.3.12
+# HedgeCon v0.3.13
+
+## Sortable session tables
+
+- Sort compact and detailed session tables by clicking their data-column headings.
+- Toggle between ascending and descending order with a visible direction indicator.
+- Sort by reachability, session name, address, services, detected hostname, make, model or operating system, and version.
+- Use natural numeric comparison for addresses and version-like values.
+- Keep Connect and Actions as controls rather than misleading sortable columns.
+- Use reachability wording that applies correctly to both direct ICMP checks and SOCKS5 TCP monitoring.
+
+Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.12
 
 ## Routed SSH, better profiling and flexible session views
 

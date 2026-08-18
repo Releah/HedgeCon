@@ -2207,7 +2207,9 @@ type WorkspaceTabGroup = { id: string; name: string; colour: string; collapsed: 
 const tabGroupColours = ["#69cfae", "#69aee8", "#c38bea", "#e2aa62", "#e37d82", "#a7be68"];
 type TabReachability = "checking" | "online" | "offline" | "unavailable";
 type SessionLibraryView = "cards" | "table" | "details";
-const reachabilityTitle = (status: TabReachability) => status === "online" ? "Host responding to ICMP" : status === "offline" ? "Host not responding to ICMP" : status === "checking" ? "Checking ICMP reachability" : "ICMP unavailable for this session";
+type SessionSortKey = "status" | "name" | "address" | "services" | "hostname" | "vendor" | "product" | "version";
+type SessionTableSort = { key: SessionSortKey; direction: "asc" | "desc" };
+const reachabilityTitle = (status: TabReachability) => status === "online" ? "Host is reachable" : status === "offline" ? "Host is not responding" : status === "checking" ? "Checking reachability" : "Reachability unavailable for this session";
 
 export default function App() {
   const [data, setData] = useState<AppData>(blankData);
@@ -2224,6 +2226,7 @@ export default function App() {
     const saved = Number(localStorage.getItem("hedgecon-session-card-size"));
     return Number.isFinite(saved) && saved >= 220 && saved <= 360 ? saved : 270;
   });
+  const [sessionTableSort, setSessionTableSort] = useState<SessionTableSort | null>(null);
   const [editing, setEditing] = useState<Session | null | undefined>();
   const [tabs, setTabs] = useState<WorkspaceTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -2401,6 +2404,35 @@ export default function App() {
       ),
     [data, selectedFolder, sessionSearch],
   );
+  const tableSessions = useMemo(() => {
+    if (!sessionTableSort) return visible;
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    const statusOrder: Record<TabReachability, number> = { online: 0, checking: 1, offline: 2, unavailable: 3 };
+    const value = (session: Session) => {
+      const identity = session.detectedIdentity;
+      switch (sessionTableSort.key) {
+        case "status": return statusOrder[hostReachability[session.host.trim()] ?? (session.host.trim() ? "checking" : "unavailable")];
+        case "name": return session.name;
+        case "address": return hasService(session, "serial") && !session.host ? session.serialPath ?? "" : session.host;
+        case "services": return sessionServices(session).map(service => service.toUpperCase()).join(" ");
+        case "hostname": return identity?.hostname ?? "";
+        case "vendor": return identity?.vendor ?? "";
+        case "product": return identity?.product ?? "";
+        case "version": return identity?.version ?? "";
+      }
+    };
+    return [...visible].sort((left, right) => {
+      const leftValue = value(left); const rightValue = value(right);
+      const comparison = typeof leftValue === "number" && typeof rightValue === "number" ? leftValue - rightValue : collator.compare(String(leftValue), String(rightValue));
+      return (comparison || collator.compare(left.name, right.name) || collator.compare(left.id, right.id)) * (sessionTableSort.direction === "asc" ? 1 : -1);
+    });
+  }, [visible, sessionTableSort, hostReachability]);
+  const toggleSessionSort = (key: SessionSortKey) => setSessionTableSort(current => current?.key === key ? { key, direction: current.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" });
+  const sortableSessionHeading = (key: SessionSortKey, label: string) => {
+    const active = sessionTableSort?.key === key;
+    const ariaSort: "none" | "ascending" | "descending" = active ? sessionTableSort.direction === "asc" ? "ascending" : "descending" : "none";
+    return <th aria-sort={ariaSort}><button type="button" className={`session-sort-heading${active ? " active" : ""}`} onClick={() => toggleSessionSort(key)} title={`Sort by ${label}`}>{label}<span aria-hidden="true">{active ? sessionTableSort.direction === "asc" ? "▲" : "▼" : "↕"}</span></button></th>;
+  };
   useEffect(() => {
     const monitoredSessions = new Map<string, Session>();
     for (const tab of tabs) if (tab.session.host.trim()) monitoredSessions.set(tab.session.host.trim(), tab.session);
@@ -3477,7 +3509,7 @@ export default function App() {
                     </div>
                   </article>
                 ))}
-              </div> : <div className={`session-table-wrap ${sessionLibraryView === "details" ? "detailed" : "compact"}`}><table className="session-table"><thead><tr><th>Status</th><th>Session</th><th>Address</th><th>Services</th>{sessionLibraryView === "details" && <><th>Detected hostname</th><th>Make</th><th>Model / OS</th><th>Version</th></>}<th>Connect</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{visible.map(s => { const reachability = hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable"); const identity = s.detectedIdentity; return <tr key={s.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/session-id", s.id); }} onDoubleClick={() => openPreferredService(s)}><td><span className={`session-status-dot status-${reachability}`} title={reachabilityTitle(reachability)} aria-label={reachabilityTitle(reachability)} /></td><td><strong>{s.name}</strong>{sessionLibraryView === "details" && <small>{s.username || "No username"}</small>}</td><td><code>{hasService(s, "serial") && !s.host ? s.serialPath || "—" : s.host || "—"}</code></td><td><span className="table-services">{sessionServices(s).map(service => service.toUpperCase()).join(" · ")}</span></td>{sessionLibraryView === "details" && <><td>{identity?.hostname || "TBC"}</td><td>{identity?.vendor || "TBC"}</td><td>{identity?.product || "TBC"}</td><td>{identity?.version || "TBC"}</td></>}<td><div className="table-connect-actions">{hasService(s, "ssh") && <button onClick={() => void connect(s)} title={`Open SSH to ${s.name}`}>SSH</button>}{hasService(s, "web") && <button onClick={() => openWebTab(s)} title={`Open web session for ${s.name}`}>Web</button>}{hasService(s, "rdp") && <button onClick={() => void openRdp(s)} title={`Open RDP to ${s.name}`}>RDP</button>}{hasService(s, "vnc") && <button onClick={() => openVncTab(s)} title={`Open VNC to ${s.name}`}>VNC</button>}{hasService(s, "serial") && <button onClick={() => openSerialTab(s)} title={`Open serial session for ${s.name}`}>Serial</button>}</div></td><td><div className="table-row-actions"><CardAction label="Edit session" onClick={() => setEditing(s)}><EditIcon /></CardAction><CardAction label="Clone session" onClick={() => setEditing({ ...s, id: "", name: `${s.name} copy` })}><CloneIcon /></CardAction>{hasService(s, "ssh") && <CardAction label="Forget fingerprint" onClick={() => void forgetHostKey(s)}><ForgetFingerprintIcon /></CardAction>}<CardAction label="Delete session" danger onClick={() => remove(s)}><DeleteIcon /></CardAction></div></td></tr>; })}</tbody></table></div>
+              </div> : <div className={`session-table-wrap ${sessionLibraryView === "details" ? "detailed" : "compact"}`}><table className="session-table"><thead><tr>{sortableSessionHeading("status", "Status")}{sortableSessionHeading("name", "Session")}{sortableSessionHeading("address", "Address")}{sortableSessionHeading("services", "Services")}{sessionLibraryView === "details" && <>{sortableSessionHeading("hostname", "Detected hostname")}{sortableSessionHeading("vendor", "Make")}{sortableSessionHeading("product", "Model / OS")}{sortableSessionHeading("version", "Version")}</>}<th>Connect</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{tableSessions.map(s => { const reachability = hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable"); const identity = s.detectedIdentity; return <tr key={s.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/session-id", s.id); }} onDoubleClick={() => openPreferredService(s)}><td><span className={`session-status-dot status-${reachability}`} title={reachabilityTitle(reachability)} aria-label={reachabilityTitle(reachability)} /></td><td><strong>{s.name}</strong>{sessionLibraryView === "details" && <small>{s.username || "No username"}</small>}</td><td><code>{hasService(s, "serial") && !s.host ? s.serialPath || "—" : s.host || "—"}</code></td><td><span className="table-services">{sessionServices(s).map(service => service.toUpperCase()).join(" · ")}</span></td>{sessionLibraryView === "details" && <><td>{identity?.hostname || "TBC"}</td><td>{identity?.vendor || "TBC"}</td><td>{identity?.product || "TBC"}</td><td>{identity?.version || "TBC"}</td></>}<td><div className="table-connect-actions">{hasService(s, "ssh") && <button onClick={() => void connect(s)} title={`Open SSH to ${s.name}`}>SSH</button>}{hasService(s, "web") && <button onClick={() => openWebTab(s)} title={`Open web session for ${s.name}`}>Web</button>}{hasService(s, "rdp") && <button onClick={() => void openRdp(s)} title={`Open RDP to ${s.name}`}>RDP</button>}{hasService(s, "vnc") && <button onClick={() => openVncTab(s)} title={`Open VNC to ${s.name}`}>VNC</button>}{hasService(s, "serial") && <button onClick={() => openSerialTab(s)} title={`Open serial session for ${s.name}`}>Serial</button>}</div></td><td><div className="table-row-actions"><CardAction label="Edit session" onClick={() => setEditing(s)}><EditIcon /></CardAction><CardAction label="Clone session" onClick={() => setEditing({ ...s, id: "", name: `${s.name} copy` })}><CloneIcon /></CardAction>{hasService(s, "ssh") && <CardAction label="Forget fingerprint" onClick={() => void forgetHostKey(s)}><ForgetFingerprintIcon /></CardAction>}<CardAction label="Delete session" danger onClick={() => remove(s)}><DeleteIcon /></CardAction></div></td></tr>; })}</tbody></table></div>
             ) : (
               <div className="empty">
                 <div>›_</div>
