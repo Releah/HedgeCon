@@ -19,7 +19,7 @@ jobs:
       release_tag: ${{ steps.version.outputs.release_tag }}
     steps:
       - name: Check out source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Read release version
         id: version
@@ -54,7 +54,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up pnpm and dependency cache
         uses: pnpm/action-setup@v6
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up pnpm and dependency cache
         uses: pnpm/action-setup@v6
@@ -124,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Publish completed GitHub Release and tag
         shell: bash
