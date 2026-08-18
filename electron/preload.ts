@@ -94,6 +94,7 @@ contextBridge.exposeInMainWorld('hedge', {
   },
   startPing: (host: string, monitorId: string) => ipcRenderer.invoke('ping:start', host, monitorId),
   startTcpMonitor: (host: string, port: number, monitorId: string) => ipcRenderer.invoke('tcp-monitor:start', host, port, monitorId),
+  startSocksMonitor: (proxyHost: string, proxyPort: number, host: string, port: number, monitorId: string) => ipcRenderer.invoke('socks-monitor:start', proxyHost, proxyPort, host, port, monitorId),
   stopPing: (id: string) => ipcRenderer.send('ping:stop', id),
   onPingSample: (callback: (sample: unknown) => void) => {
     const listener = (_: unknown, sample: unknown) => callback(sample);

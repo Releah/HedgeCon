@@ -17,9 +17,10 @@ type RangeId = typeof ranges[number]['id'];
 
 const duration = (milliseconds: number) => milliseconds < 60000 ? `${Math.max(1, Math.round(milliseconds / 1000))}s` : `${Math.floor(milliseconds / 60000)}m ${Math.round((milliseconds % 60000) / 1000)}s`;
 
-export default function PingMonitor({ host, port, onClose }: { host: string; port: number; onClose: () => void }) {
+export default function PingMonitor({ host, port, proxyHost, proxyPort, onClose }: { host: string; port: number; proxyHost?: string; proxyPort?: number; onClose: () => void }) {
   const monitorId = useRef(crypto.randomUUID());
-  const [mode, setMode] = useState<'ping' | 'tcp'>('ping');
+  const proxied = Boolean(proxyHost && proxyPort);
+  const [mode, setMode] = useState<'ping' | 'tcp'>(proxied ? 'tcp' : 'ping');
   const [range, setRange] = useState<RangeId>('live');
   const [samples, setSamples] = useState<PingSample[]>([]);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -35,9 +36,11 @@ export default function PingMonitor({ host, port, onClose }: { host: string; por
       if (!sample.reachable && outageStartRef.current === null) { outageStartRef.current = sample.timestamp; setDownSince(sample.timestamp); }
       else if (sample.reachable && outageStartRef.current !== null) { setLastOutage(sample.timestamp - outageStartRef.current); outageStartRef.current = null; setDownSince(null); }
     });
-    if (mode === 'ping') void window.hedge.startPing(host, monitorId.current); else void window.hedge.startTcpMonitor(host, port, monitorId.current);
+    if (proxied) void window.hedge.startSocksMonitor(proxyHost!, proxyPort!, host, port, monitorId.current);
+    else if (mode === 'ping') void window.hedge.startPing(host, monitorId.current);
+    else void window.hedge.startTcpMonitor(host, port, monitorId.current);
     return () => { remove(); window.hedge.stopPing(monitorId.current); };
-  }, [host, port, mode]);
+  }, [host, port, mode, proxied, proxyHost, proxyPort]);
 
   const visibleSamples = useMemo(() => {
     if (range === 'live') return samples.slice(-LIVE_SAMPLES);
@@ -83,12 +86,12 @@ export default function PingMonitor({ host, port, onClose }: { host: string; por
   return <section className="ping-monitor" style={{ flexBasis: height }}>
     <div className="ping-monitor-divider" onPointerDown={beginResize} title="Drag to resize monitor" />
     <header>
-      <div className="monitor-mode"><button className={mode === 'ping' ? 'active' : ''} onClick={() => setMode('ping')}>Ping</button><button className={mode === 'tcp' ? 'active' : ''} onClick={() => setMode('tcp')}>TCP :{port}</button></div>
-      <div className={`ping-state ${metrics.reachable === false ? 'offline' : metrics.reachable === true ? 'online' : ''}`}><span />{metrics.reachable === null ? `Starting ${mode === 'ping' ? 'ping' : 'TCP'}…` : metrics.reachable ? 'Online' : `Unresponsive for ${duration(Date.now() - (metrics.downSince ?? Date.now()))}`}</div>
-      <div className="ping-stats"><span>Target <strong>{host}{mode === 'tcp' ? `:${port}` : ''}</strong></span><span>Now <strong>{latest?.latencyMs === null || latest?.latencyMs === undefined ? '—' : `${latest.latencyMs.toFixed(1)} ms`}</strong></span><span>Average <strong>{metrics.average === null ? '—' : `${metrics.average.toFixed(1)} ms`}</strong></span>{metrics.lastOutage !== null && <span>Last outage <strong>{duration(metrics.lastOutage)}</strong></span>}</div>
+      <div className="monitor-mode"><button disabled={proxied} className={!proxied && mode === 'ping' ? 'active' : ''} onClick={() => setMode('ping')} title={proxied ? 'ICMP cannot travel through a SOCKS5 proxy.' : undefined}>Ping</button><button className={mode === 'tcp' ? 'active' : ''} onClick={() => setMode('tcp')}>{proxied ? 'SOCKS5' : 'TCP'} :{port}</button></div>
+      <div className={`ping-state ${metrics.reachable === false ? 'offline' : metrics.reachable === true ? 'online' : ''}`}><span />{metrics.reachable === null ? `Starting ${proxied ? 'SOCKS5' : mode === 'ping' ? 'ping' : 'TCP'}…` : metrics.reachable ? 'Online' : `Unresponsive for ${duration(Date.now() - (metrics.downSince ?? Date.now()))}`}</div>
+      <div className="ping-stats"><span>Target <strong>{host}{(proxied || mode === 'tcp') ? `:${port}` : ''}</strong></span>{proxied && <span>Via <strong>{proxyHost}:{proxyPort}</strong></span>}<span>Now <strong>{latest?.latencyMs === null || latest?.latencyMs === undefined ? '—' : `${latest.latencyMs.toFixed(1)} ms`}</strong></span><span>Average <strong>{metrics.average === null ? '—' : `${metrics.average.toFixed(1)} ms`}</strong></span>{metrics.lastOutage !== null && <span>Last outage <strong>{duration(metrics.lastOutage)}</strong></span>}</div>
       <div className="monitor-range" aria-label="Monitor time range">{ranges.map(option => <button key={option.id} className={range === option.id ? 'active' : ''} onClick={() => setRange(option.id)} title={option.id === 'max' ? 'All samples recorded by this monitor' : option.id === 'live' ? `Latest ${LIVE_SAMPLES} samples` : `Last ${option.label}`}>{option.label}</button>)}</div>
       <button onClick={onClose} title="Close monitor">×</button>
     </header>
-    <div className="ping-chart"><svg viewBox="0 0 600 100" preserveAspectRatio="none" aria-label={`${mode === 'ping' ? 'Ping' : 'TCP'} response graph`}><line x1="0" y1="88" x2="600" y2="88" /><line x1="0" y1="50" x2="600" y2="50" />{drawnSamples.map((sample, index) => sample.reachable ? null : <rect key={`${sample.timestamp}-${index}`} className="ping-outage" x={Math.max(0, index / Math.max(drawnSamples.length - 1, 1) * 600 - 3)} y="6" width="7" height="82" />)}<path d={path} /></svg>{visibleSamples.some(sample => !sample.reachable) && <div className="outage-label">Red bands indicate no response</div>}</div>
+    <div className="ping-chart"><svg viewBox="0 0 600 100" preserveAspectRatio="none" aria-label={`${proxied ? 'SOCKS5' : mode === 'ping' ? 'Ping' : 'TCP'} response graph`}><line x1="0" y1="88" x2="600" y2="88" /><line x1="0" y1="50" x2="600" y2="50" />{drawnSamples.map((sample, index) => sample.reachable ? null : <rect key={`${sample.timestamp}-${index}`} className="ping-outage" x={Math.max(0, index / Math.max(drawnSamples.length - 1, 1) * 600 - 3)} y="6" width="7" height="82" />)}<path d={path} /></svg>{visibleSamples.some(sample => !sample.reachable) && <div className="outage-label">Red bands indicate no response</div>}</div>
   </section>;
 }

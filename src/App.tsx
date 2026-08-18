@@ -2402,12 +2402,19 @@ export default function App() {
     [data, selectedFolder, sessionSearch],
   );
   useEffect(() => {
-    const hosts = new Set(tabs.map(tab => tab.session.host.trim()).filter(Boolean));
-    if (libraryOpen || !tabs.length) for (const session of visible) if (session.host.trim()) hosts.add(session.host.trim());
-    setHostReachability(current => Object.fromEntries([...hosts].map(host => [host, current[host] ?? "checking"])));
+    const monitoredSessions = new Map<string, Session>();
+    for (const tab of tabs) if (tab.session.host.trim()) monitoredSessions.set(tab.session.host.trim(), tab.session);
+    if (libraryOpen || !tabs.length) for (const session of visible) if (session.host.trim()) monitoredSessions.set(session.host.trim(), session);
+    setHostReachability(current => Object.fromEntries([...monitoredSessions.keys()].map(host => [host, current[host] ?? "checking"])));
     const monitorHosts = new Map<string, string>(); let disposed = false;
     const remove = window.hedge.onPingSample((sample: PingSample) => { const host = monitorHosts.get(sample.monitorId); if (!host) return; setHostReachability(current => ({ ...current, [host]: sample.reachable ? "online" : "offline" })); });
-    for (const host of hosts) { const monitorId = `status-${crypto.randomUUID()}`; monitorHosts.set(monitorId, host); void window.hedge.startPing(host, monitorId).catch(() => { if (!disposed) setHostReachability(current => ({ ...current, [host]: "offline" })); }); }
+    for (const [host, session] of monitoredSessions) {
+      const monitorId = `status-${crypto.randomUUID()}`; monitorHosts.set(monitorId, host);
+      const start = session.sshProxyEnabled && session.sshProxyHost && session.sshProxyPort
+        ? window.hedge.startSocksMonitor(session.sshProxyHost, session.sshProxyPort, host, session.port, monitorId)
+        : window.hedge.startPing(host, monitorId);
+      void start.catch(() => { if (!disposed) setHostReachability(current => ({ ...current, [host]: "offline" })); });
+    }
     return () => { disposed = true; remove(); for (const monitorId of monitorHosts.keys()) window.hedge.stopPing(monitorId); };
   }, [tabs, visible, libraryOpen]);
   const connect = async (session: Session) => {

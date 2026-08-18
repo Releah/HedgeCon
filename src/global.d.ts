@@ -89,6 +89,7 @@ declare global {
     onHostKey(callback: (prompt: HostKeyPrompt) => void): () => void;
     startPing(host: string, monitorId: string): Promise<{ monitorId: string }>;
     startTcpMonitor(host: string, port: number, monitorId: string): Promise<{ monitorId: string }>;
+    startSocksMonitor(proxyHost: string, proxyPort: number, host: string, port: number, monitorId: string): Promise<{ monitorId: string }>;
     stopPing(monitorId: string): void;
     onPingSample(callback: (sample: PingSample) => void): () => void;
     createBrowser(tabId: string, url: string, bounds: { x: number; y: number; width: number; height: number }, darkMode: boolean): Promise<boolean>;
