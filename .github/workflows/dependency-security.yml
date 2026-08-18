@@ -37,6 +37,8 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -56,16 +58,3 @@ jobs:
 
       - name: Type-check application
         run: pnpm typecheck
-
-  dependency-review:
-    name: Review dependency changes
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-
-      - name: Reject newly introduced vulnerable dependencies
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high

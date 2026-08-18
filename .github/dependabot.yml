@@ -14,6 +14,10 @@ updates:
       - security
     commit-message:
       prefix: deps
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
     groups:
       npm-minor-and-patch:
         applies-to: version-updates
@@ -40,6 +44,10 @@ updates:
       - github-actions
     commit-message:
       prefix: ci
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
     groups:
       actions-minor-and-patch:
         applies-to: version-updates
