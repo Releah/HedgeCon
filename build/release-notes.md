@@ -1,4 +1,26 @@
-# HedgeCon v0.3.12-experimental.5
+# HedgeCon v0.3.12
+
+## Routed SSH, better profiling and flexible session views
+
+- Add an explicit per-session option to route SSH connections through a SOCKS5 proxy.
+- Default new SOCKS5 tunnel listeners and routed SSH sessions to the standard local port `1080`, while keeping the port configurable.
+- Add end-to-end tunnel verification, safe connection-refusal handling and SOCKS5-aware SSH reachability monitoring.
+- Preserve normal target host-key verification and SSH authentication through the proxy.
+- Preserve local proxy routing preferences when a shared inventory is refreshed without publishing machine-specific settings to inventory YAML.
+- Add adjustable card, compact table and detailed table views to the session library.
+- Show detected hostname, vendor, model or operating system, version, service actions and reachability in table views.
+- Improve bounded automatic discovery for Dell OS9/OS10/Enterprise SONiC, Cisco IOS/IOS-XE/IOS-XR/NX-OS/ASA/Firepower and Juniper Junos devices.
+- Keep background discovery separate from the visible terminal and support Junos root-shell discovery through `cli`.
+- Make terminal background-colour selection reliable while moving between the toggle and popup.
+- Add weekly dependency audits, pull-request dependency review and Dependabot update configuration.
+
+For routed sessions, start the gateway SOCKS5 tunnel before opening a session configured to use its local listener. Windows binaries are unsigned.
+
+---
+
+# Previous experimental release
+
+## v0.3.12-experimental.5
 
 ## Usable SOCKS5 SSH routing
 
