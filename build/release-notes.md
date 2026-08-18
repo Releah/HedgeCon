@@ -1,4 +1,19 @@
-# HedgeCon v0.3.12-experimental.3
+# HedgeCon v0.3.12-experimental.4
+
+## Reliable terminal colour selection
+
+- Keep the terminal colour menu open while the pointer is over either the colour toggle or popup.
+- Add a short grace period while moving across the gap between the toggle and colour choices.
+- Cancel pending closure when the pointer returns to the menu.
+- Continue closing immediately after a background colour is selected.
+
+This experimental maintenance release fixes intermittent colour-menu closure without changing the established click-to-toggle behaviour. Windows binaries are unsigned.
+
+---
+
+# Previous experimental release
+
+## v0.3.12-experimental.3
 
 ## Automatic multi-vendor profiling
 
