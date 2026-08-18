@@ -263,6 +263,37 @@ function cleanInteractiveCapture(output: string, command: string) { const lines 
 function sshInteractiveCapture(connectionId: string, stream: ClientChannel, command: string, timeoutMs = 20000, maximum = 2 * 1024 * 1024, cleanOutput = true) { return new Promise<string>((resolve, reject) => { if (interactiveCompareCaptures.has(connectionId)) return reject(new Error('A read-only capture is already running on this terminal.')); interactiveCompareCaptures.add(connectionId); let output = ''; let settled = false; let idleTimer: NodeJS.Timeout | undefined; const finish = (failure?: Error) => { if (settled) return; settled = true; clearTimeout(timeout); if (idleTimer) clearTimeout(idleTimer); stream.removeListener('data', collect); stream.removeListener('close', closed); interactiveCompareCaptures.delete(connectionId); failure ? reject(failure) : resolve(cleanOutput ? cleanInteractiveCapture(output, command) : output); }; const closed = () => finish(new Error('The SSH terminal closed during capture.')); const collect = (data: Buffer) => { const text = data.toString(); if (output.length < maximum) output += text.slice(0, maximum - output.length); if (/(?:--More--|---\(more[^)]*\)---)/i.test(text)) stream.write(' '); if (idleTimer) clearTimeout(idleTimer); idleTimer = setTimeout(() => finish(), 1100); }; const timeout = setTimeout(() => output ? finish() : finish(new Error('The live terminal did not return any output before the capture timed out.')), timeoutMs); stream.on('data', collect); stream.once('close', closed); try { stream.write(`${command}\r`); } catch (error) { finish(error instanceof Error ? error : new Error(String(error))); } }); }
 function connectForward(client: Client, local: Socket, host: string, port: number, onReady?: (remote: ClientChannel) => void) { client.forwardOut('127.0.0.1', 0, host, port, (error, remote) => { if (error) { local.destroy(error); return; } onReady?.(remote); local.pipe(remote).pipe(local); const close = () => { local.destroy(); remote.close(); }; local.on('error', close); remote.on('error', close); remote.on('close', () => local.destroy()); }); }
 function handleSocks(client: Client, socket: Socket) { let stage = 0; let pending = Buffer.alloc(0); const fail = () => { if (!socket.destroyed) socket.end(Buffer.from([5, 1, 0, 1, 0, 0, 0, 0, 0, 0])); }; const consume = (chunk: Buffer) => { pending = Buffer.concat([pending, chunk]); if (stage === 0) { if (pending.length < 2) return; const length = 2 + pending[1]; if (pending.length < length || pending[0] !== 5 || !pending.subarray(2, length).includes(0)) return fail(); pending = pending.subarray(length); socket.write(Buffer.from([5, 0])); stage = 1; } if (stage === 1) { if (pending.length < 5 || pending[0] !== 5 || pending[1] !== 1) return pending.length >= 5 ? fail() : undefined; const kind = pending[3]; let offset = 4; let host = ''; if (kind === 1) { if (pending.length < 10) return; host = [...pending.subarray(offset, offset + 4)].join('.'); offset += 4; } else if (kind === 3) { const length = pending[offset++]; if (pending.length < offset + length + 2) return; host = pending.subarray(offset, offset + length).toString(); offset += length; } else if (kind === 4) { if (pending.length < 22) return; const parts: string[] = []; for (let index = 0; index < 16; index += 2) parts.push(pending.readUInt16BE(offset + index).toString(16)); host = parts.join(':'); offset += 16; } else return fail(); const port = pending.readUInt16BE(offset); const remainder = pending.subarray(offset + 2); socket.removeListener('data', consume); connectForward(client, socket, host, port, remote => { socket.write(Buffer.from([5, 0, 0, 1, 127, 0, 0, 1, 0, 0])); if (remainder.length) remote.write(remainder); }); stage = 2; } }; socket.on('data', consume); }
+function connectThroughSocks(proxyHost: string, proxyPort: number, targetHost: string, targetPort: number, timeoutMs = 10000) {
+  const destination = Buffer.from(targetHost, 'utf8');
+  if (!destination.length || destination.length > 255) return Promise.reject(new Error('The SOCKS5 destination hostname is too long.'));
+  return new Promise<Socket>((resolve, reject) => {
+    const socket = new Socket(); let pending = Buffer.alloc(0); let stage: 'greeting' | 'connect' = 'greeting'; let settled = false;
+    const finish = (error?: Error) => { if (settled) return; settled = true; clearTimeout(timer); socket.removeListener('data', receive); socket.removeListener('error', failed); socket.removeListener('close', closed); if (error) { socket.destroy(); reject(error); } else { socket.pause(); resolve(socket); } };
+    const failed = (error: Error) => finish(new Error(`Could not reach SOCKS5 proxy at ${proxyHost}:${proxyPort}: ${error.message}`));
+    const closed = () => finish(new Error(`SOCKS5 proxy ${proxyHost}:${proxyPort} closed before reaching ${targetHost}:${targetPort}.`));
+    const request = isIP(targetHost) === 4
+      ? Buffer.from([5, 1, 0, 1, ...targetHost.split('.').map(Number), targetPort >> 8, targetPort & 255])
+      : Buffer.concat([Buffer.from([5, 1, 0, 3, destination.length]), destination, Buffer.from([targetPort >> 8, targetPort & 255])]);
+    const receive = (chunk: Buffer) => {
+      pending = Buffer.concat([pending, chunk]);
+      if (stage === 'greeting') {
+        if (pending.length < 2) return;
+        if (pending[0] !== 5 || pending[1] !== 0) return finish(new Error(`SOCKS5 proxy ${proxyHost}:${proxyPort} does not permit unauthenticated connections.`));
+        pending = pending.subarray(2); stage = 'connect'; socket.write(request);
+      }
+      if (stage === 'connect') {
+        if (pending.length < 5) return;
+        const addressLength = pending[3] === 1 ? 4 : pending[3] === 4 ? 16 : pending[3] === 3 ? 1 + pending[4] : -1;
+        if (addressLength < 0) return finish(new Error('The SOCKS5 proxy returned an invalid address response.'));
+        const responseLength = 4 + addressLength + 2; if (pending.length < responseLength) return;
+        if (pending[1] !== 0) return finish(new Error(`SOCKS5 proxy could not reach ${targetHost}:${targetPort} (response ${pending[1]}).`));
+        const remainder = pending.subarray(responseLength); if (remainder.length) socket.unshift(remainder); finish();
+      }
+    };
+    const timer = setTimeout(() => finish(new Error(`Timed out using SOCKS5 proxy ${proxyHost}:${proxyPort} to reach ${targetHost}:${targetPort}.`)), timeoutMs);
+    socket.on('data', receive); socket.once('error', failed); socket.once('close', closed); socket.connect(proxyPort, proxyHost, () => socket.write(Buffer.from([5, 1, 0])));
+  });
+}
 
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
 function destroyVncBridge(tabId: string) { const bridge = vncBridges.get(tabId); if (!bridge) return; vncBridges.delete(tabId); for (const socket of bridge.sockets) socket.destroy(); for (const client of bridge.server.clients) client.terminate(); bridge.server.close(); }
@@ -611,6 +642,14 @@ ipcMain.handle('ssh:connect', async (_event, request: any) => {
     if (/-----BEGIN (?:ENCRYPTED )?PRIVATE KEY-----/.test(keyText)) throw new Error('This PKCS#8 key format is not supported by the SSH engine. Generate a new HedgeCon RSA-3072 key or import an OpenSSH/PEM private key.');
     config.privateKey = privateKeyContents; if (secret) config.passphrase = secret;
   } else config.password = secret;
+  if (request.sshProxyEnabled) {
+    if (typeof request.sshProxyHost !== 'string' || !isValidHost(request.sshProxyHost) || !Number.isInteger(request.sshProxyPort) || request.sshProxyPort < 1 || request.sshProxyPort > 65535) {
+      connections.delete(id);
+      throw new Error('Choose a valid SOCKS5 proxy host and port.');
+    }
+    try { config.sock = await connectThroughSocks(request.sshProxyHost, request.sshProxyPort, request.host, request.port); }
+    catch (error) { connections.delete(id); throw error; }
+  }
   client.on('ready', () => {
     send(id, 'status', 'Connected');
     client.shell({ term: 'xterm-256color', cols: 100, rows: 30 }, (err, stream) => {
@@ -741,6 +780,13 @@ ipcMain.handle('ssh:tunnel-list', (_event, connectionId: string) => [...sshTunne
 ipcMain.handle('ssh:tunnel-start', async (_event, connectionId: string, input: any) => {
   const connection = connections.get(connectionId); if (!connection) throw new Error('The SSH connection is not active.'); if (!input || !['local', 'socks'].includes(input.type) || !Number.isInteger(input.localPort) || input.localPort < 0 || input.localPort > 65535) throw new Error('Choose a valid local port.'); if (input.type === 'local' && (typeof input.targetHost !== 'string' || !isValidHost(input.targetHost) || !Number.isInteger(input.targetPort) || input.targetPort < 1 || input.targetPort > 65535)) throw new Error('Choose a valid destination host and port.');
   const id = crypto.randomUUID(); const sockets = new Set<Socket>(); const server = createServer(socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); if (input.type === 'socks') handleSocks(connection.client, socket); else connectForward(connection.client, socket, input.targetHost, input.targetPort); }); const tunnel = { id, connectionId, type: input.type as 'local' | 'socks', localPort: input.localPort, targetHost: input.type === 'local' ? input.targetHost : undefined, targetPort: input.type === 'local' ? input.targetPort : undefined, server, sockets }; sshTunnels.set(id, tunnel); server.on('error', () => stopSshTunnel(id)); await new Promise<void>((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); server.listen(input.localPort, '127.0.0.1'); }); const address = server.address(); if (address && typeof address !== 'string') tunnel.localPort = address.port; return tunnelMeta(tunnel);
+});
+ipcMain.handle('ssh:tunnel-test', async (_event, tunnelId: string, targetHost: string, targetPort: number) => {
+  const tunnel = sshTunnels.get(tunnelId);
+  if (!tunnel || tunnel.type !== 'socks') throw new Error('That SOCKS5 tunnel is no longer running.');
+  if (typeof targetHost !== 'string' || !isValidHost(targetHost) || !Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) throw new Error('Choose a valid test destination and port.');
+  const started = Date.now(); const socket = await connectThroughSocks('127.0.0.1', tunnel.localPort, targetHost, targetPort); socket.destroy();
+  return { latencyMs: Date.now() - started };
 });
 ipcMain.handle('ssh:tunnel-stop', (_event, tunnelId: string) => stopSshTunnel(tunnelId));
 ipcMain.on('ssh:trust', (_e, id: string, accepted: boolean) => pendingTrust.get(id)?.(accepted));

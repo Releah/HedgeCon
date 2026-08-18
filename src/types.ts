@@ -8,7 +8,7 @@ export interface Folder { id: string; name: string; parentId?: string | null; cr
 export interface Session {
   id: string; name: string; host: string; port: number; username: string;
   folderId: string | null; authMethod: AuthMethod; privateKeyPath?: string;
-  credentialSetId?: string | null; remoteCredentialSetId?: string | null; credentialProfile?: string; webUrl?: string; rdpPort?: number; vncPort?: number; serialPath?: string; serialBaudRate?: number; serialDataBits?: 5 | 6 | 7 | 8; serialStopBits?: 1 | 1.5 | 2; serialParity?: 'none' | 'even' | 'odd' | 'mark' | 'space'; services?: ConnectionService[];
+  credentialSetId?: string | null; remoteCredentialSetId?: string | null; credentialProfile?: string; webUrl?: string; rdpPort?: number; vncPort?: number; sshProxyEnabled?: boolean; sshProxyHost?: string; sshProxyPort?: number; serialPath?: string; serialBaudRate?: number; serialDataBits?: 5 | 6 | 7 | 8; serialStopBits?: 1 | 1.5 | 2; serialParity?: 'none' | 'even' | 'odd' | 'mark' | 'space'; services?: ConnectionService[];
   platform?: SessionPlatform;
   detectedIdentity?: DeviceIdentity;
   createdAt: string; updatedAt: string;

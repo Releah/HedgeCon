@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('hedge', {
   captureCompareText: (connectionId: string, command: string) => ipcRenderer.invoke('compare:capture', connectionId, command),
   listTunnels: (connectionId: string) => ipcRenderer.invoke('ssh:tunnel-list', connectionId),
   startTunnel: (connectionId: string, input: unknown) => ipcRenderer.invoke('ssh:tunnel-start', connectionId, input),
+  testSocksTunnel: (tunnelId: string, targetHost: string, targetPort: number) => ipcRenderer.invoke('ssh:tunnel-test', tunnelId, targetHost, targetPort),
   stopTunnel: (tunnelId: string) => ipcRenderer.invoke('ssh:tunnel-stop', tunnelId),
   listSerialPorts: () => ipcRenderer.invoke('serial:list'),
   connectSerial: (request: unknown) => ipcRenderer.invoke('serial:connect', request),

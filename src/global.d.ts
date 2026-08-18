@@ -65,6 +65,7 @@ declare global {
     captureCompareText(connectionId: string, command: string): Promise<string>;
     listTunnels(connectionId: string): Promise<SshTunnel[]>;
     startTunnel(connectionId: string, input: { type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number }): Promise<SshTunnel>;
+    testSocksTunnel(tunnelId: string, targetHost: string, targetPort: number): Promise<{ latencyMs: number }>;
     stopTunnel(tunnelId: string): Promise<boolean>;
     listSerialPorts(): Promise<SerialPortInfo[]>;
     connectSerial(request: { connectionId: string; path: string; baudRate: number; dataBits: 5 | 6 | 7 | 8; stopBits: 1 | 1.5 | 2; parity: 'none' | 'even' | 'odd' | 'mark' | 'space' }): Promise<{ connectionId: string }>;

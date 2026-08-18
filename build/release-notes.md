@@ -1,4 +1,21 @@
-# HedgeCon v0.3.12-experimental.4
+# HedgeCon v0.3.12-experimental.5
+
+## Usable SOCKS5 SSH routing
+
+- Add an explicit per-session option to route SSH connections through a SOCKS5 proxy.
+- Default new SOCKS5 tunnel listeners and routed SSH sessions to the standard local port `1080`, while keeping the port configurable.
+- Perform the SOCKS5 handshake inside HedgeCon and preserve normal target host-key verification and SSH authentication.
+- Add end-to-end tunnel verification against a chosen destination and port, with latency and clear failure feedback.
+- Allow active SOCKS5 tunnels to be tested again from SSH Tools.
+- Preserve local proxy routing preferences when a shared inventory is refreshed without publishing machine-specific settings to inventory YAML.
+
+This experimental release is intended for testing SSH access to internal devices through an existing HedgeCon SOCKS5 tunnel. Start the gateway tunnel before opening sessions configured to use it. Windows binaries are unsigned.
+
+---
+
+# Previous experimental release
+
+## v0.3.12-experimental.4
 
 ## Reliable terminal colour selection
 

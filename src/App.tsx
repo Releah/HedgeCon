@@ -226,6 +226,9 @@ function SessionDialog({
     credentialProfile: session?.credentialProfile ?? "",
     authMethod: session?.authMethod ?? ("password" as AuthMethod),
     privateKeyPath: session?.privateKeyPath ?? "",
+    sshProxyEnabled: session?.sshProxyEnabled ?? false,
+    sshProxyHost: session?.sshProxyHost ?? "127.0.0.1",
+    sshProxyPort: session?.sshProxyPort ?? 1080,
     sshEnabled: initialServices.includes("ssh"),
     webEnabled: initialServices.includes("web"),
     rdpEnabled: initialServices.includes("rdp"),
@@ -263,6 +266,9 @@ function SessionDialog({
       ...sessionForm,
       services,
       port: Number(form.port),
+      sshProxyEnabled: form.sshEnabled && form.sshProxyEnabled,
+      sshProxyHost: form.sshEnabled && form.sshProxyEnabled ? form.sshProxyHost.trim() : undefined,
+      sshProxyPort: form.sshEnabled && form.sshProxyEnabled ? Number(form.sshProxyPort) : undefined,
       webUrl: form.webEnabled ? form.webUrl.trim() || undefined : undefined,
       rdpPort: form.rdpEnabled ? form.rdpPort || 3389 : undefined,
       vncPort: form.vncEnabled ? form.vncPort || 5900 : undefined,
@@ -379,6 +385,17 @@ function SessionDialog({
             </label>
           )}
         </div>
+        {form.sshEnabled && <div className="ssh-proxy-setting">
+          <label className="checkbox-row">
+            <input type="checkbox" checked={form.sshProxyEnabled} onChange={event => setForm({ ...form, sshProxyEnabled: event.target.checked })} />
+            <span><strong>Route SSH through a SOCKS5 proxy</strong><small>Use a SOCKS5 tunnel that is already listening on this computer.</small></span>
+          </label>
+          {form.sshProxyEnabled && <div className="split">
+            <label>Proxy host<input required value={form.sshProxyHost} onChange={event => setForm({ ...form, sshProxyHost: event.target.value })} placeholder="127.0.0.1" /></label>
+            <label className="port">Proxy port<input required type="number" min="1" max="65535" value={form.sshProxyPort} onChange={event => setForm({ ...form, sshProxyPort: Number(event.target.value) })} /></label>
+          </div>}
+          {form.sshProxyEnabled && <small className="field-note">Start the SOCKS5 tunnel first in SSH Tools and use a fixed local port. HedgeCon will fail clearly if the proxy cannot reach this session.</small>}
+        </div>}
         {form.webEnabled && <label>
           Device web address
           <input
