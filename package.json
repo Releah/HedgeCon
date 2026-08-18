@@ -99,6 +99,6 @@
     "electron-builder": "^26.15.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
-    "wait-on": "^8.0.1"
+    "wait-on": "^9.1.0"
   }
 }
