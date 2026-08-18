@@ -95,7 +95,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
-    "electron": "^39.8.5",
+    "electron": "^43.4.0",
     "electron-builder": "^26.15.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
