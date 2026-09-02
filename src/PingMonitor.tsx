@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PingSample } from './types';
+import type { DeviceIdentity, DeviceTelemetry, PingSample } from './types';
 
 const LIVE_SAMPLES = 120;
 const MAX_RECORDED_SAMPLES = 18_000;
@@ -17,7 +17,7 @@ type RangeId = typeof ranges[number]['id'];
 
 const duration = (milliseconds: number) => milliseconds < 60000 ? `${Math.max(1, Math.round(milliseconds / 1000))}s` : `${Math.floor(milliseconds / 60000)}m ${Math.round((milliseconds % 60000) / 1000)}s`;
 
-export default function PingMonitor({ host, port, proxyHost, proxyPort, onClose }: { host: string; port: number; proxyHost?: string; proxyPort?: number; onClose: () => void }) {
+export default function PingMonitor({ host, port, proxyHost, proxyPort, identity, onClose }: { host: string; port: number; proxyHost?: string; proxyPort?: number; identity?: DeviceIdentity; onClose: () => void }) {
   const monitorId = useRef(crypto.randomUUID());
   const proxied = Boolean(proxyHost && proxyPort);
   const [mode, setMode] = useState<'ping' | 'tcp'>(proxied ? 'tcp' : 'ping');
@@ -27,6 +27,14 @@ export default function PingMonitor({ host, port, proxyHost, proxyPort, onClose 
   const outageStartRef = useRef<number | null>(null);
   const [downSince, setDownSince] = useState<number | null>(null);
   const [lastOutage, setLastOutage] = useState<number | null>(null);
+  const [telemetry, setTelemetry] = useState<DeviceTelemetry | null>(null);
+
+  useEffect(() => {
+    let disposed = false; let running = false;
+    const sample = async () => { if (running) return; running = true; try { const next = await window.hedge.sampleDeviceTelemetry(host, identity); if (!disposed) setTelemetry(next); } catch (error) { if (!disposed) setTelemetry({ timestamp: Date.now(), cpuPercent: null, memoryPercent: null, storagePercent: null, supported: false, source: 'SSH', error: error instanceof Error ? error.message : String(error) }); } finally { running = false; } };
+    void sample(); const timer = window.setInterval(() => void sample(), 10_000);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, [host, identity?.vendor, identity?.product]);
 
   useEffect(() => {
     setSamples([]); outageStartRef.current = null; setDownSince(null); setLastOutage(null);
@@ -92,6 +100,7 @@ export default function PingMonitor({ host, port, proxyHost, proxyPort, onClose 
       <div className="monitor-range" aria-label="Monitor time range">{ranges.map(option => <button key={option.id} className={range === option.id ? 'active' : ''} onClick={() => setRange(option.id)} title={option.id === 'max' ? 'All samples recorded by this monitor' : option.id === 'live' ? `Latest ${LIVE_SAMPLES} samples` : `Last ${option.label}`}>{option.label}</button>)}</div>
       <button onClick={onClose} title="Close monitor">×</button>
     </header>
+    <div className={`device-telemetry ${telemetry?.supported ? '' : 'unsupported'}`}><span>Device health</span>{telemetry === null ? <small>Checking SSH telemetry…</small> : telemetry.supported ? <>{([['CPU', telemetry.cpuPercent], ['Memory', telemetry.memoryPercent], ['Storage', telemetry.storagePercent]] as const).map(([label, value]) => <div key={label} className="telemetry-metric"><label>{label}<strong>{value === null ? '—' : `${value.toFixed(0)}%`}</strong></label><i><b className={value !== null && value >= 85 ? 'hot' : ''} style={{ width: `${value ?? 0}%` }} /></i></div>)}<small title={new Date(telemetry.timestamp).toLocaleString()}>{telemetry.source}</small></> : <small title={telemetry.error}>{telemetry.error || 'This device did not expose supported telemetry.'}</small>}</div>
     <div className="ping-chart"><svg viewBox="0 0 600 100" preserveAspectRatio="none" aria-label={`${proxied ? 'SOCKS5' : mode === 'ping' ? 'Ping' : 'TCP'} response graph`}><line x1="0" y1="88" x2="600" y2="88" /><line x1="0" y1="50" x2="600" y2="50" />{drawnSamples.map((sample, index) => sample.reachable ? null : <rect key={`${sample.timestamp}-${index}`} className="ping-outage" x={Math.max(0, index / Math.max(drawnSamples.length - 1, 1) * 600 - 3)} y="6" width="7" height="82" />)}<path d={path} /></svg>{visibleSamples.some(sample => !sample.reachable) && <div className="outage-label">Red bands indicate no response</div>}</div>
   </section>;
 }

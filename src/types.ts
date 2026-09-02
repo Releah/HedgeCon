@@ -27,6 +27,7 @@ export interface SerialPortInfo { path: string; manufacturer?: string; serialNum
 export interface SerialProfile { id: string; name: string; baudRate: number; dataBits: 5 | 6 | 7 | 8; stopBits: 1 | 1.5 | 2; parity: 'none' | 'even' | 'odd' | 'mark' | 'space' }
 export interface SerialEvent { connectionId: string; type: 'data' | 'status' | 'error' | 'closed'; data: string }
 export interface PingSample { monitorId: string; timestamp: number; reachable: boolean; latencyMs: number | null; error?: string }
+export interface DeviceTelemetry { timestamp: number; cpuPercent: number | null; memoryPercent: number | null; storagePercent: number | null; supported: boolean; source: string; error?: string }
 export interface BrowserEvent { tabId: string; type: 'loading' | 'navigation' | 'error'; data?: boolean | string | { url: string; title: string; canGoBack: boolean; canGoForward: boolean } }
 export interface BrowserCertificatePrompt { tabId: string; host: string; error: string; fingerprint: string; subject: string; issuer: string; validExpiry: number }
 export interface SftpEntry { name: string; path: string; type: 'directory' | 'file' | 'link' | 'other'; size: number; modifiedAt: number; permissions: number }

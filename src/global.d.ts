@@ -1,4 +1,4 @@
-import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, DeviceIdentity, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SerialEvent, SerialPortInfo, SessionLogSettings, SftpEntry, SshEvent, SshKeyInfo, SshTunnel, UiSettings, UpdateRelease, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
+import type { AppData, BrowserCertificatePrompt, BrowserEvent, ConnectRequest, CredentialSet, CredentialSetInput, DeviceIdentity, DeviceTelemetry, GitConflict, HostKeyPrompt, InventorySettings, PingSample, RepositoryFreshness, RepositoryInput, RepositoryMeta, RepositoryPushResult, RepositoryStatus, SecureStorageStatus, SerialEvent, SerialPortInfo, SessionLogSettings, SftpEntry, SshEvent, SshKeyInfo, SshTunnel, UiSettings, UpdateRelease, UpdateSettings, UpdateStatus, WikiFolder, WikiPage } from './types';
 
 declare global {
   interface Window { hedge: {
@@ -60,6 +60,7 @@ declare global {
     getInstalledPublicKeys(connectionId: string): Promise<string[]>;
     connect(request: ConnectRequest): Promise<{ connectionId: string }>;
     identifyDevice(connectionId: string, observedText?: string, runProbes?: boolean): Promise<DeviceIdentity>;
+    sampleDeviceTelemetry(host: string, identity?: DeviceIdentity): Promise<DeviceTelemetry>;
     openCompareText(): Promise<{ name: string; contents: string } | null>;
     listCompareConnections(): Promise<Array<{ id: string; name: string; host: string; platform: string }>>;
     captureCompareText(connectionId: string, command: string): Promise<string>;
