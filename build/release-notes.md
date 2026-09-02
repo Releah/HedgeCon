@@ -1,4 +1,22 @@
-# HedgeCon v0.3.13
+# HedgeCon v0.3.14
+
+## Context-aware commands and device health
+
+- Add an optional context-aware Suggestions section to the Macros panel.
+- Recognise interface, BGP, OSPF and BFD terminal context on Juniper Junos, Cisco and Dell SmartFabric OS10 devices.
+- Offer bounded, read-only diagnostic commands that are pasted for review and never run automatically.
+- Temporarily highlight relevant interfaces and peer addresses in terminal output.
+- Add background CPU, memory and storage telemetry to the Monitor panel for supported Linux, Junos, Cisco and OS10 devices.
+- Sample device health every ten seconds through an isolated SSH channel without typing into the visible terminal.
+- Display partial telemetry when a device exposes only some metrics, and fail quietly when telemetry is unsupported or restricted.
+
+Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.13
 
 ## Sortable session tables
 
