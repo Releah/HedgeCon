@@ -148,6 +148,39 @@ function publicFingerprint(publicKey: string) { const encoded = publicKey.trim()
 function keyInfo(privateKeyPath: string, source: 'managed' | 'discovered'): SshKeyInfo { const publicPath = `${privateKeyPath}.pub`; const publicKey = fs.existsSync(publicPath) && fs.statSync(publicPath).size <= 64 * 1024 ? fs.readFileSync(publicPath, 'utf8').trim() : undefined; return { name: path.basename(privateKeyPath), privateKeyPath, publicKey, fingerprint: publicKey ? publicFingerprint(publicKey) : undefined, source }; }
 function assertManagedOrDiscoveredKey(privateKeyPath: string) { if (typeof privateKeyPath !== 'string' || privateKeyPath.length > 4096) throw new Error('Invalid key path.'); const resolved = path.resolve(privateKeyPath); const comparable = process.platform === 'win32' ? resolved.toLowerCase() : resolved; const roots = [path.resolve(managedKeysPath()), path.resolve(app.getPath('home'), '.ssh')].map(root => process.platform === 'win32' ? root.toLowerCase() : root); if (!roots.some(root => comparable.startsWith(`${root}${path.sep}`))) throw new Error('Key is outside the managed SSH key locations.'); const stats = fs.statSync(resolved); if (!stats.isFile() || stats.size > 1024 * 1024) throw new Error('Invalid private key file.'); return resolved; }
 const connections = new Map<string, { client: Client; stream?: ClientChannel; sftp?: SFTPWrapper; name: string; host: string; platform: string }>();
+const pasteQueues = new Map<string, { chunks: string[]; timer?: NodeJS.Timeout }>();
+
+function stopPaste(connectionId: string) {
+  const queue = pasteQueues.get(connectionId);
+  if (queue?.timer) clearTimeout(queue.timer);
+  pasteQueues.delete(connectionId);
+}
+
+function pasteChunks(value: string) {
+  const normalised = value.replace(/\r\n|\n|\r/g, '\r');
+  const chunks = normalised.match(/[^\r]{1,4096}|\r/g) ?? [];
+  return chunks;
+}
+
+function drainPaste(connectionId: string) {
+  const queue = pasteQueues.get(connectionId);
+  const connection = connections.get(connectionId);
+  if (!queue || !connection?.stream) { stopPaste(connectionId); return; }
+  const chunk = queue.chunks.shift();
+  if (chunk === undefined) { pasteQueues.delete(connectionId); return; }
+  connection.stream.write(chunk);
+  queue.timer = setTimeout(() => drainPaste(connectionId), chunk === '\r' ? 35 : 2);
+}
+
+function queuePaste(connectionId: string, value: string) {
+  if (typeof value !== 'string' || !value || value.length > 1024 * 1024) return;
+  const chunks = pasteChunks(value);
+  if (!chunks.length) return;
+  const existing = pasteQueues.get(connectionId);
+  if (existing) { existing.chunks.push(...chunks); return; }
+  pasteQueues.set(connectionId, { chunks });
+  drainPaste(connectionId);
+}
 const sshTunnels = new Map<string, { id: string; connectionId: string; type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number; server: Server; sockets: Set<Socket> }>();
 const pendingTrust = new Map<string, (accepted: boolean) => void>();
 const pingMonitors = new Map<string, { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess; socket?: Socket }>();
@@ -319,7 +352,7 @@ function connectThroughSocks(proxyHost: string, proxyPort: number, targetHost: s
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
 function destroyVncBridge(tabId: string) { const bridge = vncBridges.get(tabId); if (!bridge) return; vncBridges.delete(tabId); for (const socket of bridge.sockets) socket.destroy(); for (const client of bridge.server.clients) client.terminate(); bridge.server.close(); }
 function destroyBrowserView(tabId: string) { for (const callback of pendingBrowserCertificates.get(tabId)?.callbacks ?? []) callback(false); pendingBrowserCertificates.delete(tabId); trustedBrowserCertificates.delete(tabId); browserDarkCss.delete(tabId); const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
-function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...sshTunnels.keys()]) stopSshTunnel(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const port of serialConnections.values()) try { if (port.isOpen) port.close(); } catch { /* Port may already be closed. */ } serialConnections.clear(); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); closeSessionLog(id); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* The client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
+function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...pasteQueues.keys()]) stopPaste(id); for (const id of [...sshTunnels.keys()]) stopSshTunnel(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const port of serialConnections.values()) try { if (port.isOpen) port.close(); } catch { /* Port may already be closed. */ } serialConnections.clear(); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); closeSessionLog(id); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* The client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
 
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
@@ -825,8 +858,9 @@ ipcMain.handle('ssh:tunnel-test', async (_event, tunnelId: string, targetHost: s
 ipcMain.handle('ssh:tunnel-stop', (_event, tunnelId: string) => stopSshTunnel(tunnelId));
 ipcMain.on('ssh:trust', (_e, id: string, accepted: boolean) => pendingTrust.get(id)?.(accepted));
 ipcMain.on('ssh:write', (_e, id: string, data: string) => { if (typeof data === 'string' && data.length <= 1024 * 1024) connections.get(id)?.stream?.write(data); });
+ipcMain.on('ssh:paste', (_e, id: string, data: string) => queuePaste(id, data));
 ipcMain.on('ssh:resize', (_e, id: string, cols: number, rows: number) => { if (Number.isInteger(cols) && Number.isInteger(rows) && cols >= 2 && cols <= 1000 && rows >= 1 && rows <= 1000) connections.get(id)?.stream?.setWindow(rows, cols, 0, 0); });
-ipcMain.on('ssh:disconnect', (_e, id: string) => { stopConnectionTunnels(id); closeSessionLog(id); pendingTrust.get(id)?.(false); connections.get(id)?.client.end(); connections.delete(id); });
+ipcMain.on('ssh:disconnect', (_e, id: string) => { stopPaste(id); stopConnectionTunnels(id); closeSessionLog(id); pendingTrust.get(id)?.(false); connections.get(id)?.client.end(); connections.delete(id); });
 ipcMain.handle('serial:list', async () => (await SerialPort.list()).map(port => ({ path: port.path, manufacturer: port.manufacturer, serialNumber: port.serialNumber, vendorId: port.vendorId, productId: port.productId })));
 ipcMain.handle('serial:connect', async (_event, request: any) => {
   if (!request || typeof request.connectionId !== 'string' || typeof request.path !== 'string' || !request.path || request.path.length > 4096 || !Number.isInteger(request.baudRate) || request.baudRate < 50 || request.baudRate > 4_000_000 || ![5, 6, 7, 8].includes(request.dataBits) || ![1, 1.5, 2].includes(request.stopBits) || !['none', 'even', 'odd', 'mark', 'space'].includes(request.parity)) throw new Error('Invalid serial connection settings.');

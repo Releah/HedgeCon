@@ -74,6 +74,7 @@ declare global {
     disconnectSerial(connectionId: string): void;
     onSerialEvent(callback: (event: SerialEvent) => void): () => void;
     write(connectionId: string, data: string): void;
+    paste(connectionId: string, data: string): void;
     resize(connectionId: string, cols: number, rows: number): void;
     disconnect(connectionId: string): void;
     trustHost(connectionId: string, accept: boolean): void;

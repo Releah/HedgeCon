@@ -73,6 +73,7 @@ contextBridge.exposeInMainWorld('hedge', {
   disconnectSerial: (id: string) => ipcRenderer.send('serial:disconnect', id),
   onSerialEvent: (callback: (event: unknown) => void) => { const listener = (_: unknown, event: unknown) => callback(event); ipcRenderer.on('serial:event', listener); return () => ipcRenderer.removeListener('serial:event', listener); },
   write: (id: string, data: string) => ipcRenderer.send('ssh:write', id, data),
+  paste: (id: string, data: string) => ipcRenderer.send('ssh:paste', id, data),
   resize: (id: string, cols: number, rows: number) => ipcRenderer.send('ssh:resize', id, cols, rows),
   disconnect: (id: string) => ipcRenderer.send('ssh:disconnect', id),
   trustHost: (id: string, accept: boolean) => ipcRenderer.send('ssh:trust', id, accept),

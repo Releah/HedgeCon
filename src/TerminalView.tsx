@@ -82,7 +82,16 @@ export default function TerminalView({ session, secret, active = true, macros = 
     const terminal = new Terminal({ cursorBlink: true, scrollback: 10000, fontFamily: 'Cascadia Code, Consolas, monospace', fontSize: 14, theme: { background: terminalColour, foreground: uiSettings.terminalForeground, cursor: '#70d6b2', selectionBackground: '#264c48' } }); terminalRef.current = terminal;
     const fit = new FitAddon(); terminal.loadAddon(fit); terminal.open(hostRef.current!); fit.fit();
     let selectionTimer: number | undefined; const copySelection = () => { window.clearTimeout(selectionTimer); selectionTimer = window.setTimeout(() => { const selected = terminal.getSelection(); if (selected) void window.hedge.writeClipboardText(selected); }, 120); }; const selectionDisposable = terminal.onSelectionChange(copySelection);
-    const pasteClipboard = (event: MouseEvent) => { event.preventDefault(); void window.hedge.readClipboardText().then(value => { if (value) { terminal.scrollToBottom(); window.hedge.write(connectionId, value); } }); }; hostRef.current!.addEventListener('contextmenu', pasteClipboard);
+    const pasteText = () => void window.hedge.readClipboardText().then(value => { if (value) { terminal.scrollToBottom(); window.hedge.paste(connectionId, value); terminal.focus(); } });
+    const pasteClipboard = (event: MouseEvent) => { event.preventDefault(); pasteText(); }; hostRef.current!.addEventListener('contextmenu', pasteClipboard);
+    terminal.attachCustomKeyEventHandler(event => {
+      if (event.type !== 'keydown') return true;
+      const key = event.key.toLowerCase(); const commandModifier = event.metaKey && !event.ctrlKey; const copyShortcut = (commandModifier && key === 'c') || (event.ctrlKey && key === 'c' && (event.shiftKey || terminal.hasSelection()));
+      if (copyShortcut) { event.preventDefault(); const selected = terminal.getSelection(); if (selected) void window.hedge.writeClipboardText(selected); return false; }
+      const pasteShortcut = (commandModifier && key === 'v') || (event.ctrlKey && key === 'v') || (event.shiftKey && key === 'insert');
+      if (pasteShortcut) { event.preventDefault(); pasteText(); return false; }
+      return true;
+    });
     terminal.writeln(`\x1b[38;2;112;214;178mConnecting to ${session.username}@${session.host}...\x1b[0m`);
     let authRejected = false; let reconnectScheduled = false; let reconnectTimer: number | undefined; let identificationStarted = false; let identificationTimer: number | undefined; observedIdentityTextRef.current = ''; contextualTextRef.current = ''; terminalContextRef.current = null;
     const identify = () => { if (identificationStarted) return; identificationStarted = true; void window.hedge.identifyDevice(connectionId, observedIdentityTextRef.current, false).then(identity => { if (identity.platform === 'unspecified') return; const detectedKey = identityKey(identity); const remembered = rememberedIdentityRef.current; const rejectedMatch = remembered?.evidence === `rejected:${detectedKey}`; const dismissedMatch = localStorage.getItem(dismissedIdentityStorageKey) === detectedKey; if (!rejectedMatch && !dismissedMatch && detectedKey !== identityKey(remembered) && detectedKey !== decidedIdentityKeyRef.current) setPendingIdentity(identity); }).catch(() => { /* Passive discovery must never interrupt the terminal. */ }); };
