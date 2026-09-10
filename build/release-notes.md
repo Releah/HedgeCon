@@ -1,4 +1,20 @@
-# HedgeCon v0.3.14
+# HedgeCon v0.3.15
+
+## Reliable multiline terminal paste
+
+- Preserve commands, blank lines and trailing returns when pasting multiline text into an SSH terminal.
+- Normalise Windows, Linux and macOS clipboard line endings into terminal Enter presses.
+- Send large pasted configurations in ordered chunks with a short pause between lines, improving reliability on switches and other rate-sensitive network devices.
+- Keep normal keyboard input immediate and cancel pending paste work when its SSH session closes.
+- Support right-click paste, Ctrl+V, Ctrl+Shift+V and Shift+Insert consistently inside the terminal.
+
+Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.14
 
 ## Context-aware commands and device health
 
