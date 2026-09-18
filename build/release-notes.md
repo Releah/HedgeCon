@@ -1,4 +1,21 @@
-# HedgeCon v0.3.15
+# HedgeCon v0.3.16
+
+## Quick connections and device intelligence
+
+- Add Quick Connect beside Console for opening one-off SSH sessions without saving a device to the inventory.
+- Keep the common connection flow to host and username, with port, saved credentials, private keys and SOCKS5 routing in an expandable advanced section.
+- Collect device serial numbers when supported and show them in session notes, SSH Tools, search and the detailed session table.
+- Add reviewable, source-linked firmware guidance from a public catalogue, including distinct recommended and latest versions with honest offline and unmatched states.
+- Preserve confirmed device identities when applying inventory YAML updates.
+- Stagger background reachability checks and lazy-load the SSH terminal to reduce work during application startup.
+
+Quick Connect uses the existing host-key verification, credential prompts, reconnect handling and terminal workspace. One-off targets are not written to the inventory. Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.15
 
 ## Reliable multiline terminal paste
 

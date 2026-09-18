@@ -247,7 +247,21 @@ Saving a page writes it locally; it does not publish silently. Review the change
 
 Select **Notes** beneath a live terminal to open that session's page alongside the CLI. The SSH connection and active monitors continue running while notes are edited.
 
-Confirmed device information is maintained in a table at the top of each shared session page. HedgeCon updates only the marked information block and leaves operator-written notes untouched. Fields that could not be collected are shown as `TBC`.
+Confirmed device information—including a serial number when the remote platform exposes one—is maintained in a table at the top of each shared session page and in the detailed session-library table. HedgeCon updates only the marked information block and leaves operator-written notes untouched. Fields that could not be collected are shown as `TBC`.
+
+Firmware guidance is read from [`device-code-catalog.json`](device-code-catalog.json), a deliberately reviewable catalogue fetched from the public HedgeCon repository during device discovery and cached in memory for six hours. Entries match a vendor and model fragment, distinguish the vendor-recommended release from the numerically latest release, and must link to the supporting HTTPS source. An offline or unmatched lookup is labelled honestly; HedgeCon does not infer firmware recommendations or sign in to vendor support portals.
+
+Catalogue entries use this shape:
+
+```json
+{
+  "vendor": "Vendor name",
+  "productContains": "model family",
+  "recommendedVersion": "vendor-recommended release",
+  "latestVersion": "latest published release",
+  "sourceUrl": "https://vendor.example/support/advisory"
+}
+```
 
 Private Notes and private session notes are stored locally outside the Git repository. Clipboard images from tools such as Windows Snipping Tool can be pasted into the editor; shared images are stored with the Wiki while private-note images remain local.
 

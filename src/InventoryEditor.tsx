@@ -230,6 +230,7 @@ export function yamlToInventory(
           sshProxyHost: existing?.sshProxyHost,
           sshProxyPort: existing?.sshProxyPort,
           platform: ["linux", "windows", "network"].includes(text(hostVars.hedgecon_platform)) ? text(hostVars.hedgecon_platform) as "linux" | "windows" | "network" : existing?.platform ?? "unspecified",
+          detectedIdentity: existing?.detectedIdentity,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         });

@@ -32,7 +32,6 @@ import type {
   UpdateSettings,
   UpdateStatus,
 } from "./types";
-import TerminalView from "./TerminalView";
 import WebDeviceView from "./WebDeviceView";
 import ConfirmDialog from "./ConfirmDialog";
 import MacroLibrary from "./MacroLibrary";
@@ -44,6 +43,7 @@ const WikiWorkspace = lazy(() => import("./WikiWorkspace"));
 const ConfigComparator = lazy(() => import("./ConfigComparator"));
 const FirstRunSetup = lazy(() => import("./FirstRunSetup"));
 const VncView = lazy(() => import("./VncView"));
+const TerminalView = lazy(() => import("./TerminalView"));
 
 const blankData: AppData = { folders: [], sessions: [] };
 const defaultUiSettings: UiSettings = {
@@ -1590,6 +1590,28 @@ function ConsoleLauncher({ profiles, onClose, onConnect, onManage }: { profiles:
   return <div className="overlay"><form className="dialog console-launcher" onSubmit={event => { event.preventDefault(); if (profile && port) onConnect(profile, port); }}><div className="dialog-title"><div><small>LOCAL CONSOLE</small><h2>Open serial console</h2><p>Choose reusable connection settings and the adapter connected to this computer.</p></div><button type="button" className="icon-button" onClick={onClose}>×</button></div><label>Serial profile<select required value={profileId} onChange={event => setProfileId(event.target.value)}><option value="">Select a profile</option>{profiles.map(item => <option key={item.id} value={item.id}>{item.name} · {item.baudRate} {item.dataBits}{item.parity === 'none' ? 'N' : item.parity.charAt(0).toUpperCase()}{item.stopBits}</option>)}</select></label><button type="button" className="link-button console-manage" onClick={onManage}>{profiles.length ? 'Manage serial profiles in Settings' : 'Create your first serial profile in Settings'}</button><label>Console adapter<select required value={portPath} onChange={event => setPortPath(event.target.value)} disabled={loading}><option value="">{loading ? 'Detecting adapters…' : 'Select an adapter'}</option>{ports.map(item => <option key={item.path} value={item.path}>{item.path}{item.manufacturer ? ` · ${item.manufacturer}` : ''}</option>)}</select></label>{!loading && !ports.length && <p className="console-empty">No serial adapters detected. Connect an adapter, then refresh.</p>}{error && <p className="wiki-error">{error}</p>}<div className="actions"><button type="button" className="secondary" onClick={refresh} disabled={loading}>Refresh adapters</button><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!profile || !port}>Open console</button></div></form></div>;
 }
 
+function QuickConnectDialog({ credentials, onClose, onConnect }: { credentials: CredentialSet[]; onClose: () => void; onConnect: (session: Session) => void }) {
+  const [host, setHost] = useState('');
+  const [username, setUsername] = useState('');
+  const [port, setPort] = useState(22);
+  const [credentialSetId, setCredentialSetId] = useState('');
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('password');
+  const [privateKeyPath, setPrivateKeyPath] = useState('');
+  const [sshProxyEnabled, setSshProxyEnabled] = useState(false);
+  const [sshProxyHost, setSshProxyHost] = useState('127.0.0.1');
+  const [sshProxyPort, setSshProxyPort] = useState(1080);
+  const selectedCredential = credentials.find(item => item.id === credentialSetId);
+  const effectiveUsername = selectedCredential?.username || username.trim();
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const target = host.trim();
+    if (!target || !effectiveUsername || port < 1 || port > 65535) return;
+    const now = new Date().toISOString();
+    onConnect({ id: `quick-${id()}`, name: target, host: target, port, username: effectiveUsername, folderId: null, authMethod: selectedCredential?.authMethod ?? authMethod, privateKeyPath: selectedCredential?.privateKeyPath ?? (authMethod === 'privateKey' ? privateKeyPath : undefined), credentialSetId: selectedCredential?.id ?? null, sshProxyEnabled, sshProxyHost: sshProxyEnabled ? sshProxyHost.trim() : undefined, sshProxyPort: sshProxyEnabled ? sshProxyPort : undefined, services: ['ssh'], createdAt: now, updatedAt: now });
+  };
+  return <div className="overlay"><form className="dialog quick-connect-dialog" onSubmit={submit}><div className="dialog-title"><div><small>ONE-OFF SSH</small><h2>Quick connect</h2><p>Connect without adding the device to your saved inventory.</p></div><button type="button" className="icon-button" onClick={onClose}>×</button></div><div className="quick-connect-basics"><label>IP address or hostname<input autoFocus required value={host} onChange={event => setHost(event.target.value)} placeholder="10.0.0.1" autoCapitalize="none" spellCheck={false} /></label><label>Username<input required={!selectedCredential} disabled={Boolean(selectedCredential)} value={selectedCredential?.username ?? username} onChange={event => setUsername(event.target.value)} placeholder="admin" autoCapitalize="none" spellCheck={false} /></label></div><details className="quick-connect-advanced"><summary>Advanced options</summary><div className="quick-connect-fields"><label>SSH port<input required type="number" min={1} max={65535} value={port} onChange={event => setPort(Number(event.target.value))} /></label><label>Saved credentials<select value={credentialSetId} onChange={event => setCredentialSetId(event.target.value)}><option value="">Prompt for this connection</option>{credentials.map(item => <option key={item.id} value={item.id}>{item.name} · {item.username}</option>)}</select></label>{!selectedCredential && <><label>Authentication<select value={authMethod} onChange={event => setAuthMethod(event.target.value as AuthMethod)}><option value="password">Password</option><option value="privateKey">Private key</option></select></label>{authMethod === 'privateKey' && <label className="quick-connect-key">Private key<PrivateKeyPicker value={privateKeyPath} onChange={setPrivateKeyPath} /></label>}</>}<label className="quick-connect-check"><input type="checkbox" checked={sshProxyEnabled} onChange={event => setSshProxyEnabled(event.target.checked)} /> Route through a SOCKS5 proxy</label>{sshProxyEnabled && <div className="quick-connect-proxy"><label>Proxy host<input required value={sshProxyHost} onChange={event => setSshProxyHost(event.target.value)} /></label><label>Proxy port<input required type="number" min={1} max={65535} value={sshProxyPort} onChange={event => setSshProxyPort(Number(event.target.value))} /></label></div>}</div></details><div className="actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={!host.trim() || !effectiveUsername || (authMethod === 'privateKey' && !selectedCredential && !privateKeyPath)}>Connect</button></div></form></div>;
+}
+
 function SettingsDialog({
   credentials,
   sessions,
@@ -2207,7 +2229,7 @@ type WorkspaceTabGroup = { id: string; name: string; colour: string; collapsed: 
 const tabGroupColours = ["#69cfae", "#69aee8", "#c38bea", "#e2aa62", "#e37d82", "#a7be68"];
 type TabReachability = "checking" | "online" | "offline" | "unavailable";
 type SessionLibraryView = "cards" | "table" | "details";
-type SessionSortKey = "status" | "name" | "address" | "services" | "hostname" | "vendor" | "product" | "version";
+type SessionSortKey = "status" | "name" | "address" | "services" | "hostname" | "vendor" | "product" | "serialNumber" | "version";
 type SessionTableSort = { key: SessionSortKey; direction: "asc" | "desc" };
 const reachabilityTitle = (status: TabReachability) => status === "online" ? "Host is reachable" : status === "offline" ? "Host is not responding" : status === "checking" ? "Checking reachability" : "Reachability unavailable for this session";
 
@@ -2269,6 +2291,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [quickConnectOpen, setQuickConnectOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
@@ -2398,7 +2421,7 @@ export default function App() {
               ? !s.folderId
               : s.folderId === selectedFolder)) &&
           (selectedFolder !== "all" ||
-            `${s.name} ${s.host} ${s.username}`
+            `${s.name} ${s.host} ${s.username} ${s.detectedIdentity?.hostname ?? ""} ${s.detectedIdentity?.vendor ?? ""} ${s.detectedIdentity?.product ?? ""} ${s.detectedIdentity?.serialNumber ?? ""} ${s.detectedIdentity?.version ?? ""}`
               .toLowerCase()
               .includes(sessionSearch.toLowerCase())),
       ),
@@ -2418,6 +2441,7 @@ export default function App() {
         case "hostname": return identity?.hostname ?? "";
         case "vendor": return identity?.vendor ?? "";
         case "product": return identity?.product ?? "";
+        case "serialNumber": return identity?.serialNumber ?? "";
         case "version": return identity?.version ?? "";
       }
     };
@@ -2438,16 +2462,19 @@ export default function App() {
     for (const tab of tabs) if (tab.session.host.trim()) monitoredSessions.set(tab.session.host.trim(), tab.session);
     if (libraryOpen || !tabs.length) for (const session of visible) if (session.host.trim()) monitoredSessions.set(session.host.trim(), session);
     setHostReachability(current => Object.fromEntries([...monitoredSessions.keys()].map(host => [host, current[host] ?? "checking"])));
-    const monitorHosts = new Map<string, string>(); let disposed = false;
+    const monitorHosts = new Map<string, string>(); const launchTimers: number[] = []; let disposed = false;
     const remove = window.hedge.onPingSample((sample: PingSample) => { const host = monitorHosts.get(sample.monitorId); if (!host) return; setHostReachability(current => ({ ...current, [host]: sample.reachable ? "online" : "offline" })); });
-    for (const [host, session] of monitoredSessions) {
+    [...monitoredSessions].forEach(([host, session], index) => {
       const monitorId = `status-${crypto.randomUUID()}`; monitorHosts.set(monitorId, host);
-      const start = session.sshProxyEnabled && session.sshProxyHost && session.sshProxyPort
-        ? window.hedge.startSocksMonitor(session.sshProxyHost, session.sshProxyPort, host, session.port, monitorId)
-        : window.hedge.startPing(host, monitorId);
-      void start.catch(() => { if (!disposed) setHostReachability(current => ({ ...current, [host]: "offline" })); });
-    }
-    return () => { disposed = true; remove(); for (const monitorId of monitorHosts.keys()) window.hedge.stopPing(monitorId); };
+      launchTimers.push(window.setTimeout(() => {
+        if (disposed) return;
+        const start = session.sshProxyEnabled && session.sshProxyHost && session.sshProxyPort
+          ? window.hedge.startSocksMonitor(session.sshProxyHost, session.sshProxyPort, host, session.port, monitorId)
+          : window.hedge.startPing(host, monitorId);
+        void start.catch(() => { if (!disposed) setHostReachability(current => ({ ...current, [host]: "offline" })); });
+      }, 1200 + index * 75));
+    });
+    return () => { disposed = true; remove(); launchTimers.forEach(window.clearTimeout); for (const monitorId of monitorHosts.keys()) window.hedge.stopPing(monitorId); };
   }, [tabs, visible, libraryOpen]);
   const connect = async (session: Session) => {
     if (session.credentialProfile && !session.credentialSetId) {
@@ -2654,6 +2681,7 @@ export default function App() {
   };
   const openSerialTab = (session: Session) => { if (!session.serialPath) return notify("Select a serial port for this session first."); showTab({ id: id(), session, kind: "serial" }); };
   const openConsole = (profile: SerialProfile, port: SerialPortInfo) => { const now = new Date().toISOString(); const session: Session = { id: `console-${id()}`, name: `${profile.name} · ${port.path}`, host: '', port: 22, username: '', folderId: null, authMethod: 'password', services: ['serial'], serialPath: port.path, serialBaudRate: profile.baudRate, serialDataBits: profile.dataBits, serialStopBits: profile.stopBits, serialParity: profile.parity, createdAt: now, updatedAt: now }; showTab({ id: id(), session, kind: 'serial' }); setConsoleOpen(false); };
+  const openQuickConnection = (session: Session) => { setQuickConnectOpen(false); void connect(session); };
   const openRdp = async (session: Session) => {
     if (!session.rdpPort)
       return notify("Add an RDP port to this session first.");
@@ -3014,7 +3042,7 @@ export default function App() {
         <button className="new-session" onClick={() => setEditing(null)}>
           ＋ New session
         </button>
-        <button className="console-button" onClick={() => setConsoleOpen(true)}>⎇ Console</button>
+        <div className="connection-shortcuts"><button className="console-button" onClick={() => setConsoleOpen(true)}>⎇ Console</button><button className="quick-connect-button" onClick={() => setQuickConnectOpen(true)}>↗ Quick connect</button></div>
         <nav>
           <div className="nav-heading">LIBRARY</div>
           <button
@@ -3322,7 +3350,7 @@ export default function App() {
                           tabId={tab.id}
                           session={tab.session}
                           credentials={credentials}
-                          visible={visible && !commandsOpen && !compareOpen && wikiSessionId === undefined && !settingsOpen && !feedbackOpen && !pickerOpen && !consoleOpen}
+                          visible={visible && !commandsOpen && !compareOpen && wikiSessionId === undefined && !settingsOpen && !feedbackOpen && !pickerOpen && !consoleOpen && !quickConnectOpen}
                           onClose={() => closeTab(tab.id)}
                         />
                       ) : tab.kind === "vnc" ? (
@@ -3340,7 +3368,7 @@ export default function App() {
                       ) : tab.kind === "serial" ? (
                         <SerialView session={tab.session} active={visible} onActivity={() => markTabActivity(tab.id)} />
                       ) : (
-                        <TerminalView
+                        <Suspense fallback={<div className="loading">Preparing SSH terminal…</div>}><TerminalView
                           session={tab.session}
                           secret={tab.secret}
                           active={visible}
@@ -3354,7 +3382,7 @@ export default function App() {
                           onManageMacros={() => setCommandsOpen(true)}
                           onClose={() => closeTab(tab.id)}
                           onClosePane={paneIds.length > 1 ? () => closePane(tab.id) : undefined}
-                        />
+                        /></Suspense>
                       )}
                   </div>
                 );
@@ -3509,7 +3537,7 @@ export default function App() {
                     </div>
                   </article>
                 ))}
-              </div> : <div className={`session-table-wrap ${sessionLibraryView === "details" ? "detailed" : "compact"}`}><table className="session-table"><thead><tr>{sortableSessionHeading("status", "Status")}{sortableSessionHeading("name", "Session")}{sortableSessionHeading("address", "Address")}{sortableSessionHeading("services", "Services")}{sessionLibraryView === "details" && <>{sortableSessionHeading("hostname", "Detected hostname")}{sortableSessionHeading("vendor", "Make")}{sortableSessionHeading("product", "Model / OS")}{sortableSessionHeading("version", "Version")}</>}<th>Connect</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{tableSessions.map(s => { const reachability = hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable"); const identity = s.detectedIdentity; return <tr key={s.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/session-id", s.id); }} onDoubleClick={() => openPreferredService(s)}><td><span className={`session-status-dot status-${reachability}`} title={reachabilityTitle(reachability)} aria-label={reachabilityTitle(reachability)} /></td><td><strong>{s.name}</strong>{sessionLibraryView === "details" && <small>{s.username || "No username"}</small>}</td><td><code>{hasService(s, "serial") && !s.host ? s.serialPath || "—" : s.host || "—"}</code></td><td><span className="table-services">{sessionServices(s).map(service => service.toUpperCase()).join(" · ")}</span></td>{sessionLibraryView === "details" && <><td>{identity?.hostname || "TBC"}</td><td>{identity?.vendor || "TBC"}</td><td>{identity?.product || "TBC"}</td><td>{identity?.version || "TBC"}</td></>}<td><div className="table-connect-actions">{hasService(s, "ssh") && <button onClick={() => void connect(s)} title={`Open SSH to ${s.name}`}>SSH</button>}{hasService(s, "web") && <button onClick={() => openWebTab(s)} title={`Open web session for ${s.name}`}>Web</button>}{hasService(s, "rdp") && <button onClick={() => void openRdp(s)} title={`Open RDP to ${s.name}`}>RDP</button>}{hasService(s, "vnc") && <button onClick={() => openVncTab(s)} title={`Open VNC to ${s.name}`}>VNC</button>}{hasService(s, "serial") && <button onClick={() => openSerialTab(s)} title={`Open serial session for ${s.name}`}>Serial</button>}</div></td><td><div className="table-row-actions"><CardAction label="Edit session" onClick={() => setEditing(s)}><EditIcon /></CardAction><CardAction label="Clone session" onClick={() => setEditing({ ...s, id: "", name: `${s.name} copy` })}><CloneIcon /></CardAction>{hasService(s, "ssh") && <CardAction label="Forget fingerprint" onClick={() => void forgetHostKey(s)}><ForgetFingerprintIcon /></CardAction>}<CardAction label="Delete session" danger onClick={() => remove(s)}><DeleteIcon /></CardAction></div></td></tr>; })}</tbody></table></div>
+              </div> : <div className={`session-table-wrap ${sessionLibraryView === "details" ? "detailed" : "compact"}`}><table className="session-table"><thead><tr>{sortableSessionHeading("status", "Status")}{sortableSessionHeading("name", "Session")}{sortableSessionHeading("address", "Address")}{sortableSessionHeading("services", "Services")}{sessionLibraryView === "details" && <>{sortableSessionHeading("hostname", "Detected hostname")}{sortableSessionHeading("vendor", "Make")}{sortableSessionHeading("product", "Model / OS")}{sortableSessionHeading("serialNumber", "Serial number")}{sortableSessionHeading("version", "Version")}</>}<th>Connect</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{tableSessions.map(s => { const reachability = hostReachability[s.host.trim()] ?? (s.host.trim() ? "checking" : "unavailable"); const identity = s.detectedIdentity; return <tr key={s.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/session-id", s.id); }} onDoubleClick={() => openPreferredService(s)}><td><span className={`session-status-dot status-${reachability}`} title={reachabilityTitle(reachability)} aria-label={reachabilityTitle(reachability)} /></td><td><strong>{s.name}</strong>{sessionLibraryView === "details" && <small>{s.username || "No username"}</small>}</td><td><code>{hasService(s, "serial") && !s.host ? s.serialPath || "—" : s.host || "—"}</code></td><td><span className="table-services">{sessionServices(s).map(service => service.toUpperCase()).join(" · ")}</span></td>{sessionLibraryView === "details" && <><td>{identity?.hostname || "TBC"}</td><td>{identity?.vendor || "TBC"}</td><td>{identity?.product || "TBC"}</td><td>{identity?.serialNumber || "TBC"}</td><td>{identity?.version || "TBC"}</td></>}<td><div className="table-connect-actions">{hasService(s, "ssh") && <button onClick={() => void connect(s)} title={`Open SSH to ${s.name}`}>SSH</button>}{hasService(s, "web") && <button onClick={() => openWebTab(s)} title={`Open web session for ${s.name}`}>Web</button>}{hasService(s, "rdp") && <button onClick={() => void openRdp(s)} title={`Open RDP to ${s.name}`}>RDP</button>}{hasService(s, "vnc") && <button onClick={() => openVncTab(s)} title={`Open VNC to ${s.name}`}>VNC</button>}{hasService(s, "serial") && <button onClick={() => openSerialTab(s)} title={`Open serial session for ${s.name}`}>Serial</button>}</div></td><td><div className="table-row-actions"><CardAction label="Edit session" onClick={() => setEditing(s)}><EditIcon /></CardAction><CardAction label="Clone session" onClick={() => setEditing({ ...s, id: "", name: `${s.name} copy` })}><CloneIcon /></CardAction>{hasService(s, "ssh") && <CardAction label="Forget fingerprint" onClick={() => void forgetHostKey(s)}><ForgetFingerprintIcon /></CardAction>}<CardAction label="Delete session" danger onClick={() => remove(s)}><DeleteIcon /></CardAction></div></td></tr>; })}</tbody></table></div>
             ) : (
               <div className="empty">
                 <div>›_</div>
@@ -3618,6 +3646,7 @@ export default function App() {
         />
       )}
       {consoleOpen && <ConsoleLauncher profiles={data.serialProfiles ?? []} onClose={() => setConsoleOpen(false)} onConnect={openConsole} onManage={() => { setConsoleOpen(false); sessionStorage.setItem('hedgecon-settings-section', 'serial'); setSettingsOpen(true); }} />}
+      {quickConnectOpen && <QuickConnectDialog credentials={credentials} onClose={() => setQuickConnectOpen(false)} onConnect={openQuickConnection} />}
       {pickerOpen && (
         <SessionPicker
           sessions={data.sessions}
