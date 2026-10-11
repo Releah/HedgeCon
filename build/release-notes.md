@@ -1,4 +1,19 @@
-# HedgeCon v0.3.16
+# HedgeCon v0.3.17
+
+## Vector theme
+
+- Add the optional Vector theme with deep navy surfaces, bright orange accents and a coordinated appearance throughout HedgeCon.
+- Give the sidebar a distinct graphical identity with restrained geometric decoration.
+- Add subtle angular panel details and consistent styling for controls and information surfaces.
+- Select Vector in Settings under Appearance to use the new theme.
+
+Windows binaries are unsigned.
+
+---
+
+# Previous stable release
+
+## v0.3.16
 
 ## Quick connections and device intelligence
 
