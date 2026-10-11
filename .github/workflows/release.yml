@@ -32,6 +32,20 @@ jobs:
             exit 1
           fi
 
+      - name: Set up pnpm for production audit
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Block high or critical production vulnerabilities
+        run: pnpm audit --prod --audit-level high
+
       - name: Create hidden draft release
         shell: bash
         env:
