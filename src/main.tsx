@@ -5,3 +5,4 @@ import './scp.css';
 import App from './App';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
+import './vector-theme.css';

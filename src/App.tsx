@@ -1,3 +1,4 @@
+import {VectorMark, VectorIdentity} from './VectorIdentity';
 import {
   Fragment,
   FormEvent,
@@ -1743,10 +1744,10 @@ function SettingsDialog({
                   <p>Choose the colour character used throughout HedgeCon.</p>
                 </div>
                 <div className="theme-options">
-                  {(["midnight", "ocean", "ember"] as const).map((theme) => (
+                  {(["midnight", "ocean", "ember", "vector"] as const).map((theme) => (
                     <button
                       key={theme}
-                      className={uiSettings.theme === theme ? "active" : ""}
+                      className={uiSettings.theme === theme ? "active" : ""} aria-pressed={uiSettings.theme === theme}
                       onClick={() => onUiSettings({ ...uiSettings, theme })}
                     >
                       <span className={`theme-swatch ${theme}`} />
@@ -3034,12 +3035,12 @@ export default function App() {
     >
       <aside>
         <div className="brand">
-          <img src="./hedgecon-logo.png" alt="" />
+          <img src="./hedgecon-logo.png" alt="" /><VectorMark/>
           <div>
             HedgeCon<small>CONNECTIVITY CONSOLE</small>
           </div>
         </div>
-        <button className="new-session" onClick={() => setEditing(null)}>
+        <VectorIdentity/><button className="new-session" onClick={() => setEditing(null)}>
           ＋ New session
         </button>
         <div className="connection-shortcuts"><button className="console-button" onClick={() => setConsoleOpen(true)}>⎇ Console</button><button className="quick-connect-button" onClick={() => setQuickConnectOpen(true)}>↗ Quick connect</button></div>

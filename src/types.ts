@@ -18,7 +18,7 @@ export interface CredentialSetInput { id?: string; name: string; username: strin
 export interface InventorySettings { configured: boolean; mode: 'local' | 'git'; repositoryPath?: string }
 export interface ColourMeaning { id: string; word: string; colour: string }
 export interface TerminalPattern { id: string; name: string; pattern: string; colour: string; enabled: boolean }
-export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember'; browserTheme: 'normal' | 'dark'; linuxRdpClient: 'auto' | 'remmina' | 'freerdp'; remoteDesktopResolution: 'native' | '1920x1080' | '1600x900' | '1366x768' | '1280x720'; remoteDesktopFullscreen: boolean; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[]; terminalPatterns: TerminalPattern[] }
+export interface UiSettings { theme: 'midnight' | 'ocean' | 'ember' | 'vector'; browserTheme: 'normal' | 'dark'; linuxRdpClient: 'auto' | 'remmina' | 'freerdp'; remoteDesktopResolution: 'native' | '1920x1080' | '1600x900' | '1366x768' | '1280x720'; remoteDesktopFullscreen: boolean; terminalDefault: string; terminalForeground: string; terminalMeanings: ColourMeaning[]; terminalPatterns: TerminalPattern[] }
 export interface AppData { folders: Folder[]; sessions: Session[]; macros?: CommandMacro[]; macroFolders?: MacroFolder[]; serialProfiles?: SerialProfile[]; inventorySettings?: InventorySettings; uiSettings?: UiSettings; credentialProfileMappings?: Record<string, string> }
 export interface ConnectRequest extends Session { connectionId: string; password?: string; passphrase?: string; credentialOverride?: string }
 export interface HostKeyPrompt { connectionId: string; host: string; fingerprint: string; changed: boolean }
