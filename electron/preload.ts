@@ -70,6 +70,7 @@ contextBridge.exposeInMainWorld('hedge', {
   listSerialPorts: () => ipcRenderer.invoke('serial:list'),
   connectSerial: (request: unknown) => ipcRenderer.invoke('serial:connect', request),
   writeSerial: (id: string, data: string) => ipcRenderer.send('serial:write', id, data),
+  pasteSerial: (id: string, data: string) => ipcRenderer.send('serial:paste', id, data),
   disconnectSerial: (id: string) => ipcRenderer.send('serial:disconnect', id),
   onSerialEvent: (callback: (event: unknown) => void) => { const listener = (_: unknown, event: unknown) => callback(event); ipcRenderer.on('serial:event', listener); return () => ipcRenderer.removeListener('serial:event', listener); },
   write: (id: string, data: string) => ipcRenderer.send('ssh:write', id, data),

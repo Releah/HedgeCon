@@ -14,14 +14,28 @@ export default function SerialView({ session, active = true, onActivity = () => 
   useEffect(() => {
     if (!hostRef.current || !session.serialPath) return;
     const settings = settingsRef.current;
-    const terminal = new Terminal({ cursorBlink: true, convertEol: false, theme: { background: settings.terminalDefault || '#080c12', foreground: settings.terminalForeground || '#d7e0ea' }, fontFamily: "'Cascadia Code', Consolas, monospace", fontSize: 13 });
+    const terminal = new Terminal({ cursorBlink: true, convertEol: false, scrollback: 10000, theme: { background: settings.terminalDefault || '#080c12', foreground: settings.terminalForeground || '#d7e0ea', selectionBackground: '#264c48' }, fontFamily: "'Cascadia Code', Consolas, monospace", fontSize: 13 });
     terminalRef.current = terminal;
     const fit = new FitAddon(); terminal.loadAddon(fit); terminal.open(hostRef.current); fit.fit(); terminal.focus();
-    const connectionId = crypto.randomUUID(); const input = terminal.onData(data => window.hedge.writeSerial(connectionId, data));
+    const connectionId = crypto.randomUUID(); const input = terminal.onData(data => { terminal.scrollToBottom(); window.hedge.writeSerial(connectionId, data); });
+    let selectionTimer: number | undefined;
+    const copySelection = () => { window.clearTimeout(selectionTimer); selectionTimer = window.setTimeout(() => { const selected = terminal.getSelection(); if (selected) void window.hedge.writeClipboardText(selected); }, 120); };
+    const selectionDisposable = terminal.onSelectionChange(copySelection);
+    const pasteText = () => void window.hedge.readClipboardText().then(value => { if (value) { terminal.scrollToBottom(); window.hedge.pasteSerial(connectionId, value); terminal.focus(); } });
+    const pasteClipboard = (event: MouseEvent) => { event.preventDefault(); pasteText(); };
+    hostRef.current.addEventListener('contextmenu', pasteClipboard);
+    terminal.attachCustomKeyEventHandler(event => {
+      if (event.type !== 'keydown') return true;
+      const key = event.key.toLowerCase(); const commandModifier = event.metaKey && !event.ctrlKey; const copyShortcut = (commandModifier && key === 'c') || (event.ctrlKey && key === 'c' && (event.shiftKey || terminal.hasSelection()));
+      if (copyShortcut) { event.preventDefault(); const selected = terminal.getSelection(); if (selected) void window.hedge.writeClipboardText(selected); return false; }
+      const pasteShortcut = (commandModifier && key === 'v') || (event.ctrlKey && key === 'v') || (event.shiftKey && key === 'insert');
+      if (pasteShortcut) { event.preventDefault(); pasteText(); return false; }
+      return true;
+    });
     const remove = window.hedge.onSerialEvent((event: SerialEvent) => { if (event.connectionId !== connectionId) return; if (event.type === 'data') { onActivityRef.current(); terminal.write(highlightTerminalText(event.data, settingsRef.current.terminalPatterns), () => refreshTerminalPatternDecorations(terminal, settingsRef.current.terminalPatterns, event.data)); } else if (event.type === 'status') terminal.writeln(`\x1b[38;2;103;215;178m${event.data}\x1b[0m`); else terminal.writeln(`\r\n\x1b[38;2;232;126;126m${event.data}\x1b[0m`); });
     void window.hedge.connectSerial({ connectionId, path: session.serialPath, baudRate: session.serialBaudRate || 9600, dataBits: session.serialDataBits || 8, stopBits: session.serialStopBits || 1, parity: session.serialParity || 'none' }).catch(error => terminal.writeln(`\r\n\x1b[38;2;232;126;126m${error instanceof Error ? error.message : String(error)}\x1b[0m`));
     const resize = new ResizeObserver(() => fit.fit()); resize.observe(hostRef.current);
-    return () => { resize.disconnect(); input.dispose(); remove(); window.hedge.disconnectSerial(connectionId); terminal.dispose(); terminalRef.current = null; };
+    return () => { if (selectionTimer !== undefined) window.clearTimeout(selectionTimer); selectionDisposable.dispose(); hostRef.current?.removeEventListener('contextmenu', pasteClipboard); resize.disconnect(); input.dispose(); remove(); window.hedge.disconnectSerial(connectionId); terminal.dispose(); terminalRef.current = null; };
   }, [session]);
   useEffect(() => { if (active) hostRef.current?.querySelector<HTMLElement>('.xterm-helper-textarea')?.focus(); }, [active]);
   return <section className="terminal-panel"><header><div><span className="status-dot" /><strong>{session.name}</strong><small>{session.serialPath} · {session.serialBaudRate || 9600} baud</small></div></header><div ref={hostRef} className="terminal" /></section>;

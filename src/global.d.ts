@@ -71,6 +71,7 @@ declare global {
     listSerialPorts(): Promise<SerialPortInfo[]>;
     connectSerial(request: { connectionId: string; path: string; baudRate: number; dataBits: 5 | 6 | 7 | 8; stopBits: 1 | 1.5 | 2; parity: 'none' | 'even' | 'odd' | 'mark' | 'space' }): Promise<{ connectionId: string }>;
     writeSerial(connectionId: string, data: string): void;
+    pasteSerial(connectionId: string, data: string): void;
     disconnectSerial(connectionId: string): void;
     onSerialEvent(callback: (event: SerialEvent) => void): () => void;
     write(connectionId: string, data: string): void;

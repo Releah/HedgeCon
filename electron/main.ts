@@ -149,6 +149,7 @@ function keyInfo(privateKeyPath: string, source: 'managed' | 'discovered'): SshK
 function assertManagedOrDiscoveredKey(privateKeyPath: string) { if (typeof privateKeyPath !== 'string' || privateKeyPath.length > 4096) throw new Error('Invalid key path.'); const resolved = path.resolve(privateKeyPath); const comparable = process.platform === 'win32' ? resolved.toLowerCase() : resolved; const roots = [path.resolve(managedKeysPath()), path.resolve(app.getPath('home'), '.ssh')].map(root => process.platform === 'win32' ? root.toLowerCase() : root); if (!roots.some(root => comparable.startsWith(`${root}${path.sep}`))) throw new Error('Key is outside the managed SSH key locations.'); const stats = fs.statSync(resolved); if (!stats.isFile() || stats.size > 1024 * 1024) throw new Error('Invalid private key file.'); return resolved; }
 const connections = new Map<string, { client: Client; stream?: ClientChannel; sftp?: SFTPWrapper; name: string; host: string; platform: string }>();
 const pasteQueues = new Map<string, { chunks: string[]; timer?: NodeJS.Timeout }>();
+const serialPasteQueues = new Map<string, { chunks: string[]; timer?: NodeJS.Timeout }>();
 
 function stopPaste(connectionId: string) {
   const queue = pasteQueues.get(connectionId);
@@ -180,6 +181,32 @@ function queuePaste(connectionId: string, value: string) {
   if (existing) { existing.chunks.push(...chunks); return; }
   pasteQueues.set(connectionId, { chunks });
   drainPaste(connectionId);
+}
+
+function stopSerialPaste(connectionId: string) {
+  const queue = serialPasteQueues.get(connectionId);
+  if (queue?.timer) clearTimeout(queue.timer);
+  serialPasteQueues.delete(connectionId);
+}
+
+function drainSerialPaste(connectionId: string) {
+  const queue = serialPasteQueues.get(connectionId);
+  const port = serialConnections.get(connectionId);
+  if (!queue || !port?.isOpen) { stopSerialPaste(connectionId); return; }
+  const chunk = queue.chunks.shift();
+  if (chunk === undefined) { serialPasteQueues.delete(connectionId); return; }
+  port.write(chunk);
+  queue.timer = setTimeout(() => drainSerialPaste(connectionId), chunk === '\r' ? 35 : 2);
+}
+
+function queueSerialPaste(connectionId: string, value: string) {
+  if (typeof value !== 'string' || !value || value.length > 1024 * 1024) return;
+  const chunks = pasteChunks(value);
+  if (!chunks.length) return;
+  const existing = serialPasteQueues.get(connectionId);
+  if (existing) { existing.chunks.push(...chunks); return; }
+  serialPasteQueues.set(connectionId, { chunks });
+  drainSerialPaste(connectionId);
 }
 const sshTunnels = new Map<string, { id: string; connectionId: string; type: 'local' | 'socks'; localPort: number; targetHost?: string; targetPort?: number; server: Server; sockets: Set<Socket> }>();
 const pendingTrust = new Map<string, (accepted: boolean) => void>();
@@ -352,7 +379,7 @@ function connectThroughSocks(proxyHost: string, proxyPort: number, targetHost: s
 function stopPing(monitorId: string) { const monitor = pingMonitors.get(monitorId); if (!monitor) return; monitor.stopped = true; if (monitor.timer) clearTimeout(monitor.timer); monitor.child?.kill(); monitor.socket?.destroy(); pingMonitors.delete(monitorId); }
 function destroyVncBridge(tabId: string) { const bridge = vncBridges.get(tabId); if (!bridge) return; vncBridges.delete(tabId); for (const socket of bridge.sockets) socket.destroy(); for (const client of bridge.server.clients) client.terminate(); bridge.server.close(); }
 function destroyBrowserView(tabId: string) { for (const callback of pendingBrowserCertificates.get(tabId)?.callbacks ?? []) callback(false); pendingBrowserCertificates.delete(tabId); trustedBrowserCertificates.delete(tabId); browserDarkCss.delete(tabId); const view = browserViews.get(tabId); if (!view) return; browserViews.delete(tabId); try { mainWindow?.contentView.removeChildView(view); } catch { /* The window may already be closing. */ } if (!view.webContents.isDestroyed()) view.webContents.close(); }
-function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...pasteQueues.keys()]) stopPaste(id); for (const id of [...sshTunnels.keys()]) stopSshTunnel(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const port of serialConnections.values()) try { if (port.isOpen) port.close(); } catch { /* Port may already be closed. */ } serialConnections.clear(); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); closeSessionLog(id); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* The client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
+function cleanupRuntime() { for (const id of [...pingMonitors.keys()]) stopPing(id); for (const id of [...pasteQueues.keys()]) stopPaste(id); for (const id of [...serialPasteQueues.keys()]) stopSerialPaste(id); for (const id of [...sshTunnels.keys()]) stopSshTunnel(id); for (const id of [...browserViews.keys()]) destroyBrowserView(id); for (const id of [...vncBridges.keys()]) destroyVncBridge(id); for (const port of serialConnections.values()) try { if (port.isOpen) port.close(); } catch { /* Port may already be closed. */ } serialConnections.clear(); for (const [id, connection] of connections) { pendingTrust.get(id)?.(false); closeSessionLog(id); try { connection.stream?.close(); } catch { /* Stream may already be closed. */ } try { connection.client.destroy(); } catch { /* The client may already be destroyed. */ } } connections.clear(); pendingTrust.clear(); }
 
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
@@ -895,7 +922,8 @@ ipcMain.handle('serial:connect', async (_event, request: any) => {
   await new Promise<void>((resolve, reject) => port.open(error => error ? reject(error) : resolve())); emit('status', `Connected to ${request.path} at ${request.baudRate} baud`); return { connectionId: id };
 });
 ipcMain.on('serial:write', (_event, id: string, data: string) => { if (typeof data === 'string' && data.length <= 1024 * 1024) serialConnections.get(id)?.write(data); });
-ipcMain.on('serial:disconnect', (_event, id: string) => { const port = serialConnections.get(id); if (port?.isOpen) port.close(); else serialConnections.delete(id); });
+ipcMain.on('serial:paste', (_event, id: string, data: string) => queueSerialPaste(id, data));
+ipcMain.on('serial:disconnect', (_event, id: string) => { stopSerialPaste(id); const port = serialConnections.get(id); if (port?.isOpen) port.close(); else serialConnections.delete(id); });
 ipcMain.handle('ping:start', (_event, host: string, requestedId: string) => {
   if (typeof host !== 'string' || !isValidHost(host)) throw new Error('Invalid ping target.');
   const monitorId = typeof requestedId === 'string' && requestedId ? requestedId : crypto.randomUUID(); const monitor = { stopped: false } as { stopped: boolean; timer?: NodeJS.Timeout; child?: ChildProcess }; pingMonitors.set(monitorId, monitor);
