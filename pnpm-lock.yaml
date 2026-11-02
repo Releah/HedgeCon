@@ -42,8 +42,8 @@ importers:
         specifier: ^6.8.11
         version: 6.8.11(supports-color@8.1.1)
       isomorphic-git:
-        specifier: ^1.44.3
-        version: 1.44.3
+        specifier: ^1.44.8
+        version: 1.44.8
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -1532,8 +1532,8 @@ packages:
     resolution: {integrity: sha512-FFUtZMpoZ8RqHS3XeXEmHWLA4thH+ZxCv2lOiPIn1Xc7CxrqhWzNSDzD+/chS/zbYezmiwWLdQC09JdQKmthOw==}
     engines: {node: '>=20'}
 
-  isomorphic-git@1.44.3:
-    resolution: {integrity: sha512-xlEIMsVUrMfOR25F4jWB9He9s/rUHWsgfJJJ3zpdwFssv9X2QfoIUyYH9CEFok9yk2tx2UDipj2gJ+KVvV/qGA==}
+  isomorphic-git@1.44.8:
+    resolution: {integrity: sha512-E4MJXejXlCIIast2TWYc3vt3mu+GaU6MNnOS689UpuotqsM6jgK9v9ubnG9yPExNWXO5QvOmoDfYdZwRhR4OQg==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -4047,7 +4047,7 @@ snapshots:
 
   isexe@4.0.0: {}
 
-  isomorphic-git@1.44.3:
+  isomorphic-git@1.44.8:
     dependencies:
       async-lock: 1.4.1
       clean-git-ref: 2.0.1
